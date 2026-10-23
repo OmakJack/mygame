@@ -1,4 +1,4 @@
-[gd_scene load_steps=14 format=3]
+[gd_scene load_steps=15 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/camera/rts_camera.tscn" id="1_cam"]
 [ext_resource type="Script" path="res://scripts/grid/grid_visualizer.gd" id="2_grid"]
@@ -7,6 +7,7 @@
 [ext_resource type="Script" path="res://scripts/tools/tool_preview.gd" id="5_preview"]
 [ext_resource type="Script" path="res://scripts/tools/build_tool.gd" id="6_tool"]
 [ext_resource type="Script" path="res://scripts/grid/ground.gd" id="7_ground"]
+[ext_resource type="Script" path="res://scripts/grid/zone_visualizer.gd" id="8_zones"]
 
 [sub_resource type="ProceduralSkyMaterial" id="sky_mat"]
 sky_top_color = Color(0.35, 0.55, 0.85, 1)
@@ -49,6 +50,9 @@ script = ExtResource("7_ground")
 [node name="GridVisualizer" type="MeshInstance3D" parent="."]
 cast_shadow = 0
 script = ExtResource("2_grid")
+
+[node name="ZoneVisualizer" type="MultiMeshInstance3D" parent="."]
+script = ExtResource("8_zones")
 
 [node name="RoadVisualizer" type="GridMap" parent="."]
 script = ExtResource("4_roads")

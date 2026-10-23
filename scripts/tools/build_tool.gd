@@ -1,13 +1,36 @@
 extends Node
-## Инструменты строительства: дорога и снос (фаза 3 — зоны).
+## Инструменты строительства: дорога, снос, зоны.
 ## Меняет клетки только через CityGrid и шлёт один Events.cells_changed на операцию.
 
-enum Mode { NONE, ROAD, BULLDOZE }
+enum Mode { NONE, ROAD, BULLDOZE, ZONE_R, ZONE_C, ZONE_I, DEZONE }
 
 const CURSOR_COLORS: Dictionary[Mode, Color] = {
-	Mode.NONE: Color(1.0, 0.85, 0.2, 0.45),
-	Mode.ROAD: Color(0.3, 0.6, 1.0, 0.55),
-	Mode.BULLDOZE: Color(1.0, 0.3, 0.25, 0.55),
+	Mode.NONE: Color(1.0, 1.0, 1.0, 0.35),
+	Mode.ROAD: Color(1.0, 0.6, 0.2, 0.55),
+	Mode.BULLDOZE: Color(1.0, 0.25, 0.25, 0.55),
+	Mode.ZONE_R: Color(0.25, 0.8, 0.3, 0.7),
+	Mode.ZONE_C: Color(0.25, 0.5, 0.95, 0.7),
+	Mode.ZONE_I: Color(0.95, 0.8, 0.2, 0.7),
+	Mode.DEZONE: Color(0.75, 0.5, 1.0, 0.55),
+}
+
+## Какую зону ставит режим (DEZONE ставит NONE, т. е. снимает).
+const MODE_ZONES: Dictionary[Mode, CityGrid.Zone] = {
+	Mode.ZONE_R: CityGrid.Zone.RESIDENTIAL,
+	Mode.ZONE_C: CityGrid.Zone.COMMERCIAL,
+	Mode.ZONE_I: CityGrid.Zone.INDUSTRIAL,
+	Mode.DEZONE: CityGrid.Zone.NONE,
+}
+
+## Горячие клавиши режимов (действия из project.godot).
+const MODE_ACTIONS: Dictionary[StringName, Mode] = {
+	&"tool_road": Mode.ROAD,
+	&"tool_bulldoze": Mode.BULLDOZE,
+	&"tool_zone_r": Mode.ZONE_R,
+	&"tool_zone_c": Mode.ZONE_C,
+	&"tool_zone_i": Mode.ZONE_I,
+	&"tool_dezone": Mode.DEZONE,
+	&"tool_cancel": Mode.NONE,
 }
 
 @export var cursor: CellCursor
@@ -38,12 +61,10 @@ func _process(_delta: float) -> void:
 
 ## Начало протягивания — здесь, чтобы клик по UI не начинал стройку.
 func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed(&"tool_road"):
-		_set_mode(Mode.ROAD)
-	elif event.is_action_pressed(&"tool_bulldoze"):
-		_set_mode(Mode.BULLDOZE)
-	elif event.is_action_pressed(&"tool_cancel"):
-		_set_mode(Mode.NONE)
+	for action: StringName in MODE_ACTIONS:
+		if event.is_action_pressed(action):
+			_set_mode(MODE_ACTIONS[action])
+			break
 
 	var button := event as InputEventMouseButton
 	if button == null or mode == Mode.NONE:
@@ -83,6 +104,12 @@ func _update_drag(end: Vector2i) -> void:
 			_drag_cells = _l_path(_drag_start, _drag_end)
 		Mode.BULLDOZE:
 			_drag_cells = _rect_cells(_drag_start, _drag_end)
+		Mode.ZONE_R, Mode.ZONE_C, Mode.ZONE_I, Mode.DEZONE:
+			# Показываем только клетки, где зона реально изменится.
+			var grid: CityGrid = GameState.grid
+			var zone_type: CityGrid.Zone = MODE_ZONES[mode]
+			_drag_cells = _rect_cells(_drag_start, _drag_end).filter(
+				func(cell: Vector2i) -> bool: return grid.can_zone(cell, zone_type))
 	preview.show_cells(_drag_cells, CURSOR_COLORS[mode])
 
 
@@ -102,6 +129,8 @@ func _apply() -> void:
 				did_change = grid.set_road(cell)
 			Mode.BULLDOZE:
 				did_change = grid.bulldoze(cell)
+			Mode.ZONE_R, Mode.ZONE_C, Mode.ZONE_I, Mode.DEZONE:
+				did_change = grid.set_zone(cell, MODE_ZONES[mode])
 		if did_change:
 			changed.append(cell)
 	if not changed.is_empty():

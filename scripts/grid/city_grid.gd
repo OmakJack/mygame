@@ -115,3 +115,43 @@ func get_road_mask(cell: Vector2i) -> int:
 		if is_road(cell + NEIGHBORS[bit]):
 			mask |= 1 << bit
 	return mask
+
+
+# --- Зоны ---
+
+## Насколько далеко (по Манхэттену) может быть дорога, чтобы у зоны был доступ.
+const ROAD_ACCESS_RANGE: int = 3
+
+
+func get_zone(cell: Vector2i) -> Zone:
+	return zone[index_of(cell)] as Zone
+
+
+## Можно ли поставить зону zone_type на клетку (те же правила, что в set_zone).
+func can_zone(cell: Vector2i, zone_type: Zone) -> bool:
+	if not is_in_bounds(cell):
+		return false
+	var i: int = index_of(cell)
+	if tile_type[i] != Tile.EMPTY or zone[i] == zone_type:
+		return false
+	# Снять зону можно всегда, поставить — только рядом с дорогой.
+	return zone_type == Zone.NONE or has_road_access(cell)
+
+
+## Ставит или снимает (Zone.NONE) зону. Единственное место изменения зон.
+## Возвращает true, если клетка изменилась. Сигнал шлёт вызывающий (пакетом).
+func set_zone(cell: Vector2i, zone_type: Zone) -> bool:
+	if not can_zone(cell, zone_type):
+		return false
+	zone[index_of(cell)] = zone_type
+	return true
+
+
+## Есть ли дорога на расстоянии не больше ROAD_ACCESS_RANGE клеток.
+func has_road_access(cell: Vector2i) -> bool:
+	for dy: int in range(-ROAD_ACCESS_RANGE, ROAD_ACCESS_RANGE + 1):
+		var reach: int = ROAD_ACCESS_RANGE - absi(dy)
+		for dx: int in range(-reach, reach + 1):
+			if road_cells.has(cell + Vector2i(dx, dy)):
+				return true
+	return false
