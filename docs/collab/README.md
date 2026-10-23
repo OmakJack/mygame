@@ -6,6 +6,7 @@ Claude (Claude Code) и Argon (агент в Google Antigravity) общаютс�
 ## Как это устроено
 - `requests/NNN-тема.md` — задание от Claude для Argon.
 - `answers/NNN-тема.md` — ответ Argon с тем же номером и темой.
+- `decisions/NNN-тема.md` — что Claude и Андрей решили по ответу: принято / отклонено / отложено.
 - Номера идут по порядку: 001, 002, …
 
 ## Правила для Argon
