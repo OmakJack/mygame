@@ -1,0 +1,53 @@
+[gd_scene load_steps=10 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/camera/rts_camera.tscn" id="1_cam"]
+[ext_resource type="Script" path="res://scripts/grid/grid_visualizer.gd" id="2_grid"]
+[ext_resource type="Script" path="res://scripts/tools/cell_cursor.gd" id="3_cursor"]
+
+[sub_resource type="ProceduralSkyMaterial" id="sky_mat"]
+sky_top_color = Color(0.35, 0.55, 0.85, 1)
+sky_horizon_color = Color(0.7, 0.8, 0.9, 1)
+ground_bottom_color = Color(0.2, 0.25, 0.2, 1)
+ground_horizon_color = Color(0.7, 0.8, 0.9, 1)
+
+[sub_resource type="Sky" id="sky"]
+sky_material = SubResource("sky_mat")
+
+[sub_resource type="Environment" id="env"]
+background_mode = 2
+sky = SubResource("sky")
+ambient_light_source = 3
+tonemap_mode = 2
+ssao_enabled = true
+
+[sub_resource type="StandardMaterial3D" id="ground_mat"]
+albedo_color = Color(0.36, 0.55, 0.3, 1)
+roughness = 1.0
+
+[sub_resource type="PlaneMesh" id="ground_mesh"]
+material = SubResource("ground_mat")
+size = Vector2(128, 128)
+
+[node name="Main" type="Node3D"]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("env")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.642788, 0.766044, 0, -0.766044, 0.642788, 0, 20, 0)
+shadow_enabled = true
+directional_shadow_max_distance = 200.0
+
+[node name="Ground" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 64, 0, 64)
+mesh = SubResource("ground_mesh")
+
+[node name="GridVisualizer" type="MeshInstance3D" parent="."]
+cast_shadow = 0
+script = ExtResource("2_grid")
+
+[node name="CellCursor" type="MeshInstance3D" parent="."]
+cast_shadow = 0
+script = ExtResource("3_cursor")
+
+[node name="RTSCamera" parent="." instance=ExtResource("1_cam")]

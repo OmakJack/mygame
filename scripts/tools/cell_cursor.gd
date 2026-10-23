@@ -1,0 +1,45 @@
+extends MeshInstance3D
+## Подсвечивает клетку под мышкой. Позже build_tool берёт отсюда hovered_cell.
+
+## Высота подсветки над землёй (выше линий сетки).
+const HIGHLIGHT_HEIGHT: float = 0.02
+
+@export var highlight_color: Color = Color(1.0, 0.85, 0.2, 0.45)
+
+## Клетка под мышкой. Имеет смысл только при has_cell == true.
+var hovered_cell: Vector2i = Vector2i.ZERO
+var has_cell: bool = false
+
+var _ground_plane := Plane(Vector3.UP, 0.0)
+
+
+func _ready() -> void:
+	var quad := PlaneMesh.new()
+	quad.size = Vector2.ONE * CityGrid.CELL_SIZE * 0.95
+	mesh = quad
+	var material := StandardMaterial3D.new()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.albedo_color = highlight_color
+	material_override = material
+	visible = false
+
+
+func _process(_delta: float) -> void:
+	# Проверяем каждый кадр: клетка меняется и когда двигается камера, а не только мышь.
+	var camera: Camera3D = get_viewport().get_camera_3d()
+	if camera == null:
+		return
+	var mouse_pos: Vector2 = get_viewport().get_mouse_position()
+	var from: Vector3 = camera.project_ray_origin(mouse_pos)
+	var dir: Vector3 = camera.project_ray_normal(mouse_pos)
+	var hit: Variant = _ground_plane.intersects_ray(from, dir)
+	var grid: CityGrid = GameState.grid
+	if hit == null or not grid.is_in_bounds(grid.world_to_grid(hit)):
+		has_cell = false
+		visible = false
+		return
+	hovered_cell = grid.world_to_grid(hit)
+	has_cell = true
+	visible = true
+	position = grid.grid_to_world(hovered_cell) + Vector3.UP * HIGHLIGHT_HEIGHT
