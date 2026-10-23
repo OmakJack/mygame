@@ -16,7 +16,7 @@ res://
 ├── docs/            GDD.md, ARCHITECTURE.md, TASKS.md, CHANGELOG.md
 ├── scenes/
 │   ├── main.tscn    главная сцена
-│   ├── camera/
+│   ├── camera/      rts_camera.tscn
 │   ├── ui/
 │   └── world/
 ├── scripts/
@@ -24,7 +24,7 @@ res://
 │   ├── grid/        city_grid.gd, building_instance.gd, grid_visualizer.gd
 │   ├── data/        building_data.gd
 │   ├── camera/      rts_camera.gd
-│   ├── tools/       build_tool.gd (режимы: дорога, зона, снос)
+│   ├── tools/       cell_cursor.gd (клетка под мышкой), build_tool.gd (режимы: дорога, зона, снос)
 │   └── simulation/  demand.gd, growth.gd, economy.gd
 ├── data/
 │   └── buildings/   *.tres (BuildingData)
@@ -61,6 +61,8 @@ res://
   - `is_in_bounds(cell: Vector2i) -> bool`
   - `set_road(cell)` / `remove_road(cell)` — **единственное** место изменения дорог (в фазе 6 сюда добавится поиск пути)
   - `place_building(type_id, cell, orientation) -> int` / `remove_building(instance_id)`
+  - `set_zone(cells: Array[Vector2i], zone_type: int)` — **единственное** место изменения зон (фаза 3)
+- Функции добавляются в той фазе, где нужны: фаза 1 — координаты, фаза 2 — дороги, фаза 3 — зоны, фаза 4 — здания.
 
 ### BuildingInstance (`class_name BuildingInstance extends RefCounted`)
 Один построенный дом.
@@ -91,6 +93,7 @@ res://
 ## Отложенные решения
 - Поиск пути (фазы 6, 8): `AStarGrid2D` или обход в ширину по `road_cells` — добавляется в `set_road/remove_road`.
 - Здания больше 1×1: экземпляр уже хранит основание, добавится поле размера.
+- Поиск места для роста (фаза 4): `growth.gd` не сканирует всю карту. Варианты: перебирать только соседей `road_cells` (дома растут только у дорог) или завести кэш `zoned_empty_cells`, обновляемый в `set_zone` / `place_building`. Решаем в фазе 4.
 
 ## Соглашения
 - Файлы и переменные: `snake_case`. Классы: `PascalCase` (`class_name CityGrid`).
