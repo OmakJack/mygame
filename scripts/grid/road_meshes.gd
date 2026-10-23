@@ -34,7 +34,6 @@ static func build_library() -> MeshLibrary:
 	var material := StandardMaterial3D.new()
 	material.vertex_color_use_as_albedo = true
 	material.roughness = 0.9
-	material.cull_mode = BaseMaterial3D.CULL_DISABLED
 	for piece: int in BASE_MASKS.size():
 		library.create_item(piece)
 		library.set_item_name(piece, Piece.keys()[piece])
@@ -54,9 +53,10 @@ static func _build_piece(mask: int, piece: int, material: Material) -> ArrayMesh
 	for dir: int in 4:
 		if mask & (1 << dir) == 0:
 			continue
-		# Рукав в сторону N: от центра до края клетки (z от −1 до 0), поворачиваем на dir.
-		_add_rect(st, Rect2(-SIDEWALK_HALF_WIDTH, -1.0, SIDEWALK_HALF_WIDTH * 2, 1.0), dir, SIDEWALK_Y, SIDEWALK_COLOR)
-		_add_rect(st, Rect2(-ROAD_HALF_WIDTH, -1.0, ROAD_HALF_WIDTH * 2, 1.0), dir, ASPHALT_Y, ASPHALT_COLOR)
+		# Рукав в сторону N: от края клетки (z = −1) до центрального квадрата, поворачиваем на dir.
+		# Рукав стыкуется с квадратом встык, без наложения.
+		_add_rect(st, Rect2(-SIDEWALK_HALF_WIDTH, -1.0, SIDEWALK_HALF_WIDTH * 2, 1.0 - SIDEWALK_HALF_WIDTH), dir, SIDEWALK_Y, SIDEWALK_COLOR)
+		_add_rect(st, Rect2(-ROAD_HALF_WIDTH, -1.0, ROAD_HALF_WIDTH * 2, 1.0 - ROAD_HALF_WIDTH), dir, ASPHALT_Y, ASPHALT_COLOR)
 		# Пунктир: штрих 0.3, промежуток 0.2 — стыкуется между соседними клетками.
 		_add_rect(st, Rect2(-MARKING_HALF_WIDTH, -0.9, MARKING_HALF_WIDTH * 2, 0.3), dir, MARKING_Y, MARKING_COLOR)
 		if not is_junction:
@@ -80,5 +80,6 @@ static func _add_rect(st: SurfaceTool, rect: Rect2, dir: int, y: float, color: C
 			p = Vector2(-p.y, p.x)
 		points.append(Vector3(p.x * half_cell, y, p.y * half_cell))
 	st.set_color(color)
+	# Обход по часовой стрелке при виде сверху — у Godot это лицевая сторона.
 	for index: int in [0, 1, 2, 0, 2, 3]:
 		st.add_vertex(points[index])

@@ -57,7 +57,9 @@ func _update_cell(cell: Vector2i) -> void:
 		return
 	var map_cell := Vector3i(cell.x, 0, cell.y)
 	if not grid.is_road(cell):
-		set_cell_item(map_cell, INVALID_CELL_ITEM)
+		# Пустые клетки (например, при покраске зон) не трогаем лишний раз.
+		if get_cell_item(map_cell) != INVALID_CELL_ITEM:
+			set_cell_item(map_cell, INVALID_CELL_ITEM)
 		return
 	var mask: int = grid.get_road_mask(cell)
 	set_cell_item(map_cell, _piece_for_mask[mask], _orientation_for_mask[mask])

@@ -1,4 +1,4 @@
-[gd_scene load_steps=13 format=3]
+[gd_scene load_steps=14 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/camera/rts_camera.tscn" id="1_cam"]
 [ext_resource type="Script" path="res://scripts/grid/grid_visualizer.gd" id="2_grid"]
@@ -6,6 +6,7 @@
 [ext_resource type="Script" path="res://scripts/grid/road_visualizer.gd" id="4_roads"]
 [ext_resource type="Script" path="res://scripts/tools/tool_preview.gd" id="5_preview"]
 [ext_resource type="Script" path="res://scripts/tools/build_tool.gd" id="6_tool"]
+[ext_resource type="Script" path="res://scripts/grid/ground.gd" id="7_ground"]
 
 [sub_resource type="ProceduralSkyMaterial" id="sky_mat"]
 sky_top_color = Color(0.35, 0.55, 0.85, 1)
@@ -42,8 +43,8 @@ shadow_enabled = true
 directional_shadow_max_distance = 200.0
 
 [node name="Ground" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 64, 0, 64)
 mesh = SubResource("ground_mesh")
+script = ExtResource("7_ground")
 
 [node name="GridVisualizer" type="MeshInstance3D" parent="."]
 cast_shadow = 0

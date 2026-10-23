@@ -39,6 +39,11 @@ func is_in_bounds(cell: Vector2i) -> bool:
 	return cell.x >= 0 and cell.y >= 0 and cell.x < size and cell.y < size
 
 
+## Ближайшая к cell клетка внутри карты.
+func clamp_to_bounds(cell: Vector2i) -> Vector2i:
+	return cell.clamp(Vector2i.ZERO, Vector2i(size - 1, size - 1))
+
+
 ## Индекс клетки в слоях. Клетка должна быть в границах.
 func index_of(cell: Vector2i) -> int:
 	return cell.y * size + cell.x
@@ -95,6 +100,12 @@ func remove_road(cell: Vector2i) -> bool:
 	tile_type[index_of(cell)] = Tile.EMPTY
 	road_cells.erase(cell)
 	return true
+
+
+## Снос клетки. Единственное место правил сноса: убирает дорогу (фаза 4 — и здание).
+## Зону не трогает. Возвращает true, если клетка изменилась.
+func bulldoze(cell: Vector2i) -> bool:
+	return remove_road(cell)
 
 
 ## Маска соседей-дорог: N=1, E=2, S=4, W=8.

@@ -17,24 +17,26 @@ var mode: Mode = Mode.NONE
 
 var _dragging: bool = false
 var _drag_start: Vector2i = Vector2i.ZERO
-## Клетки текущей операции (обновляются, пока тянем мышью).
+## Конечная клетка протягивания (всегда внутри карты).
+var _drag_end: Vector2i = Vector2i.ZERO
+## Клетки текущей операции (пересчитываются, когда меняется _drag_end).
 var _drag_cells: Array[Vector2i] = []
 
 
 func _ready() -> void:
-	_set_mode(Mode.NONE)
+	cursor.set_color(CURSOR_COLORS[mode])
 
 
 func _process(_delta: float) -> void:
-	if not _dragging or not cursor.has_cell:
+	if not _dragging or not cursor.has_ground_hit:
 		return
-	if mode == Mode.ROAD:
-		_drag_cells = _l_path(_drag_start, cursor.hovered_cell)
-	else:
-		_drag_cells = _rect_cells(_drag_start, cursor.hovered_cell)
-	preview.show_cells(_drag_cells, CURSOR_COLORS[mode])
+	# Мышь за картой — прижимаем конец протягивания к краю.
+	var end: Vector2i = GameState.grid.clamp_to_bounds(cursor.ground_cell)
+	if end != _drag_end:
+		_update_drag(end)
 
 
+## Начало протягивания — здесь, чтобы клик по UI не начинал стройку.
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed(&"tool_road"):
 		_set_mode(Mode.ROAD)
@@ -46,22 +48,42 @@ func _unhandled_input(event: InputEvent) -> void:
 	var button := event as InputEventMouseButton
 	if button == null or mode == Mode.NONE:
 		return
-	if button.button_index == MOUSE_BUTTON_LEFT:
-		if button.pressed and cursor.has_cell:
-			_dragging = true
-			_drag_start = cursor.hovered_cell
-			_drag_cells = [_drag_start]
-		elif not button.pressed and _dragging:
-			_apply()
-			_end_drag()
+	if button.button_index == MOUSE_BUTTON_LEFT and button.pressed and cursor.has_cell:
+		_dragging = true
+		_drag_start = cursor.hovered_cell
+		_update_drag(_drag_start)
+
+
+## Отпускание и отмена — здесь, чтобы UI не «съел» их и протягивание не залипло.
+func _input(event: InputEvent) -> void:
+	var button := event as InputEventMouseButton
+	if button == null or not _dragging:
+		return
+	if button.button_index == MOUSE_BUTTON_LEFT and not button.pressed:
+		_apply()
+		_end_drag()
 	elif button.button_index == MOUSE_BUTTON_RIGHT and button.pressed:
 		_end_drag()
+		get_viewport().set_input_as_handled()
 
 
 func _set_mode(new_mode: Mode) -> void:
+	# Повторное нажатие той же клавиши не сбрасывает протягивание.
+	if new_mode == mode:
+		return
 	mode = new_mode
 	_end_drag()
 	cursor.set_color(CURSOR_COLORS[mode])
+
+
+func _update_drag(end: Vector2i) -> void:
+	_drag_end = end
+	match mode:
+		Mode.ROAD:
+			_drag_cells = _l_path(_drag_start, _drag_end)
+		Mode.BULLDOZE:
+			_drag_cells = _rect_cells(_drag_start, _drag_end)
+	preview.show_cells(_drag_cells, CURSOR_COLORS[mode])
 
 
 func _end_drag() -> void:
@@ -74,7 +96,12 @@ func _apply() -> void:
 	var grid: CityGrid = GameState.grid
 	var changed: Array[Vector2i] = []
 	for cell: Vector2i in _drag_cells:
-		var did_change: bool = grid.set_road(cell) if mode == Mode.ROAD else grid.remove_road(cell)
+		var did_change: bool = false
+		match mode:
+			Mode.ROAD:
+				did_change = grid.set_road(cell)
+			Mode.BULLDOZE:
+				did_change = grid.bulldoze(cell)
 		if did_change:
 			changed.append(cell)
 	if not changed.is_empty():

@@ -10,7 +10,7 @@ extends Node3D
 @export var min_distance: float = 8.0
 @export var max_distance: float = 90.0
 @export var zoom_step: float = 5.0
-## Скорость сглаживания зума.
+## Скорость сглаживания зума (чем больше, тем быстрее; не зависит от FPS).
 @export var zoom_smoothing: float = 10.0
 
 var _distance: float = 40.0
@@ -39,8 +39,11 @@ func _process(delta: float) -> void:
 	var turn: float = Input.get_axis(&"cam_rotate_right", &"cam_rotate_left")
 	rotation.y += deg_to_rad(rotate_speed) * turn * delta
 
-	if not is_equal_approx(_distance, _target_distance):
-		_distance = lerpf(_distance, _target_distance, minf(zoom_smoothing * delta, 1.0))
+	if _distance != _target_distance:
+		if absf(_distance - _target_distance) < 0.01:
+			_distance = _target_distance
+		else:
+			_distance = lerpf(_distance, _target_distance, 1.0 - exp(-zoom_smoothing * delta))
 		_apply_distance()
 
 

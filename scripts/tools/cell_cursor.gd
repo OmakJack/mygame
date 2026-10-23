@@ -10,6 +10,10 @@ const HIGHLIGHT_HEIGHT: float = 0.06
 ## Клетка под мышкой. Имеет смысл только при has_cell == true.
 var hovered_cell: Vector2i = Vector2i.ZERO
 var has_cell: bool = false
+## Клетка под мышкой без проверки границ (может быть за картой).
+## Имеет смысл только при has_ground_hit == true — луч попал в плоскость земли.
+var ground_cell: Vector2i = Vector2i.ZERO
+var has_ground_hit: bool = false
 
 var _ground_plane := Plane(Vector3.UP, 0.0)
 var _material := StandardMaterial3D.new()
@@ -41,11 +45,14 @@ func _process(_delta: float) -> void:
 	var dir: Vector3 = camera.project_ray_normal(mouse_pos)
 	var hit: Variant = _ground_plane.intersects_ray(from, dir)
 	var grid: CityGrid = GameState.grid
-	if hit == null or not grid.is_in_bounds(grid.world_to_grid(hit)):
+	has_ground_hit = hit != null
+	if has_ground_hit:
+		ground_cell = grid.world_to_grid(hit)
+	if not has_ground_hit or not grid.is_in_bounds(ground_cell):
 		has_cell = false
 		visible = false
 		return
-	hovered_cell = grid.world_to_grid(hit)
+	hovered_cell = ground_cell
 	has_cell = true
 	visible = true
 	position = grid.grid_to_world(hovered_cell) + Vector3.UP * HIGHLIGHT_HEIGHT
