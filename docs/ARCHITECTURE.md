@@ -21,10 +21,12 @@ res://
 │   └── world/
 ├── scripts/
 │   ├── autoload/    events.gd, game_state.gd, sim_clock.gd
-│   ├── grid/        city_grid.gd, building_instance.gd, grid_visualizer.gd
+│   ├── grid/        city_grid.gd, building_instance.gd, grid_visualizer.gd,
+│   │                road_visualizer.gd (GridMap дорог), road_meshes.gd (MeshLibrary дорог)
 │   ├── data/        building_data.gd
 │   ├── camera/      rts_camera.gd
-│   ├── tools/       cell_cursor.gd (клетка под мышкой), build_tool.gd (режимы: дорога, зона, снос)
+│   ├── tools/       cell_cursor.gd (клетка под мышкой), build_tool.gd (режимы: дорога, зона, снос),
+│   │                tool_preview.gd (подсветка клеток будущей операции)
 │   └── simulation/  demand.gd, growth.gd, economy.gd
 ├── data/
 │   └── buildings/   *.tres (BuildingData)
@@ -59,7 +61,7 @@ res://
   - `grid_to_world(cell: Vector2i) -> Vector3`
   - `world_to_grid(pos: Vector3) -> Vector2i`
   - `is_in_bounds(cell: Vector2i) -> bool`
-  - `set_road(cell)` / `remove_road(cell)` — **единственное** место изменения дорог (в фазе 6 сюда добавится поиск пути)
+  - `set_road(cell) -> bool` / `remove_road(cell) -> bool` — **единственное** место изменения дорог (в фазе 6 сюда добавится поиск пути). Возвращают `true`, если клетка изменилась. Сигнал не шлют — это делает инструмент пакетом.
   - `place_building(type_id, cell, orientation) -> int` / `remove_building(instance_id)`
   - `set_zone(cells: Array[Vector2i], zone_type: int)` — **единственное** место изменения зон (фаза 3)
 - Функции добавляются в той фазе, где нужны: фаза 1 — координаты, фаза 2 — дороги, фаза 3 — зоны, фаза 4 — здания.
@@ -79,6 +81,15 @@ res://
 
 ### Дороги
 Форма (прямая/угол/T/крест) и поворот дороги **не хранятся** — они вычисляются по соседним дорожным клеткам. При загрузке сохранения пересчитываются.
+- `CityGrid.get_road_mask(cell) -> int` — 4 бита соседей-дорог: N=1 (−Z), E=2 (+X), S=4 (+Z), W=8 (−X).
+- `road_visualizer.gd` (GridMap) по маске выбирает кусок (END, STRAIGHT, CORNER, T, CROSS) и поворот. При `cells_changed` обновляет изменённые клетки **и их соседей**.
+- `set_road` на клетке с дорогой или зданием ничего не делает и возвращает `false`; дорога стирает зону клетки.
+- Куски дорог в MVP генерируются кодом (`road_meshes.gd`) как заглушки. Позже заменяются на модели (Kenney) без изменения логики: визуализатор зависит только от номеров кусков.
+
+### Инструменты (build_tool.gd)
+- Режимы: NONE, ROAD, BULLDOZE (фаза 3 — ZONE). Клавиши: R — дорога, B — снос, Esc — выключить.
+- Дорога: зажать ЛКМ и тянуть — путь буквой «Г» (сначала по длинной оси). Снос: прямоугольник. ПКМ — отмена протягивания.
+- При отпускании ЛКМ инструмент меняет все клетки и шлёт **один** `cells_changed`.
 
 ## Сигналы (Events)
 - `cells_changed(cells: Array[Vector2i])` — пакетный. Инструмент сначала меняет все клетки, затем шлёт **один** сигнал на всю операцию.

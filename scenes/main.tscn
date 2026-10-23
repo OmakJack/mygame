@@ -1,8 +1,11 @@
-[gd_scene load_steps=10 format=3]
+[gd_scene load_steps=13 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/camera/rts_camera.tscn" id="1_cam"]
 [ext_resource type="Script" path="res://scripts/grid/grid_visualizer.gd" id="2_grid"]
 [ext_resource type="Script" path="res://scripts/tools/cell_cursor.gd" id="3_cursor"]
+[ext_resource type="Script" path="res://scripts/grid/road_visualizer.gd" id="4_roads"]
+[ext_resource type="Script" path="res://scripts/tools/tool_preview.gd" id="5_preview"]
+[ext_resource type="Script" path="res://scripts/tools/build_tool.gd" id="6_tool"]
 
 [sub_resource type="ProceduralSkyMaterial" id="sky_mat"]
 sky_top_color = Color(0.35, 0.55, 0.85, 1)
@@ -46,8 +49,19 @@ mesh = SubResource("ground_mesh")
 cast_shadow = 0
 script = ExtResource("2_grid")
 
+[node name="RoadVisualizer" type="GridMap" parent="."]
+script = ExtResource("4_roads")
+
+[node name="ToolPreview" type="MultiMeshInstance3D" parent="."]
+script = ExtResource("5_preview")
+
 [node name="CellCursor" type="MeshInstance3D" parent="."]
 cast_shadow = 0
 script = ExtResource("3_cursor")
 
 [node name="RTSCamera" parent="." instance=ExtResource("1_cam")]
+
+[node name="BuildTool" type="Node" parent="." node_paths=PackedStringArray("cursor", "preview")]
+script = ExtResource("6_tool")
+cursor = NodePath("../CellCursor")
+preview = NodePath("../ToolPreview")

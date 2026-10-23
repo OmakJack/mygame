@@ -1,8 +1,9 @@
+class_name CellCursor
 extends MeshInstance3D
-## Подсвечивает клетку под мышкой. Позже build_tool берёт отсюда hovered_cell.
+## Подсвечивает клетку под мышкой. build_tool берёт отсюда hovered_cell.
 
-## Высота подсветки над землёй (выше линий сетки).
-const HIGHLIGHT_HEIGHT: float = 0.02
+## Высота подсветки над землёй (выше дорог и превью инструмента).
+const HIGHLIGHT_HEIGHT: float = 0.06
 
 @export var highlight_color: Color = Color(1.0, 0.85, 0.2, 0.45)
 
@@ -11,18 +12,23 @@ var hovered_cell: Vector2i = Vector2i.ZERO
 var has_cell: bool = false
 
 var _ground_plane := Plane(Vector3.UP, 0.0)
+var _material := StandardMaterial3D.new()
 
 
 func _ready() -> void:
 	var quad := PlaneMesh.new()
 	quad.size = Vector2.ONE * CityGrid.CELL_SIZE * 0.95
 	mesh = quad
-	var material := StandardMaterial3D.new()
-	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	material.albedo_color = highlight_color
-	material_override = material
+	_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	_material.albedo_color = highlight_color
+	material_override = _material
 	visible = false
+
+
+## Цвет подсветки (инструмент показывает так текущий режим).
+func set_color(color: Color) -> void:
+	_material.albedo_color = color
 
 
 func _process(_delta: float) -> void:

@@ -57,3 +57,50 @@ func world_to_grid(pos: Vector3) -> Vector2i:
 ## Размер карты в мире, метры.
 func world_size() -> float:
 	return size * CELL_SIZE
+
+
+# --- Дороги ---
+
+## Биты соседей в маске дороги.
+const DIR_N: int = 1  # −Z
+const DIR_E: int = 2  # +X
+const DIR_S: int = 4  # +Z
+const DIR_W: int = 8  # −X
+## Смещения соседей в порядке битов N, E, S, W.
+const NEIGHBORS: Array[Vector2i] = [Vector2i(0, -1), Vector2i(1, 0), Vector2i(0, 1), Vector2i(-1, 0)]
+
+
+func is_road(cell: Vector2i) -> bool:
+	return road_cells.has(cell)
+
+
+## Ставит дорогу. Единственное место изменения дорог.
+## Возвращает true, если клетка изменилась. Сигнал шлёт вызывающий (пакетом).
+func set_road(cell: Vector2i) -> bool:
+	if not is_in_bounds(cell):
+		return false
+	var i: int = index_of(cell)
+	if tile_type[i] != Tile.EMPTY:
+		return false
+	tile_type[i] = Tile.ROAD
+	zone[i] = Zone.NONE
+	road_cells[cell] = true
+	return true
+
+
+## Убирает дорогу. Возвращает true, если клетка изменилась.
+func remove_road(cell: Vector2i) -> bool:
+	if not is_road(cell):
+		return false
+	tile_type[index_of(cell)] = Tile.EMPTY
+	road_cells.erase(cell)
+	return true
+
+
+## Маска соседей-дорог: N=1, E=2, S=4, W=8.
+func get_road_mask(cell: Vector2i) -> int:
+	var mask: int = 0
+	for bit: int in NEIGHBORS.size():
+		if is_road(cell + NEIGHBORS[bit]):
+			mask |= 1 << bit
+	return mask
