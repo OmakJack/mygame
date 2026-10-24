@@ -48,18 +48,30 @@ func _rebuild() -> void:
 func _on_cells_changed(cells: Array[Vector2i]) -> void:
 	if cells.is_empty():
 		return
-	# Доступ к дороге мог измениться у соседей в радиусе ROAD_ACCESS_RANGE —
-	# перекрашиваем прямоугольник изменённых клеток, расширенный на этот радиус.
-	var grid: CityGrid = GameState.grid
+	# Доступ к дороге мог измениться у соседей в радиусе ROAD_ACCESS_RANGE.
+	# Перекрашиваем либо общий прямоугольник, либо квадрат вокруг каждой клетки — что меньше
+	# (рост в разных углах карты дал бы прямоугольник на всю карту).
+	var r: int = CityGrid.ROAD_ACCESS_RANGE
 	var area := Rect2i(cells[0], Vector2i.ZERO)
 	for cell: Vector2i in cells:
 		area = area.expand(cell)
-	area = area.grow(CityGrid.ROAD_ACCESS_RANGE)
-	var top_left: Vector2i = grid.clamp_to_bounds(area.position)
-	# Rect2i.end не входит в прямоугольник после expand — включаем его сами.
-	var bottom_right: Vector2i = grid.clamp_to_bounds(area.end)
-	for y: int in range(top_left.y, bottom_right.y + 1):
-		for x: int in range(top_left.x, bottom_right.x + 1):
+	# Rect2i.end не входит в прямоугольник после expand — считаем его включительно.
+	var area_cells: int = (area.size.x + 1 + 2 * r) * (area.size.y + 1 + 2 * r)
+	var squares_cells: int = cells.size() * (2 * r + 1) * (2 * r + 1)
+	if squares_cells < area_cells:
+		for cell: Vector2i in cells:
+			_update_rect(cell - Vector2i(r, r), cell + Vector2i(r, r))
+	else:
+		_update_rect(area.position - Vector2i(r, r), area.end + Vector2i(r, r))
+
+
+## Перекрашивает клетки от top_left до bottom_right включительно (обрезая по карте).
+func _update_rect(top_left: Vector2i, bottom_right: Vector2i) -> void:
+	var grid: CityGrid = GameState.grid
+	var from: Vector2i = grid.clamp_to_bounds(top_left)
+	var to: Vector2i = grid.clamp_to_bounds(bottom_right)
+	for y: int in range(from.y, to.y + 1):
+		for x: int in range(from.x, to.x + 1):
 			_update_cell(Vector2i(x, y))
 
 

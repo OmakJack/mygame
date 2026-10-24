@@ -22,6 +22,14 @@ var building_at: PackedInt32Array
 var buildings: Dictionary[int, BuildingInstance] = {}
 var road_cells: Dictionary[Vector2i, bool] = {}
 var next_building_id: int = 0
+## Пустые клетки с зоной, по зонам R/C/I: Vector2i → true. Клетка здесь ⇔ EMPTY и зона не NONE.
+## Обновляется только внутри CityGrid (_update_zoned_cache). Внутренний словарь без типа:
+## Godot не поддерживает вложенные типизированные словари.
+var zoned_empty_cells: Dictionary[Zone, Dictionary] = {
+	Zone.RESIDENTIAL: {},
+	Zone.COMMERCIAL: {},
+	Zone.INDUSTRIAL: {},
+}
 
 
 func _init(p_size: int = GRID_SIZE) -> void:
@@ -90,6 +98,7 @@ func set_road(cell: Vector2i) -> bool:
 	tile_type[i] = Tile.ROAD
 	zone[i] = Zone.NONE
 	road_cells[cell] = true
+	_update_zoned_cache(cell)
 	return true
 
 
@@ -102,9 +111,14 @@ func remove_road(cell: Vector2i) -> bool:
 	return true
 
 
-## Снос клетки. Единственное место правил сноса: убирает дорогу (фаза 4 — и здание).
+## Снос клетки. Единственное место правил сноса: убирает здание или дорогу.
 ## Зону не трогает. Возвращает true, если клетка изменилась.
 func bulldoze(cell: Vector2i) -> bool:
+	if not is_in_bounds(cell):
+		return false
+	var building_id: int = building_at[index_of(cell)]
+	if building_id != -1:
+		return remove_building(building_id)
 	return remove_road(cell)
 
 
@@ -123,6 +137,7 @@ func get_road_mask(cell: Vector2i) -> int:
 const ROAD_ACCESS_RANGE: int = 3
 
 
+## Клетка должна быть в границах.
 func get_zone(cell: Vector2i) -> Zone:
 	return zone[index_of(cell)] as Zone
 
@@ -144,14 +159,75 @@ func set_zone(cell: Vector2i, zone_type: Zone) -> bool:
 	if not can_zone(cell, zone_type):
 		return false
 	zone[index_of(cell)] = zone_type
+	_update_zoned_cache(cell)
 	return true
 
 
 ## Есть ли дорога на расстоянии не больше ROAD_ACCESS_RANGE клеток.
 func has_road_access(cell: Vector2i) -> bool:
-	for dy: int in range(-ROAD_ACCESS_RANGE, ROAD_ACCESS_RANGE + 1):
-		var reach: int = ROAD_ACCESS_RANGE - absi(dy)
-		for dx: int in range(-reach, reach + 1):
-			if road_cells.has(cell + Vector2i(dx, dy)):
-				return true
-	return false
+	return find_nearest_road_dir(cell) != -1
+
+
+## Направление на ближайшую дорогу: 0..3 = N/E/S/W (биты как в get_road_mask), −1 — дороги нет.
+## Ищет кольцами по Манхэттену от расстояния 1 до ROAD_ACCESS_RANGE.
+## Для дороги по диагонали берётся ось с большим смещением.
+func find_nearest_road_dir(cell: Vector2i) -> int:
+	for dist: int in range(1, ROAD_ACCESS_RANGE + 1):
+		for dy: int in range(-dist, dist + 1):
+			var dx: int = dist - absi(dy)
+			if road_cells.has(cell + Vector2i(-dx, dy)):
+				return _dir_of(Vector2i(-dx, dy))
+			if dx != 0 and road_cells.has(cell + Vector2i(dx, dy)):
+				return _dir_of(Vector2i(dx, dy))
+	return -1
+
+
+static func _dir_of(offset: Vector2i) -> int:
+	if absi(offset.x) >= absi(offset.y):
+		return 1 if offset.x > 0 else 3
+	return 2 if offset.y > 0 else 0
+
+
+func _update_zoned_cache(cell: Vector2i) -> void:
+	for cells: Dictionary in zoned_empty_cells.values():
+		cells.erase(cell)
+	var i: int = index_of(cell)
+	if tile_type[i] == Tile.EMPTY and zone[i] != Zone.NONE:
+		zoned_empty_cells[zone[i] as Zone][cell] = true
+
+
+# --- Здания ---
+
+## Ставит здание на пустую клетку. Какой тип на какой зоне — решает вызывающий.
+## Возвращает номер экземпляра или −1. Сигнал шлёт вызывающий (пакетом).
+func place_building(type_id: StringName, cell: Vector2i, orientation: int) -> int:
+	if not is_in_bounds(cell):
+		return -1
+	var i: int = index_of(cell)
+	if tile_type[i] != Tile.EMPTY:
+		return -1
+	var id: int = next_building_id
+	next_building_id += 1
+	buildings[id] = BuildingInstance.new(id, type_id, cell, orientation)
+	tile_type[i] = Tile.BUILDING
+	building_at[i] = id
+	_update_zoned_cache(cell)
+	return id
+
+
+## Убирает здание. Клетка снова пустая, зона остаётся. Возвращает true, если здание было.
+func remove_building(instance_id: int) -> bool:
+	var building: BuildingInstance = buildings.get(instance_id)
+	if building == null:
+		return false
+	var i: int = index_of(building.cell)
+	tile_type[i] = Tile.EMPTY
+	building_at[i] = -1
+	buildings.erase(instance_id)
+	_update_zoned_cache(building.cell)
+	return true
+
+
+## Здание на клетке или null. Клетка должна быть в границах.
+func get_building_at(cell: Vector2i) -> BuildingInstance:
+	return buildings.get(building_at[index_of(cell)])

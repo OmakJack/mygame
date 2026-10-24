@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="BuildingData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="1_data"]
+
+[resource]
+script = ExtResource("1_data")
+id = &"ind_small_01"
+display_name = "Маленький цех"
+zone = 3
+population = 0
+jobs = 8
+cost = 0
+upkeep = 3
+placeholder_color = Color(0.72, 0.66, 0.58, 1)
+placeholder_height = 1.8

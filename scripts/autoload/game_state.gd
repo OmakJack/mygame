@@ -1,11 +1,18 @@
 extends Node
-## Состояние города: деньги, население, дата и сетка.
-## Заготовка фазы 1 — экономика и население заполняются в фазах 4–5.
+## Состояние города: деньги, население, рабочие места, спрос, день и сетка.
+## Значения статистики пишет simulation.gd на каждом тике.
 
 var grid: CityGrid
+## Деньги — фаза 5.
 var money: int = 0
 var population: int = 0
-## Номер дня с начала игры (считает SimClock в фазе 4).
+var jobs_commercial: int = 0
+var jobs_industrial: int = 0
+## Спрос R/C/I в [−1, 1]. Здания растут при спросе > 0.
+var demand_r: float = 0.0
+var demand_c: float = 0.0
+var demand_i: float = 0.0
+## Номер дня с начала игры (1 тик = 1 день, считает SimClock).
 var day: int = 0
 
 

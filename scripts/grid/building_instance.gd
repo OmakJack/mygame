@@ -8,8 +8,10 @@ var id: int
 var type_id: StringName
 ## Клетка-основание.
 var cell: Vector2i
-## 0/1/2/3 = 0°/90°/180°/270°, здание смотрит на дорогу.
+## Направление на дорогу 0/1/2/3 = N/E/S/W (поворот по часовой 0°/90°/180°/270°).
 var orientation: int
+## Сколько тиков подряд у здания нет доступа к дороге (состояние симуляции).
+var no_road_ticks: int = 0
 
 
 func _init(p_id: int, p_type_id: StringName, p_cell: Vector2i, p_orientation: int) -> void:
