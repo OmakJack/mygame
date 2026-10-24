@@ -87,14 +87,17 @@ func is_road(cell: Vector2i) -> bool:
 	return road_cells.has(cell)
 
 
+## Можно ли поставить дорогу (те же правила, что в set_road).
+func can_set_road(cell: Vector2i) -> bool:
+	return is_in_bounds(cell) and tile_type[index_of(cell)] == Tile.EMPTY
+
+
 ## Ставит дорогу. Единственное место изменения дорог.
 ## Возвращает true, если клетка изменилась. Сигнал шлёт вызывающий (пакетом).
 func set_road(cell: Vector2i) -> bool:
-	if not is_in_bounds(cell):
+	if not can_set_road(cell):
 		return false
 	var i: int = index_of(cell)
-	if tile_type[i] != Tile.EMPTY:
-		return false
 	tile_type[i] = Tile.ROAD
 	zone[i] = Zone.NONE
 	road_cells[cell] = true

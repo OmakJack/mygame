@@ -1,18 +1,24 @@
 extends Node
-## Порядок одного тика симуляции: заброшенные здания → рост → подсчёт → спрос → сигналы.
+## Порядок одного тика симуляции: заброшенные здания → рост → подсчёт → спрос → деньги → сигналы.
+## Вне тика (снос на паузе, налог, новая сетка) тоже пересчитывает статистику для UI.
 ## Узлы сцены не ищет: работает с GameState и Events.
 
 ## Через сколько тиков без доступа к дороге здание сносится.
 const ABANDON_TICKS: int = 3
 
 var _rng := RandomNumberGenerator.new()
+## Идёт тик: свой же cells_changed не пересчитываем второй раз.
+var _in_tick: bool = false
 
 
 func _ready() -> void:
 	_rng.randomize()
 	Events.sim_tick.connect(_on_sim_tick)
+	Events.cells_changed.connect(_on_cells_changed)
+	Events.grid_reset.connect(_refresh_stats)
+	Events.tax_rate_requested.connect(_on_tax_rate_requested)
 	# Спрос пустого города — чтобы первые дома выросли уже на первом тике.
-	_update_stats()
+	_refresh_stats()
 
 
 func _on_sim_tick() -> void:
@@ -21,8 +27,29 @@ func _on_sim_tick() -> void:
 	_abandon_buildings(grid, changed)
 	_grow(grid, changed)
 	_update_stats()
+	Economy.apply_day()
 	if not changed.is_empty():
+		_in_tick = true
 		Events.cells_changed.emit(changed)
+		_in_tick = false
+	Events.stats_changed.emit()
+
+
+func _on_cells_changed(_cells: Array[Vector2i]) -> void:
+	if not _in_tick:
+		_refresh_stats()
+
+
+func _on_tax_rate_requested(rate: int) -> void:
+	var clamped: int = clampi(rate, Economy.MIN_TAX_RATE, Economy.MAX_TAX_RATE)
+	if clamped == GameState.tax_rate:
+		return
+	GameState.tax_rate = clamped
+	_refresh_stats()
+
+
+func _refresh_stats() -> void:
+	_update_stats()
 	Events.stats_changed.emit()
 
 
@@ -73,6 +100,7 @@ func _update_stats() -> void:
 	GameState.population = population
 	GameState.jobs_commercial = jobs_commercial
 	GameState.jobs_industrial = jobs_industrial
-	GameState.demand_r = Demand.residential(population, jobs_commercial, jobs_industrial)
-	GameState.demand_c = Demand.commercial(population, jobs_commercial)
-	GameState.demand_i = Demand.industrial(population, jobs_industrial)
+	var tax_rate: int = GameState.tax_rate
+	GameState.demand_r = Demand.residential(population, jobs_commercial, jobs_industrial, tax_rate)
+	GameState.demand_c = Demand.commercial(population, jobs_commercial, tax_rate)
+	GameState.demand_i = Demand.industrial(population, jobs_industrial, tax_rate)

@@ -40,7 +40,10 @@ func set_speed(new_speed: int) -> void:
 		return
 	if new_speed != 0:
 		_speed_before_pause = new_speed
+	if new_speed == speed:
+		return
 	speed = new_speed
+	Events.speed_changed.emit(speed)
 
 
 func toggle_pause() -> void:

@@ -1,10 +1,16 @@
 class_name BuildingCatalog
 extends RefCounted
-## Все типы зданий из data/buildings/. Загружаются при первом обращении.
+## Все типы зданий из data/buildings/. Загружаются один раз при первом обращении;
+## отсортированный список и списки по зонам собираются тогда же.
 
 const DATA_DIR: String = "res://data/buildings/"
 
 static var _types: Dictionary[StringName, BuildingData] = {}
+static var _sorted: Array[BuildingData] = []
+## Зона → Array[BuildingData]. В объявлении тип значения — просто Array (вложенные типы
+## Godot не поддерживает), но кладём туда типизированные массивы.
+static var _by_zone: Dictionary[CityGrid.Zone, Array] = {}
+static var _empty: Array[BuildingData] = []
 static var _loaded: bool = false
 
 
@@ -14,18 +20,16 @@ static func get_type(id: StringName) -> BuildingData:
 
 
 ## Все типы, отсортированные по id (порядок стабилен — на нём номера кусков MeshLibrary).
+## Возвращает общий массив — не изменять.
 static func all_types() -> Array[BuildingData]:
 	_ensure_loaded()
-	var result: Array[BuildingData] = []
-	result.assign(_types.values())
-	result.sort_custom(func(a: BuildingData, b: BuildingData) -> bool: return a.id < b.id)
-	return result
+	return _sorted
 
 
+## Типы зданий зоны. Возвращает общий массив — не изменять.
 static func types_for_zone(zone_type: CityGrid.Zone) -> Array[BuildingData]:
-	var result: Array[BuildingData] = []
-	result.assign(all_types().filter(func(data: BuildingData) -> bool: return data.zone == zone_type))
-	return result
+	_ensure_loaded()
+	return _by_zone.get(zone_type, _empty)
 
 
 static func _ensure_loaded() -> void:
@@ -40,7 +44,17 @@ static func _ensure_loaded() -> void:
 		if data == null:
 			push_error("BuildingCatalog: %s — не BuildingData" % file_name)
 			continue
+		if data.id.is_empty():
+			push_error("BuildingCatalog: пустой id в %s" % file_name)
+			continue
 		if _types.has(data.id):
 			push_error("BuildingCatalog: повтор id %s в %s" % [data.id, file_name])
 			continue
 		_types[data.id] = data
+	_sorted.assign(_types.values())
+	_sorted.sort_custom(func(a: BuildingData, b: BuildingData) -> bool: return a.id < b.id)
+	for data: BuildingData in _sorted:
+		if not _by_zone.has(data.zone):
+			var list: Array[BuildingData] = []
+			_by_zone[data.zone] = list
+		_by_zone[data.zone].append(data)

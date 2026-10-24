@@ -1,6 +1,8 @@
+class_name BuildTool
 extends Node
 ## Инструменты строительства: дорога, снос, зоны.
 ## Меняет клетки только через CityGrid и шлёт один Events.cells_changed на операцию.
+## Платные режимы списывают деньги через Economy и останавливаются, когда денег нет.
 
 enum Mode { NONE, ROAD, BULLDOZE, ZONE_R, ZONE_C, ZONE_I, DEZONE }
 
@@ -20,6 +22,14 @@ const MODE_ZONES: Dictionary[Mode, CityGrid.Zone] = {
 	Mode.ZONE_C: CityGrid.Zone.COMMERCIAL,
 	Mode.ZONE_I: CityGrid.Zone.INDUSTRIAL,
 	Mode.DEZONE: CityGrid.Zone.NONE,
+}
+
+## Цена за реально изменённую клетку. Чего нет в словаре — бесплатно.
+const MODE_COSTS: Dictionary[Mode, int] = {
+	Mode.ROAD: Economy.ROAD_COST,
+	Mode.ZONE_R: Economy.ZONE_COST,
+	Mode.ZONE_C: Economy.ZONE_COST,
+	Mode.ZONE_I: Economy.ZONE_COST,
 }
 
 ## Горячие клавиши режимов (действия из project.godot).
@@ -48,6 +58,11 @@ var _drag_cells: Array[Vector2i] = []
 
 func _ready() -> void:
 	cursor.set_color(CURSOR_COLORS[mode])
+	Events.tool_requested.connect(func(requested: int) -> void: _set_mode(requested as Mode))
+
+
+static func cost_of(tool_mode: Mode) -> int:
+	return MODE_COSTS.get(tool_mode, 0)
 
 
 func _process(_delta: float) -> void:
@@ -95,6 +110,7 @@ func _set_mode(new_mode: Mode) -> void:
 	mode = new_mode
 	_end_drag()
 	cursor.set_color(CURSOR_COLORS[mode])
+	Events.tool_mode_changed.emit(mode)
 
 
 func _update_drag(end: Vector2i) -> void:
@@ -110,7 +126,35 @@ func _update_drag(end: Vector2i) -> void:
 			var zone_type: CityGrid.Zone = MODE_ZONES[mode]
 			_drag_cells = _rect_cells(_drag_start, _drag_end).filter(
 				func(cell: Vector2i) -> bool: return grid.can_zone(cell, zone_type))
+	_drag_cells = _affordable(_drag_cells)
 	preview.show_cells(_drag_cells, CURSOR_COLORS[mode])
+
+
+## Обрезает клетки операции там, где кончаются деньги. Клетки, которые не изменятся
+## (например, уже есть дорога), бесплатны и не обрезаются.
+func _affordable(cells: Array[Vector2i]) -> Array[Vector2i]:
+	var cost: int = cost_of(mode)
+	if cost == 0:
+		return cells
+	var budget: int = GameState.money
+	var result: Array[Vector2i] = []
+	for cell: Vector2i in cells:
+		if _would_change(cell):
+			if budget < cost:
+				break
+			budget -= cost
+		result.append(cell)
+	return result
+
+
+func _would_change(cell: Vector2i) -> bool:
+	var grid: CityGrid = GameState.grid
+	match mode:
+		Mode.ROAD:
+			return grid.can_set_road(cell)
+		Mode.ZONE_R, Mode.ZONE_C, Mode.ZONE_I, Mode.DEZONE:
+			return grid.can_zone(cell, MODE_ZONES[mode])
+	return true
 
 
 func _end_drag() -> void:
@@ -121,8 +165,12 @@ func _end_drag() -> void:
 
 func _apply() -> void:
 	var grid: CityGrid = GameState.grid
+	var cost: int = cost_of(mode)
 	var changed: Array[Vector2i] = []
 	for cell: Vector2i in _drag_cells:
+		# Деньги могли измениться с момента превью — проверяем ещё раз.
+		if cost > 0 and _would_change(cell) and not Economy.can_afford(cost):
+			break
 		var did_change: bool = false
 		match mode:
 			Mode.ROAD:
@@ -132,6 +180,7 @@ func _apply() -> void:
 			Mode.ZONE_R, Mode.ZONE_C, Mode.ZONE_I, Mode.DEZONE:
 				did_change = grid.set_zone(cell, MODE_ZONES[mode])
 		if did_change:
+			Economy.spend(cost)
 			changed.append(cell)
 	if not changed.is_empty():
 		Events.cells_changed.emit(changed)

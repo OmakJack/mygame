@@ -48,7 +48,10 @@ func _process(_delta: float) -> void:
 	has_ground_hit = hit != null
 	if has_ground_hit:
 		ground_cell = grid.world_to_grid(hit)
-	if not has_ground_hit or not grid.is_in_bounds(ground_cell):
+	# Над панелями UI курсор прячем, но ground_cell считаем дальше —
+	# начатое протягивание не обрывается, если мышь заехала на панель.
+	var over_ui: bool = get_viewport().gui_get_hovered_control() != null
+	if over_ui or not has_ground_hit or not grid.is_in_bounds(ground_cell):
 		has_cell = false
 		visible = false
 		return

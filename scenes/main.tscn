@@ -1,4 +1,4 @@
-[gd_scene load_steps=17 format=3]
+[gd_scene load_steps=18 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/camera/rts_camera.tscn" id="1_cam"]
 [ext_resource type="Script" path="res://scripts/grid/grid_visualizer.gd" id="2_grid"]
@@ -10,6 +10,7 @@
 [ext_resource type="Script" path="res://scripts/grid/zone_visualizer.gd" id="8_zones"]
 [ext_resource type="Script" path="res://scripts/grid/building_visualizer.gd" id="9_buildings"]
 [ext_resource type="Script" path="res://scripts/simulation/simulation.gd" id="10_sim"]
+[ext_resource type="PackedScene" path="res://scenes/ui/hud.tscn" id="11_hud"]
 
 [sub_resource type="ProceduralSkyMaterial" id="sky_mat"]
 sky_top_color = Color(0.35, 0.55, 0.85, 1)
@@ -78,3 +79,5 @@ preview = NodePath("../ToolPreview")
 
 [node name="Simulation" type="Node" parent="."]
 script = ExtResource("10_sim")
+
+[node name="HUD" parent="." instance=ExtResource("11_hud")]

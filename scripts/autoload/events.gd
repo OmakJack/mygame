@@ -14,6 +14,22 @@ signal grid_reset()
 @warning_ignore("unused_signal")
 signal sim_tick()
 
-## После тика в GameState обновлены население, рабочие места и спрос.
+## В GameState обновлены деньги, население, рабочие места и спрос (после тика или изменений вне тика).
 @warning_ignore("unused_signal")
 signal stats_changed()
+
+## UI просит сменить инструмент (BuildTool.Mode).
+@warning_ignore("unused_signal")
+signal tool_requested(mode: int)
+
+## Инструмент сменил режим (от кнопки или клавиши).
+@warning_ignore("unused_signal")
+signal tool_mode_changed(mode: int)
+
+## SimClock сменил скорость (0 — пауза).
+@warning_ignore("unused_signal")
+signal speed_changed(speed: int)
+
+## UI просит сменить налог, %. Границы проверяет simulation.gd.
+@warning_ignore("unused_signal")
+signal tax_rate_requested(rate: int)

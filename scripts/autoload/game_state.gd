@@ -1,10 +1,14 @@
 extends Node
-## Состояние города: деньги, население, рабочие места, спрос, день и сетка.
-## Значения статистики пишет simulation.gd на каждом тике.
+## Состояние города: деньги, налог, население, рабочие места, спрос, день и сетка.
+## Статистику пишет simulation.gd, деньги меняет только Economy.
 
 var grid: CityGrid
-## Деньги — фаза 5.
-var money: int = 0
+var money: int = Economy.START_MONEY
+## Налог, %. Меняется через Events.tax_rate_requested.
+var tax_rate: int = Economy.DEFAULT_TAX_RATE
+## Доход и расходы за последний день (для UI).
+var income: int = 0
+var expenses: int = 0
 var population: int = 0
 var jobs_commercial: int = 0
 var jobs_industrial: int = 0
