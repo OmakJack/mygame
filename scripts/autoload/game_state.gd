@@ -26,6 +26,8 @@ var network := RoadNetwork.new()
 var utilities := Utilities.new()
 ## Покрытие служб в [0, 1].
 var service_coverage: Dictionary[BuildingData.Service, float] = {}
+## Последний расчёт трафика: нагрузка дорог, время до работы, пути для машинок.
+var traffic := Traffic.new()
 
 
 func _init() -> void:

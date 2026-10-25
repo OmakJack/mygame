@@ -78,6 +78,7 @@ func _refresh_stats() -> void:
 	var utilities: Utilities = GameState.utilities
 	_show_resource(%PowerLabel, "Свет", utilities.power_use, utilities.power_supply, utilities.unpowered_count)
 	_show_resource(%WaterLabel, "Вода", utilities.water_use, utilities.water_supply, utilities.no_water_count)
+	_show_traffic()
 	_show_hints()
 	%TaxLabel.text = "Налог %d%%" % GameState.tax_rate
 	%TaxDown.disabled = GameState.tax_rate <= Economy.MIN_TAX_RATE
@@ -98,6 +99,19 @@ func _show_resource(label: Label, title: String, use: int, supply: int, short_co
 Не хватило: %d зд." % short_count
 	else:
 		label.remove_theme_color_override(&"font_color")
+
+
+## «Пробки 3 · до работы 18»: клетки с пробкой и среднее время до работы; красным при пробках.
+func _show_traffic() -> void:
+	var traffic: Traffic = GameState.traffic
+	%TrafficLabel.text = "Пробки %d · до работы %d" % [traffic.jammed_cells, roundi(traffic.average_commute)]
+	%TrafficLabel.tooltip_text = "Клеток дорог с пробкой: %d\nСреднее время до работы: %.1f (норма до %d)\nДалеко до работы: %d%% работников" \
+			% [traffic.jammed_cells, traffic.average_commute, roundi(Traffic.OK_COMMUTE),
+			roundi(traffic.long_commute_share * 100.0)]
+	if traffic.jammed_cells > 0:
+		%TrafficLabel.add_theme_color_override(&"font_color", SHORTAGE_COLOR)
+	else:
+		%TrafficLabel.remove_theme_color_override(&"font_color")
 
 
 func _show_hints() -> void:

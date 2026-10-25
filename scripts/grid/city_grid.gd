@@ -24,6 +24,8 @@ var road_cells: Dictionary[Vector2i, bool] = {}
 var next_building_id: int = 0
 ## Растёт при каждом изменении дорог — по нему RoadNetwork понимает, что пора пересчитаться.
 var roads_version: int = 0
+## Растёт при каждой постройке и сносе здания — по нему пересчитывается трафик.
+var buildings_version: int = 0
 ## Пустые клетки с зоной, по зонам R/C/I: Vector2i → true. Клетка здесь ⇔ EMPTY и зона не NONE.
 ## Обновляется только внутри CityGrid (_update_zoned_cache). Внутренний словарь без типа:
 ## Godot не поддерживает вложенные типизированные словари.
@@ -229,6 +231,7 @@ func place_building(type_id: StringName, cell: Vector2i, orientation: int, clear
 	var id: int = next_building_id
 	next_building_id += 1
 	buildings[id] = BuildingInstance.new(id, type_id, cell, orientation)
+	buildings_version += 1
 	tile_type[i] = Tile.BUILDING
 	building_at[i] = id
 	_update_zoned_cache(cell)
@@ -244,6 +247,7 @@ func remove_building(instance_id: int) -> bool:
 	tile_type[i] = Tile.EMPTY
 	building_at[i] = -1
 	buildings.erase(instance_id)
+	buildings_version += 1
 	_update_zoned_cache(building.cell)
 	return true
 
@@ -277,6 +281,7 @@ func rebuild_caches() -> void:
 		building_at[i] = building.id
 		max_id = maxi(max_id, building.id)
 	next_building_id = maxi(next_building_id, max_id + 1)
+	buildings_version += 1
 	for cells: Dictionary in zoned_empty_cells.values():
 		cells.clear()
 	for y: int in size:

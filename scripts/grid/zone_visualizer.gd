@@ -3,13 +3,14 @@ extends MultiMeshInstance3D
 ## Раскраска клеток: один экземпляр на клетку (номер = CityGrid.index_of), цвет — по слою карты.
 ## Слои (клавиша V по кругу): зоны / свет / вода / службы.
 
-enum Overlay { ZONES, POWER, WATER, SERVICES }
+enum Overlay { ZONES, POWER, WATER, SERVICES, TRAFFIC }
 
 const OVERLAY_NAMES: Dictionary[Overlay, String] = {
 	Overlay.ZONES: "Зоны",
 	Overlay.POWER: "Свет",
 	Overlay.WATER: "Вода",
 	Overlay.SERVICES: "Службы",
+	Overlay.TRAFFIC: "Трафик",
 }
 
 ## Высота зон: выше линий сетки (0.01), ниже тротуаров (0.02).
@@ -39,6 +40,13 @@ const NO_SUPPLY_ROAD := Color(0.4, 0.4, 0.4, 0.35)
 ## Слой служб: прозрачность растёт с числом служб, покрывающих клетку.
 const COVERAGE_COLOR := Color(0.3, 0.9, 0.4)
 const SERVICE_BUILDING := Color(1.0, 1.0, 1.0, 0.9)
+## Слой трафика: дороги от зелёного через жёлтый к красному; дома с долгой дорогой — оранжевые.
+const TRAFFIC_FREE := Color(0.2, 0.85, 0.3, 0.8)
+const TRAFFIC_BUSY := Color(1.0, 0.85, 0.1, 0.85)
+const TRAFFIC_JAM := Color(1.0, 0.15, 0.1, 0.9)
+## С этой загрузки цвет идёт от жёлтого к красному.
+const TRAFFIC_BUSY_RATIO: float = 0.7
+const LONG_COMMUTE := Color(1.0, 0.45, 0.1)
 
 var overlay: Overlay = Overlay.ZONES
 
@@ -145,6 +153,8 @@ func _update_cell(cell: Vector2i) -> void:
 			color = _utility_color(cell, false)
 		Overlay.SERVICES:
 			color = _service_color(cell)
+		Overlay.TRAFFIC:
+			color = _traffic_color(cell)
 	multimesh.set_instance_color(GameState.grid.index_of(cell), color)
 
 
@@ -183,6 +193,27 @@ func _utility_color(cell: Vector2i, power: bool) -> Color:
 	if (data.power_use if power else data.water_use) == 0:
 		return CLEAR
 	return SERVED if (building.powered if power else building.has_water) else UNSERVED
+
+
+func _traffic_color(cell: Vector2i) -> Color:
+	var grid: CityGrid = GameState.grid
+	var traffic: Traffic = GameState.traffic
+	if grid.is_road(cell):
+		var ratio: float = traffic.load_ratio(grid, grid.index_of(cell))
+		if ratio <= 0.0:
+			return NO_SUPPLY_ROAD
+		if ratio < TRAFFIC_BUSY_RATIO:
+			return TRAFFIC_FREE.lerp(TRAFFIC_BUSY, ratio / TRAFFIC_BUSY_RATIO)
+		return TRAFFIC_BUSY.lerp(TRAFFIC_JAM, clampf((ratio - TRAFFIC_BUSY_RATIO) / (1.0 - TRAFFIC_BUSY_RATIO), 0.0, 1.0))
+	var building: BuildingInstance = grid.get_building_at(cell)
+	if building == null:
+		return CLEAR
+	var badness: float = traffic.home_badness.get(building.id, 0.0)
+	if badness <= 0.0:
+		return CLEAR
+	var color: Color = LONG_COMMUTE
+	color.a = 0.35 + 0.55 * badness
+	return color
 
 
 func _service_color(cell: Vector2i) -> Color:

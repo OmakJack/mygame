@@ -12,6 +12,8 @@ const SERVICE_NAMES: Dictionary[BuildingData.Service, String] = {
 }
 ## Ниже этого покрытия служба считается нехватающей.
 const LOW_COVERAGE: float = 0.5
+## С этой доли тяжёлых поездок подсказываем, что жителям далеко до работы.
+const LONG_COMMUTE_HINT: float = 0.25
 
 
 static func build() -> Array[String]:
@@ -41,6 +43,12 @@ static func build() -> Array[String]:
 		var coverage: float = GameState.service_coverage.get(service, 0.0)
 		if coverage < LOW_COVERAGE:
 			hints.append("Нужна %s: покрытие %d%%" % [SERVICE_NAMES[service], roundi(coverage * 100.0)])
+
+	var traffic: Traffic = GameState.traffic
+	if traffic.jammed_cells > 0:
+		hints.append("Пробки на %d кл. дорог: постройте объезд" % traffic.jammed_cells)
+	if traffic.total_workers > 0.0 and traffic.long_commute_share >= LONG_COMMUTE_HINT:
+		hints.append("Жителям далеко до работы: %d%%" % roundi(traffic.long_commute_share * 100.0))
 
 	var balance: int = GameState.income - GameState.expenses
 	if GameState.money < 0:

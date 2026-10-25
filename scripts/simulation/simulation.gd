@@ -1,6 +1,6 @@
 extends Node
 ## Порядок одного тика симуляции: заброшенные → рост → пересчёт (сеть, свет и вода, подсчёт,
-## службы, спрос, прогноз денег) → деньги → сигналы.
+## трафик, службы, спрос, прогноз денег) → деньги → сигналы.
 ## Вне тика (стройка и снос на паузе, налог, новая сетка) тоже пересчитывает всё для UI.
 ## Узлы сцены не ищет: работает с GameState и Events.
 
@@ -10,10 +10,17 @@ const ABANDON_TICKS: int = 3
 const UTILITY_ABANDON_TICKS: int = 10
 ## Во сколько раз шанс роста больше спроса.
 const GROWTH_CHANCE_FACTOR: float = 2.0
+## На тике трафик пересчитывается раз в столько тиков (и сразу — при изменении дорог).
+const TRAFFIC_PERIOD: int = 5
 
 var _rng := RandomNumberGenerator.new()
 ## Идёт тик: свой же cells_changed не пересчитываем второй раз.
 var _in_tick: bool = false
+# По чему был посчитан текущий трафик — чтобы не пересчитывать его на каждый клик.
+var _traffic_grid: CityGrid = null
+var _traffic_roads_version: int = -1
+var _traffic_buildings_version: int = -1
+var _ticks_since_traffic: int = 0
 
 
 func _ready() -> void:
@@ -31,7 +38,8 @@ func _on_sim_tick() -> void:
 	var changed: Array[Vector2i] = []
 	_abandon_buildings(grid, changed)
 	_grow(grid, changed)
-	_update_stats()
+	_ticks_since_traffic += 1
+	_update_stats(true)
 	Economy.apply_day()
 	if not changed.is_empty():
 		_in_tick = true
@@ -97,8 +105,8 @@ func _grow(grid: CityGrid, changed: Array[Vector2i]) -> void:
 
 
 ## Пересчитывает всё, что видит UI: сеть, свет и воду, население и рабочие места,
-## покрытие служб, спрос и прогноз денег на день.
-func _update_stats() -> void:
+## трафик (когда пора), покрытие служб, спрос и прогноз денег на день.
+func _update_stats(from_tick: bool = false) -> void:
 	var grid: CityGrid = GameState.grid
 	GameState.network.update(grid)
 	GameState.utilities = Utilities.distribute(grid, GameState.network)
@@ -123,12 +131,31 @@ func _update_stats() -> void:
 	GameState.jobs_commercial = jobs_commercial
 	GameState.jobs_industrial = jobs_industrial
 
+	if _traffic_due(grid, from_tick):
+		GameState.traffic = Traffic.compute(grid)
+		_traffic_grid = grid
+		_traffic_roads_version = grid.roads_version
+		_traffic_buildings_version = grid.buildings_version
+		_ticks_since_traffic = 0
+
 	GameState.service_coverage = Services.coverage(grid, population)
-	var service_offset: float = Services.demand_offset(GameState.service_coverage, population)
+	var offset: float = Services.demand_offset(GameState.service_coverage, population) \
+			+ GameState.traffic.demand_offset()
 	var tax_rate: int = GameState.tax_rate
-	GameState.demand_r = Demand.residential(population, jobs_commercial, jobs_industrial, tax_rate, service_offset)
+	GameState.demand_r = Demand.residential(population, jobs_commercial, jobs_industrial, tax_rate, offset)
 	GameState.demand_c = Demand.commercial(population, jobs_commercial, tax_rate)
 	GameState.demand_i = Demand.industrial(population, jobs_industrial, tax_rate)
 	# Прогноз денег на день — тоже здесь, чтобы UI видел его сразу (и на паузе).
 	GameState.income = Economy.daily_income(population, jobs_commercial + jobs_industrial, tax_rate)
 	GameState.expenses = Economy.daily_expenses(grid.road_cells.size(), service_upkeep)
+
+
+## Дороги или сетка изменились — сразу (иначе ездили бы по снесённой улице).
+## Здания: вне тика (стройка на паузе) — сразу; на тике — раз в TRAFFIC_PERIOD.
+## Налог и покраска зон трафик не трогают.
+func _traffic_due(grid: CityGrid, from_tick: bool) -> bool:
+	if grid != _traffic_grid or grid.roads_version != _traffic_roads_version:
+		return true
+	if from_tick:
+		return _ticks_since_traffic >= TRAFFIC_PERIOD
+	return grid.buildings_version != _traffic_buildings_version

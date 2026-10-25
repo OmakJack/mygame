@@ -21,7 +21,7 @@ static func tax_offset(tax_rate: int) -> float:
 	return (Economy.DEFAULT_TAX_RATE - tax_rate) * TAX_SENSITIVITY
 
 
-## service_offset — поправка от покрытия служб (Services.demand_offset).
+## service_offset — поправки от покрытия служб (Services.demand_offset) и трафика (Traffic.demand_offset).
 static func residential(population: int, jobs_commercial: int, jobs_industrial: int, tax_rate: int,
 		service_offset: float = 0.0) -> float:
 	var target: float = jobs_commercial + jobs_industrial + R_BUFFER
