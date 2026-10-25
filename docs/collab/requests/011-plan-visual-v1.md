@@ -7,12 +7,12 @@
 
 Фазы 0–8 работают (запрос 010 по коду трафика отложен — Андрей проверил трафик в игре). Ветка `visual-pass` (от `phase-8-traffic`).
 Андрей хочет, чтобы до нового общего плана игра выглядела красиво: модели вместо коробок, нормальные машины, земля, свет.
-Скачаны пять наборов **Kenney** (CC0) в `assets/models/kenney/` — уже импортированы Godot. **Кода фазы В1 ещё нет** — это ревью плана.
+Скачаны пять наборов **Kenney** (CC0) в `assets/models/kenney/` и подключены в игре.
 
 Прочитай:
-- `docs/ARCHITECTURE.md` — раздел **«Визуальная фаза В1 (ПЛАН)»**;
+- `docs/ARCHITECTURE.md` — раздел **«Визуальная фаза В1»** (итог и изначальный план);
 - контактные листы моделей — `docs/collab/visual/sheet_*.png` (дороги сверху, красная метка — сторона −Z; здания и машины — вид со стороны +Z; листы обрезаны по краям, но лицевую сторону видно);
-- код, который затронем: `scripts/data/building_data.gd`, `building_catalog.gd`, `scripts/grid/building_meshes.gd`, `building_visualizer.gd`, `road_meshes.gd`, `road_visualizer.gd`, `traffic_visualizer.gd`, `ground.gd`, `grid_visualizer.gd`, `scenes/main.tscn`.
+- код В1: `scripts/data/building_data.gd`, `building_catalog.gd`, `scripts/grid/building_meshes.gd`, `building_visualizer.gd`, `road_meshes.gd`, `road_visualizer.gd`, `traffic_visualizer.gd`, `ground.gd`, `grid_visualizer.gd`, `scenes/main.tscn`.
 
 ## Вопросы
 1. **Модель в `BuildingData`** (`model: PackedScene` + масштаб + поворот), сборка одного `ArrayMesh` из GLB для `MeshLibrary`. Подводные камни: материалы и общая текстура `colormap.png`, несколько поверхностей, тени, импорт GLB в экспорте игры?
