@@ -26,6 +26,8 @@ const DEMANDS: Array[Dictionary] = [
 const DEBT_COLOR := Color(1.0, 0.35, 0.3)
 ## Свет или вода: кому-то не хватило.
 const SHORTAGE_COLOR := Color(1.0, 0.35, 0.3)
+## Сколько секунд висит сообщение о сохранении.
+const TOAST_SECONDS: float = 2.5
 
 var _tool_buttons: Dictionary[int, Button] = {}
 var _service_buttons: Dictionary[StringName, Button] = {}
@@ -33,6 +35,12 @@ var _speed_buttons: Dictionary[int, Button] = {}
 var _demand_bars: Array[DemandBar] = []
 var _current_tool: int = BuildTool.Mode.NONE
 var _current_type: StringName = &""
+var _save_dialog := SaveDialog.new()
+var _new_city_confirm := ConfirmationDialog.new()
+var _toast := PanelContainer.new()
+var _toast_label := Label.new()
+## Номер последнего сообщения: старый таймер не прячет новое сообщение.
+var _toast_serial: int = 0
 
 
 func _ready() -> void:
@@ -40,6 +48,7 @@ func _ready() -> void:
 	_build_speed_buttons()
 	_build_tool_buttons()
 	_build_service_buttons()
+	_build_city_controls()
 	%TaxDown.pressed.connect(func() -> void: Events.tax_rate_requested.emit(GameState.tax_rate - 1))
 	%TaxUp.pressed.connect(func() -> void: Events.tax_rate_requested.emit(GameState.tax_rate + 1))
 	Events.stats_changed.connect(_refresh_stats)
@@ -61,7 +70,7 @@ func _refresh_stats() -> void:
 		%MoneyLabel.add_theme_color_override(&"font_color", DEBT_COLOR)
 	else:
 		%MoneyLabel.remove_theme_color_override(&"font_color")
-	%DayLabel.text = "День %d" % GameState.day
+	%DayLabel.text = "%s · День %d" % [GameState.city_name, GameState.day]
 	%PopLabel.text = "Жители: %d" % GameState.population
 	%JobsLabel.text = "Работа: C %d · I %d" % [GameState.jobs_commercial, GameState.jobs_industrial]
 	var utilities: Utilities = GameState.utilities
@@ -102,6 +111,69 @@ func _show_hints() -> void:
 
 func _show_overlay(overlay: int) -> void:
 	%OverlayLabel.text = "Слой: %s [V]" % ZoneVisualizer.OVERLAY_NAMES[overlay]
+
+
+## Кнопки «Города» и «Новый город», окно сохранений, подтверждение и сообщения.
+func _build_city_controls() -> void:
+	var row: Node = $Root/TopArea/TopBar/Row
+	var cities := _make_button("Города")
+	cities.toggle_mode = false
+	cities.pressed.connect(_save_dialog.open)
+	row.add_child(cities)
+	var new_city := _make_button("Новый город")
+	new_city.toggle_mode = false
+	new_city.pressed.connect(_on_new_city_pressed)
+	row.add_child(new_city)
+	$Root.add_child(_save_dialog)
+
+	_new_city_confirm.ok_button_text = "Сохранить и создать"
+	_new_city_confirm.add_button("Не сохранять", true, "discard")
+	_new_city_confirm.confirmed.connect(func() -> void:
+		if SaveManager.save_city(GameState.city_name):
+			SaveManager.new_city())
+	_new_city_confirm.custom_action.connect(func(action: StringName) -> void:
+		if action == &"discard":
+			_new_city_confirm.hide()
+			SaveManager.new_city())
+	add_child(_new_city_confirm)
+
+	_toast.add_child(_toast_label)
+	# Под верхней панелью, по центру: нижняя панель бывает в две строки.
+	_toast.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	_toast.offset_top = 90.0
+	_toast.offset_bottom = 120.0
+	_toast.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_toast.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_toast.visible = false
+	$Root.add_child(_toast)
+	Events.save_done.connect(func(save_name: String) -> void:
+		# Сохранение под новым именем переименовывает город — обновим верхнюю панель.
+		_refresh_stats()
+		_show_toast("Сохранено: " + save_name))
+	Events.load_done.connect(func(save_name: String, warnings: int) -> void:
+		var text: String = "Загружено: " + save_name
+		if warnings > 0:
+			text += " (пропущено с ошибками: %d)" % warnings
+		_show_toast(text))
+	Events.save_error.connect(_show_toast)
+
+
+func _on_new_city_pressed() -> void:
+	if SaveManager.is_city_empty():
+		SaveManager.new_city()
+		return
+	_new_city_confirm.dialog_text = "Сохранить «%s» перед созданием нового города?" % GameState.city_name
+	_new_city_confirm.popup_centered()
+
+
+func _show_toast(text: String) -> void:
+	_toast_serial += 1
+	var serial: int = _toast_serial
+	_toast_label.text = text
+	_toast.visible = true
+	await get_tree().create_timer(TOAST_SECONDS).timeout
+	if serial == _toast_serial:
+		_toast.visible = false
 
 
 func _build_demand_bars() -> void:

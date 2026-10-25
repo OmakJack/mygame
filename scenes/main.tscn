@@ -46,6 +46,9 @@ transform = Transform3D(1, 0, 0, 0, 0.642788, 0.766044, 0, -0.766044, 0.642788, 
 shadow_enabled = true
 directional_shadow_max_distance = 200.0
 
+[node name="Simulation" type="Node" parent="."]
+script = ExtResource("10_sim")
+
 [node name="Ground" type="MeshInstance3D" parent="."]
 mesh = SubResource("ground_mesh")
 script = ExtResource("7_ground")
@@ -76,8 +79,5 @@ script = ExtResource("3_cursor")
 script = ExtResource("6_tool")
 cursor = NodePath("../CellCursor")
 preview = NodePath("../ToolPreview")
-
-[node name="Simulation" type="Node" parent="."]
-script = ExtResource("10_sim")
 
 [node name="HUD" parent="." instance=ExtResource("11_hud")]

@@ -27,7 +27,12 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
-	var input: Vector2 = Input.get_vector(&"cam_left", &"cam_right", &"cam_forward", &"cam_back")
+	# Пока игрок печатает (имя сохранения), WASD и Q/E — это буквы, а не камера.
+	var focus: Control = get_viewport().gui_get_focus_owner()
+	var typing: bool = focus is LineEdit or focus is TextEdit
+	var input: Vector2 = Vector2.ZERO
+	if not typing:
+		input = Input.get_vector(&"cam_left", &"cam_right", &"cam_forward", &"cam_back")
 	if input != Vector2.ZERO:
 		# Движение относительно поворота камеры. Чем дальше камера — тем быстрее.
 		var dir: Vector3 = basis * Vector3(input.x, 0.0, input.y)
@@ -36,7 +41,7 @@ func _process(delta: float) -> void:
 		position.x = clampf(position.x, 0.0, limit)
 		position.z = clampf(position.z, 0.0, limit)
 
-	var turn: float = Input.get_axis(&"cam_rotate_right", &"cam_rotate_left")
+	var turn: float = 0.0 if typing else Input.get_axis(&"cam_rotate_right", &"cam_rotate_left")
 	rotation.y += deg_to_rad(rotate_speed) * turn * delta
 
 	if _distance != _target_distance:

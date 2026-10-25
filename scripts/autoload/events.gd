@@ -30,6 +30,14 @@ signal tool_mode_changed(mode: int, type_id: StringName)
 @warning_ignore("unused_signal")
 signal building_place_requested(type_id: StringName)
 
+## Сохранения (для сообщений в HUD).
+@warning_ignore("unused_signal")
+signal save_done(name: String)
+@warning_ignore("unused_signal")
+signal load_done(name: String, warnings: int)
+@warning_ignore("unused_signal")
+signal save_error(message: String)
+
 ## Сменился слой карты (клавиша V): ZoneVisualizer.Overlay.
 @warning_ignore("unused_signal")
 signal overlay_changed(mode: int)

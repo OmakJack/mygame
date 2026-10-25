@@ -1,0 +1,181 @@
+extends Node
+## Сохранения: файлы в save_dir, автосохранение, F5 / F9, новый город.
+## Город ↔ словарь — CitySerializer; здесь только файлы и замена города.
+## UI зовёт публичные методы напрямую (как SimClock.set_speed).
+
+const EXTENSION: String = ".city.json"
+const AUTOSAVE: String = "autosave"
+const QUICKSAVE: String = "quicksave"
+## Автосохранение каждые столько игровых дней.
+const AUTOSAVE_DAYS: int = 30
+const DEFAULT_CITY_NAME: String = "Новый город"
+const MAX_FILE_NAME_LENGTH: int = 60
+## Имена, которые Windows не даёт использовать для файлов.
+const RESERVED_NAMES: Array[String] = [
+	"CON", "PRN", "AUX", "NUL",
+	"COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+	"LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+]
+
+## Папка сохранений. Переменная, чтобы тесты писали в свою.
+var save_dir: String = "user://saves/"
+## День последнего автосохранения (или загрузки / нового города).
+var _last_autosave_day: int = 0
+
+
+func _ready() -> void:
+	Events.sim_tick.connect(_on_sim_tick)
+	Events.grid_reset.connect(func() -> void: _last_autosave_day = GameState.day)
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST:
+		_autosave()
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed(&"save_quick"):
+		_write(QUICKSAVE, "Быстрое сохранение")
+	elif event.is_action_pressed(&"load_quick"):
+		load_city(QUICKSAVE)
+
+
+## Сохраняет город под именем city_name (оно же становится именем города).
+func save_city(city_name: String) -> bool:
+	GameState.city_name = city_name.strip_edges() if not city_name.strip_edges().is_empty() else DEFAULT_CITY_NAME
+	return _write(file_id_for(GameState.city_name), GameState.city_name)
+
+
+## Загружает сохранение. Битый файл не трогает текущий город. Возвращает true при успехе.
+func load_city(file_id: String) -> bool:
+	var path: String = _path(file_id)
+	if not FileAccess.file_exists(path):
+		Events.save_error.emit("Нет такого сохранения")
+		return false
+	var data: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
+	var result: CitySerializer.LoadResult = CitySerializer.from_dict(data)
+	if not result.ok:
+		Events.save_error.emit("Не удалось загрузить: " + result.error)
+		return false
+	for warning: String in result.warnings:
+		push_warning("Загрузка «%s»: %s" % [file_id, warning])
+	_apply(result.grid, result.name, result.money, result.tax_rate, result.day)
+	Events.load_done.emit(result.name, result.warnings.size())
+	return true
+
+
+func new_city() -> void:
+	_apply(CityGrid.new(CityGrid.GRID_SIZE), DEFAULT_CITY_NAME, Economy.START_MONEY,
+			Economy.DEFAULT_TAX_RATE, 0)
+
+
+## Сохранения: file, name, day, population, money, saved_at, broken. Новые — первыми.
+## У автосохранения и быстрого сохранения к имени города добавляется пометка.
+func list_saves() -> Array[Dictionary]:
+	var saves: Array[Dictionary] = []
+	var dir := DirAccess.open(save_dir)
+	if dir == null:
+		return saves
+	for file_name: String in dir.get_files():
+		if not file_name.ends_with(EXTENSION):
+			continue
+		var file_id: String = file_name.trim_suffix(EXTENSION)
+		var data: Variant = JSON.parse_string(FileAccess.get_file_as_string(save_dir + file_name))
+		var root: Dictionary = data if data is Dictionary else {}
+		var meta: Dictionary = root.get("meta", {}) if root.get("meta") is Dictionary else {}
+		var display_name: String = str(meta.get("name", file_id))
+		if file_id == AUTOSAVE:
+			display_name = "Автосохранение: " + display_name
+		elif file_id == QUICKSAVE:
+			display_name = "Быстрое сохранение: " + display_name
+		saves.append({
+			"file": file_id,
+			"name": display_name,
+			"broken": root.get("format") != CitySerializer.FORMAT,
+			"day": _number(meta.get("day")),
+			"population": _number(meta.get("population")),
+			"money": _number(meta.get("money")),
+			"saved_at": str(root.get("saved_at", "")),
+		})
+	saves.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a.saved_at > b.saved_at)
+	return saves
+
+
+func delete_save(file_id: String) -> bool:
+	return DirAccess.remove_absolute(_path(file_id)) == OK
+
+
+## Пустой город (нет дорог и зданий) не сохраняем автоматически,
+## чтобы не затереть прошлое автосохранение.
+func is_city_empty() -> bool:
+	return GameState.grid.road_cells.is_empty() and GameState.grid.buildings.is_empty()
+
+
+## Имя файла из имени города: буквы, цифры, пробел, _ и -; остальное — «_».
+static func file_id_for(city_name: String) -> String:
+	var id: String = ""
+	for character: String in city_name.strip_edges():
+		var is_letter: bool = character.to_upper() != character.to_lower()
+		var is_digit: bool = character >= "0" and character <= "9"
+		id += character if is_letter or is_digit or character in [" ", "_", "-"] else "_"
+	id = id.strip_edges().left(MAX_FILE_NAME_LENGTH)
+	if id.is_empty():
+		id = "city"
+	# Служебные имена и зарезервированные имена Windows — с «_» спереди.
+	if id.to_upper() in RESERVED_NAMES or id == AUTOSAVE or id == QUICKSAVE:
+		id = "_" + id
+	return id
+
+
+func _write(file_id: String, label: String) -> bool:
+	DirAccess.make_dir_recursive_absolute(save_dir)
+	var data: Dictionary = CitySerializer.to_dict(GameState.grid, GameState.city_name, GameState.money,
+			GameState.tax_rate, GameState.day, GameState.population)
+	var path: String = _path(file_id)
+	var temp_path: String = path + ".tmp"
+	# Сначала во временный файл, потом поверх старого: при сбое старое сохранение цело.
+	var file := FileAccess.open(temp_path, FileAccess.WRITE)
+	if file == null:
+		Events.save_error.emit("Не удалось сохранить: %s" % error_string(FileAccess.get_open_error()))
+		return false
+	file.store_string(JSON.stringify(data))
+	file.close()
+	var error: Error = DirAccess.rename_absolute(temp_path, path)
+	if error != OK:
+		DirAccess.remove_absolute(temp_path)
+		Events.save_error.emit("Не удалось сохранить: %s" % error_string(error))
+		return false
+	Events.save_done.emit(label)
+	return true
+
+
+func _apply(grid: CityGrid, city_name: String, money: int, tax_rate: int, day: int) -> void:
+	GameState.grid = grid
+	GameState.city_name = city_name
+	GameState.money = money
+	GameState.tax_rate = tax_rate
+	GameState.day = day
+	# Сеть сверяется со ссылкой на сетку сама; свет, вода и службы пересчитает Simulation.
+	GameState.utilities = Utilities.new()
+	GameState.service_coverage = {}
+	Events.grid_reset.emit()
+
+
+## Раз в AUTOSAVE_DAYS дней от последнего автосохранения (а не «день кратен 30»:
+## иначе после загрузки сохранения с дня 30 автосохранение сработало бы сразу).
+func _on_sim_tick() -> void:
+	if GameState.day - _last_autosave_day >= AUTOSAVE_DAYS:
+		_autosave()
+
+
+func _autosave() -> void:
+	if not is_city_empty() and _write(AUTOSAVE, "Автосохранение"):
+		_last_autosave_day = GameState.day
+
+
+func _path(file_id: String) -> String:
+	return save_dir.path_join(file_id + EXTENSION)
+
+
+static func _number(value: Variant) -> int:
+	return int(value) if (value is int or value is float) else 0

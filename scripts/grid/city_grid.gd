@@ -251,3 +251,33 @@ func remove_building(instance_id: int) -> bool:
 ## Здание на клетке или null. Клетка должна быть в границах.
 func get_building_at(cell: Vector2i) -> BuildingInstance:
 	return buildings.get(building_at[index_of(cell)])
+
+
+# --- Загрузка ---
+
+## Пересобирает кэши по слоям tile_type (дороги), zone и словарю buildings.
+## Вызывает загрузка сохранения после прямой записи слоёв (фаза 7).
+## Клетки зданий в tile_type выставляются здесь по buildings.
+func rebuild_caches() -> void:
+	road_cells.clear()
+	building_at.fill(-1)
+	for y: int in size:
+		for x: int in size:
+			var i: int = index_of(Vector2i(x, y))
+			if tile_type[i] == Tile.ROAD:
+				road_cells[Vector2i(x, y)] = true
+			elif tile_type[i] == Tile.BUILDING:
+				tile_type[i] = Tile.EMPTY
+	var max_id: int = -1
+	for building: BuildingInstance in buildings.values():
+		var i: int = index_of(building.cell)
+		tile_type[i] = Tile.BUILDING
+		building_at[i] = building.id
+		max_id = maxi(max_id, building.id)
+	next_building_id = maxi(next_building_id, max_id + 1)
+	for cells: Dictionary in zoned_empty_cells.values():
+		cells.clear()
+	for y: int in size:
+		for x: int in size:
+			_update_zoned_cache(Vector2i(x, y))
+	roads_version += 1

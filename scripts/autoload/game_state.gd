@@ -3,6 +3,8 @@ extends Node
 ## день и сетка. Статистику пишет simulation.gd, деньги меняет только Economy.
 
 var grid: CityGrid
+## Имя города (хранится в сохранении).
+var city_name: String = "Новый город"
 var money: int = Economy.START_MONEY
 ## Налог, %. Меняется через Events.tax_rate_requested.
 var tax_rate: int = Economy.DEFAULT_TAX_RATE
