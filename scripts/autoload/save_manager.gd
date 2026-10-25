@@ -80,17 +80,19 @@ func list_saves() -> Array[Dictionary]:
 		if not file_name.ends_with(EXTENSION):
 			continue
 		var file_id: String = file_name.trim_suffix(EXTENSION)
-		var data: Variant = JSON.parse_string(FileAccess.get_file_as_string(save_dir + file_name))
+		var data: Variant = JSON.parse_string(FileAccess.get_file_as_string(save_dir.path_join(file_name)))
 		var root: Dictionary = data if data is Dictionary else {}
 		var meta: Dictionary = root.get("meta", {}) if root.get("meta") is Dictionary else {}
-		var display_name: String = str(meta.get("name", file_id))
+		var city_name: String = str(meta.get("name", file_id))
+		var display_name: String = city_name
 		if file_id == AUTOSAVE:
-			display_name = "Автосохранение: " + display_name
+			display_name = "Автосохранение: " + city_name
 		elif file_id == QUICKSAVE:
-			display_name = "Быстрое сохранение: " + display_name
+			display_name = "Быстрое сохранение: " + city_name
 		saves.append({
 			"file": file_id,
 			"name": display_name,
+			"city_name": city_name,
 			"broken": root.get("format") != CitySerializer.FORMAT,
 			"day": _number(meta.get("day")),
 			"population": _number(meta.get("population")),
@@ -118,11 +120,14 @@ static func file_id_for(city_name: String) -> String:
 		var is_letter: bool = character.to_upper() != character.to_lower()
 		var is_digit: bool = character >= "0" and character <= "9"
 		id += character if is_letter or is_digit or character in [" ", "_", "-"] else "_"
-	id = id.strip_edges().left(MAX_FILE_NAME_LENGTH)
+	# Ещё раз strip_edges после обрезки: Windows отбрасывает пробел в конце имени файла.
+	id = id.strip_edges().left(MAX_FILE_NAME_LENGTH).strip_edges()
 	if id.is_empty():
 		id = "city"
-	# Служебные имена и зарезервированные имена Windows — с «_» спереди.
-	if id.to_upper() in RESERVED_NAMES or id == AUTOSAVE or id == QUICKSAVE:
+	# Служебные и зарезервированные имена Windows — с «_» спереди. Без учёта регистра:
+	# в Windows «Autosave» и «autosave» — один и тот же файл.
+	var lower: String = id.to_lower()
+	if id.to_upper() in RESERVED_NAMES or lower == AUTOSAVE or lower == QUICKSAVE:
 		id = "_" + id
 	return id
 
@@ -173,8 +178,9 @@ func _autosave() -> void:
 		_last_autosave_day = GameState.day
 
 
+## Только имя файла (get_file): даже «../что-то» не выйдет за папку сохранений.
 func _path(file_id: String) -> String:
-	return save_dir.path_join(file_id + EXTENSION)
+	return save_dir.path_join(file_id.get_file() + EXTENSION)
 
 
 static func _number(value: Variant) -> int:

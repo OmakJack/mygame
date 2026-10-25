@@ -41,6 +41,8 @@ var _toast := PanelContainer.new()
 var _toast_label := Label.new()
 ## Номер последнего сообщения: старый таймер не прячет новое сообщение.
 var _toast_serial: int = 0
+## Скорость до окна подтверждения «Новый город».
+var _speed_before_confirm: int = 1
 
 
 func _ready() -> void:
@@ -135,6 +137,11 @@ func _build_city_controls() -> void:
 		if action == &"discard":
 			_new_city_confirm.hide()
 			SaveManager.new_city())
+	# Пока окно подтверждения открыто — пауза и камера стоит; закрылось — скорость прежняя.
+	_new_city_confirm.visibility_changed.connect(func() -> void:
+		if not _new_city_confirm.visible:
+			SimClock.set_speed(_speed_before_confirm)
+			Events.modal_changed.emit(false))
 	add_child(_new_city_confirm)
 
 	_toast.add_child(_toast_label)
@@ -163,6 +170,9 @@ func _on_new_city_pressed() -> void:
 		SaveManager.new_city()
 		return
 	_new_city_confirm.dialog_text = "Сохранить «%s» перед созданием нового города?" % GameState.city_name
+	_speed_before_confirm = SimClock.speed
+	SimClock.set_speed(0)
+	Events.modal_changed.emit(true)
 	_new_city_confirm.popup_centered()
 
 

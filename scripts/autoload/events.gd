@@ -38,6 +38,10 @@ signal load_done(name: String, warnings: int)
 @warning_ignore("unused_signal")
 signal save_error(message: String)
 
+## Открылось или закрылось окно поверх игры (сохранения, подтверждение) — камера стоит.
+@warning_ignore("unused_signal")
+signal modal_changed(open: bool)
+
 ## Сменился слой карты (клавиша V): ZoneVisualizer.Overlay.
 @warning_ignore("unused_signal")
 signal overlay_changed(mode: int)

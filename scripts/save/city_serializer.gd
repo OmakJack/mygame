@@ -134,7 +134,8 @@ static func _load_building(grid: CityGrid, entry: Dictionary, occupied: Dictiona
 	var orientation: int = _int(entry.get("o"), -1)
 	if id < 0 or grid.buildings.has(id):
 		return "пропущено здание с неверным или повторным номером"
-	if BuildingCatalog.get_type(type_id) == null:
+	var data: BuildingData = BuildingCatalog.get_type(type_id)
+	if data == null:
 		return "пропущено здание неизвестного типа «%s»" % type_id
 	if not grid.is_in_bounds(cell):
 		return "пропущено здание за картой"
@@ -148,6 +149,9 @@ static func _load_building(grid: CityGrid, entry: Dictionary, occupied: Dictiona
 	building.no_water_ticks = maxi(0, _int(entry.get("nw"), 0))
 	grid.buildings[id] = building
 	occupied[cell] = true
+	# Под служебным зданием зоны нет (как при постройке): после сноса там не вырастет дом.
+	if data.zone == CityGrid.Zone.NONE:
+		grid.zone[grid.index_of(cell)] = CityGrid.Zone.NONE
 	return ""
 
 

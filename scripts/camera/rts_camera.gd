@@ -15,6 +15,8 @@ extends Node3D
 
 var _distance: float = 40.0
 var _target_distance: float = 40.0
+## Открыто окно поверх игры (сохранения, подтверждение) — клавиши не для камеры.
+var _modal_open: bool = false
 
 @onready var _camera: Camera3D = $Camera3D
 
@@ -24,12 +26,15 @@ func _ready() -> void:
 	var half: float = GameState.grid.world_size() * 0.5
 	position = Vector3(half, 0.0, half)
 	_apply_distance()
+	Events.modal_changed.connect(func(open: bool) -> void: _modal_open = open)
+	# Новая карта может быть меньше — не оставляем камеру за её краем.
+	Events.grid_reset.connect(_clamp_to_map)
 
 
 func _process(delta: float) -> void:
-	# Пока игрок печатает (имя сохранения), WASD и Q/E — это буквы, а не камера.
+	# Пока игрок печатает (имя сохранения) или открыто окно, WASD и Q/E — не для камеры.
 	var focus: Control = get_viewport().gui_get_focus_owner()
-	var typing: bool = focus is LineEdit or focus is TextEdit
+	var typing: bool = focus is LineEdit or focus is TextEdit or _modal_open
 	var input: Vector2 = Vector2.ZERO
 	if not typing:
 		input = Input.get_vector(&"cam_left", &"cam_right", &"cam_forward", &"cam_back")
@@ -37,9 +42,7 @@ func _process(delta: float) -> void:
 		# Движение относительно поворота камеры. Чем дальше камера — тем быстрее.
 		var dir: Vector3 = basis * Vector3(input.x, 0.0, input.y)
 		position += dir * move_speed * (_distance / 40.0) * delta
-		var limit: float = GameState.grid.world_size()
-		position.x = clampf(position.x, 0.0, limit)
-		position.z = clampf(position.z, 0.0, limit)
+		_clamp_to_map()
 
 	var turn: float = 0.0 if typing else Input.get_axis(&"cam_rotate_right", &"cam_rotate_left")
 	rotation.y += deg_to_rad(rotate_speed) * turn * delta
@@ -60,6 +63,12 @@ func _unhandled_input(event: InputEvent) -> void:
 		_target_distance = clampf(_target_distance - zoom_step, min_distance, max_distance)
 	elif button.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 		_target_distance = clampf(_target_distance + zoom_step, min_distance, max_distance)
+
+
+func _clamp_to_map() -> void:
+	var limit: float = GameState.grid.world_size()
+	position.x = clampf(position.x, 0.0, limit)
+	position.z = clampf(position.z, 0.0, limit)
 
 
 ## Ставит камеру на расстояние _distance от точки, наклонённой на pitch_degrees.

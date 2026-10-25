@@ -266,6 +266,8 @@ func rebuild_caches() -> void:
 			var i: int = index_of(Vector2i(x, y))
 			if tile_type[i] == Tile.ROAD:
 				road_cells[Vector2i(x, y)] = true
+				# Под дорогой зоны не бывает (как в set_road).
+				zone[i] = Zone.NONE
 			elif tile_type[i] == Tile.BUILDING:
 				tile_type[i] = Tile.EMPTY
 	var max_id: int = -1

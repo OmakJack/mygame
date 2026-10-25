@@ -93,6 +93,9 @@ func _rebuild() -> void:
 
 func _repaint_all() -> void:
 	var grid: CityGrid = GameState.grid
+	# По grid_reset stats_changed приходит раньше, чем мы пересобраны под новую карту.
+	if multimesh.instance_count != grid.size * grid.size:
+		return
 	if overlay == Overlay.SERVICES:
 		_build_service_mask(grid)
 	for y: int in grid.size:

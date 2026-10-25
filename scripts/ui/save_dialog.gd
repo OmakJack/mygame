@@ -73,6 +73,7 @@ func open() -> void:
 	_name_edit.text = GameState.city_name
 	_refresh()
 	visible = true
+	Events.modal_changed.emit(true)
 	_name_edit.grab_focus()
 
 
@@ -80,16 +81,21 @@ func close() -> void:
 	visible = false
 	_name_edit.release_focus()
 	SimClock.set_speed(_speed_before)
+	Events.modal_changed.emit(false)
 	closed.emit()
+
+
+## Esc — здесь, а не в _unhandled_input: иначе первое нажатие съедает поле ввода.
+func _input(event: InputEvent) -> void:
+	if visible and not _confirm.visible and event.is_action_pressed(&"tool_cancel"):
+		close()
+		get_viewport().set_input_as_handled()
 
 
 ## Пока окно открыто, клавиши не доходят до инструмента, часов и слоёв карты.
 func _unhandled_input(event: InputEvent) -> void:
-	if not visible or not event is InputEventKey:
-		return
-	if event.is_action_pressed(&"tool_cancel"):
-		close()
-	get_viewport().set_input_as_handled()
+	if visible and event is InputEventKey:
+		get_viewport().set_input_as_handled()
 
 
 func _refresh() -> void:
@@ -105,9 +111,9 @@ func _refresh() -> void:
 
 func _on_item_selected(index: int) -> void:
 	var save: Dictionary = _saves[index]
-	# Для авто- и быстрого сохранения в поле — имя города без пометки.
-	if not save.broken and save.file != SaveManager.AUTOSAVE and save.file != SaveManager.QUICKSAVE:
-		_name_edit.text = save.name
+	# В поле — имя города без пометки «Автосохранение: ».
+	if not save.broken:
+		_name_edit.text = save.city_name
 
 
 func _save() -> void:
