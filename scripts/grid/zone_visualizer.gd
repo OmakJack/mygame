@@ -172,6 +172,10 @@ func _utility_color(cell: Vector2i, power: bool) -> Color:
 	if data == null:
 		return CLEAR
 	if (data.power_supply if power else data.water_supply) > 0:
+		# Станция работает, если есть дорога; водокачке ещё нужен свет.
+		var working: bool = grid.has_road_access(cell) and (power or building.powered)
+		if not working:
+			return UNSERVED
 		return POWER_SOURCE if power else WATER_SOURCE
 	if (data.power_use if power else data.water_use) == 0:
 		return CLEAR

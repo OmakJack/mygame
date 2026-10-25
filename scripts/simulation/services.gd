@@ -5,8 +5,8 @@ extends RefCounted
 
 ## С какого населения служба нужна городу.
 const REQUIRED_FROM: Dictionary[BuildingData.Service, int] = {
-	BuildingData.Service.SCHOOL: 100,
-	BuildingData.Service.HEALTH: 200,
+	BuildingData.Service.SCHOOL: 150,
+	BuildingData.Service.HEALTH: 250,
 	BuildingData.Service.FIRE: 350,
 	BuildingData.Service.POLICE: 500,
 }

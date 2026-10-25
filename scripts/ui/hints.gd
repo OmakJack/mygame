@@ -22,6 +22,12 @@ static func build() -> Array[String]:
 	var zoned: int = 0
 	for cells: Dictionary in grid.zoned_empty_cells.values():
 		zoned += cells.size()
+	# Пустой город: ведём по первым шагам. Станции — раньше зон, чтобы не потратить деньги на зоны.
+	if GameState.population == 0:
+		var step: String = _first_step(grid, utilities, zoned)
+		if not step.is_empty():
+			hints.append(step)
+			return hints
 	if zoned > 0 and (utilities.power_supply == 0 or utilities.water_supply == 0):
 		hints.append("Без света и воды город не растёт: поставьте у дороги ТЭЦ и водокачку")
 	if utilities.unpowered_count > 0:
@@ -45,3 +51,13 @@ static func build() -> Array[String]:
 	if hints.size() > MAX_HINTS:
 		hints.resize(MAX_HINTS)
 	return hints
+
+
+static func _first_step(grid: CityGrid, utilities: Utilities, zoned: int) -> String:
+	if grid.road_cells.is_empty():
+		return "Шаг 1: проведите дорогу [R]"
+	if utilities.power_supply == 0 or utilities.water_supply == 0:
+		return "Шаг 2: поставьте у дороги ТЭЦ и водокачку (кнопки внизу)"
+	if zoned == 0:
+		return "Шаг 3: разметьте у дороги жилую [1] и промышленную [3] зоны"
+	return ""

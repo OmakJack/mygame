@@ -78,7 +78,7 @@ static func cost_of(tool_mode: Mode) -> int:
 
 func _process(_delta: float) -> void:
 	# В режиме постановки курсор краснеет там, куда поставить нельзя.
-	if mode == Mode.PLACE and not _dragging and cursor.has_cell:
+	if mode == Mode.PLACE and cursor.has_cell:
 		cursor.set_color(CURSOR_COLORS[mode] if _can_place(cursor.hovered_cell) else INVALID_COLOR)
 	if not _dragging or not cursor.has_ground_hit:
 		return
@@ -222,7 +222,8 @@ func _apply() -> void:
 
 ## Ставит служебное здание: стирает зону клетки, фасад к дороге, списывает цену.
 func _apply_place(grid: CityGrid) -> void:
-	if _drag_cells.is_empty() or not _can_place(_drag_cells[0]):
+	# Одно здание ставим только туда, где виден курсор: отпускание над панелью UI — отмена.
+	if not cursor.has_cell or _drag_cells.is_empty() or not _can_place(_drag_cells[0]):
 		return
 	var cell: Vector2i = _drag_cells[0]
 	var data: BuildingData = BuildingCatalog.get_type(place_type)

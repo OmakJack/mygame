@@ -11,6 +11,9 @@ static func grow_one(grid: CityGrid, zone_type: CityGrid.Zone, rng: RandomNumber
 	if types.is_empty():
 		return CityGrid.NO_CELL
 	var data: BuildingData = types[rng.randi_range(0, types.size() - 1)]
+	# Нет запаса ни в одном компоненте — не перебираем клетки.
+	if not _has_capacity(utilities, data):
+		return CityGrid.NO_CELL
 	var candidates: Array[Vector2i] = []
 	var components: Array[int] = []
 	for cell: Vector2i in grid.zoned_empty_cells[zone_type]:
@@ -35,3 +38,11 @@ static func grow_one(grid: CityGrid, zone_type: CityGrid.Zone, rng: RandomNumber
 	utilities.spare_power[component] -= data.power_use
 	utilities.spare_water[component] -= data.water_use
 	return cell
+
+
+static func _has_capacity(utilities: Utilities, data: BuildingData) -> bool:
+	for component: int in utilities.spare_power:
+		var enough_water: bool = utilities.spare_water.get(component, 0) >= data.water_use
+		if utilities.spare_power[component] >= data.power_use and enough_water:
+			return true
+	return false

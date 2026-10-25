@@ -8,6 +8,8 @@ extends Node
 const ABANDON_TICKS: int = 3
 ## Через сколько тиков без света или воды дом сносится (дольше — чтобы игрок успел поставить станцию).
 const UTILITY_ABANDON_TICKS: int = 10
+## Во сколько раз шанс роста больше спроса.
+const GROWTH_CHANCE_FACTOR: float = 2.0
 
 var _rng := RandomNumberGenerator.new()
 ## Идёт тик: свой же cells_changed не пересчитываем второй раз.
@@ -77,7 +79,8 @@ func _abandon_buildings(grid: CityGrid, changed: Array[Vector2i]) -> void:
 		grid.remove_building(id)
 
 
-## Шанс вырасти дому зоны на тике = спрос этой зоны.
+## Шанс вырасти дому зоны на тике = min(1, спрос · GROWTH_CHANCE_FACTOR):
+## при нормальном спросе — каждый тик, при просадке (налог, нет служб) — плавно реже.
 func _grow(grid: CityGrid, changed: Array[Vector2i]) -> void:
 	var demands: Dictionary[CityGrid.Zone, float] = {
 		CityGrid.Zone.RESIDENTIAL: GameState.demand_r,
@@ -85,7 +88,8 @@ func _grow(grid: CityGrid, changed: Array[Vector2i]) -> void:
 		CityGrid.Zone.INDUSTRIAL: GameState.demand_i,
 	}
 	for zone_type: CityGrid.Zone in demands:
-		if _rng.randf() >= demands[zone_type]:
+		var chance: float = clampf(demands[zone_type] * GROWTH_CHANCE_FACTOR, 0.0, 1.0)
+		if _rng.randf() >= chance:
 			continue
 		var cell: Vector2i = Growth.grow_one(grid, zone_type, _rng, GameState.network, GameState.utilities)
 		if cell != CityGrid.NO_CELL:

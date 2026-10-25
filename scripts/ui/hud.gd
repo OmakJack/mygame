@@ -55,8 +55,8 @@ func _ready() -> void:
 func _refresh_stats() -> void:
 	var balance: int = GameState.income - GameState.expenses
 	%MoneyLabel.text = "$%d (%+d/день)" % [GameState.money, balance]
-	%MoneyLabel.tooltip_text = "Доход: +$%d/день
-Содержание дорог и служб: −$%d/день" 			% [GameState.income, GameState.expenses]
+	var money_tip: String = "Доход: +$%d/день\nСодержание дорог и служб: −$%d/день"
+	%MoneyLabel.tooltip_text = money_tip % [GameState.income, GameState.expenses]
 	if GameState.money < 0:
 		%MoneyLabel.add_theme_color_override(&"font_color", DEBT_COLOR)
 	else:
@@ -153,13 +153,29 @@ func _build_service_buttons() -> void:
 	for data: BuildingData in types:
 		var button := _make_button("%s
 $%d" % [data.display_name, data.cost])
-		button.tooltip_text = "Содержание: $%d/день" % data.upkeep
+		button.tooltip_text = _service_tooltip(data)
 		var type_id: StringName = data.id
 		button.pressed.connect(func() -> void:
 			Events.building_place_requested.emit(type_id)
 			_sync_tool_buttons())
 		%Tools.add_child(button)
 		_service_buttons[type_id] = button
+
+
+## Цена, содержание, что даёт и потребляет, радиус и с какого населения нужна служба.
+func _service_tooltip(data: BuildingData) -> String:
+	var lines: PackedStringArray = ["Цена: $%d, содержание: $%d/день" % [data.cost, data.upkeep]]
+	if data.power_supply > 0:
+		lines.append("Даёт свет: %d" % data.power_supply)
+	if data.water_supply > 0:
+		lines.append("Даёт воду: %d" % data.water_supply)
+	if data.power_use > 0 or data.water_use > 0:
+		lines.append("Потребляет: свет %d, вода %d" % [data.power_use, data.water_use])
+	if data.service != BuildingData.Service.NONE:
+		var needed_from: int = Services.REQUIRED_FROM.get(data.service, 0)
+		lines.append("Радиус: %d кл.; нужна городу с %d жителей" % [data.service_radius, needed_from])
+	lines.append("Ставится у дороги")
+	return "\n".join(lines)
 
 
 func _make_button(text: String) -> Button:

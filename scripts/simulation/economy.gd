@@ -15,7 +15,7 @@ const DEFAULT_TAX_RATE: int = 9
 const MIN_TAX_RATE: int = 0
 const MAX_TAX_RATE: int = 20
 ## Доход за день = (жители + рабочие места) · налог(%) · TAX_FACTOR.
-const TAX_FACTOR: float = 0.01
+const TAX_FACTOR: float = 0.015
 
 
 static func can_afford(amount: int) -> bool:
