@@ -1,17 +1,17 @@
-[gd_resource type="Resource" script_class="BuildingData" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="BuildingData" format=3]
 
 [ext_resource type="Script" path="res://scripts/data/building_data.gd" id="1_data"]
+[ext_resource type="PackedScene" path="res://assets/models/kenney/industrial/building-a.glb" id="1_e8gde"]
 
 [resource]
 script = ExtResource("1_data")
 id = &"ind_small_01"
 display_name = "Маленький цех"
 zone = 3
-population = 0
 jobs = 8
-cost = 0
-upkeep = 0
 power_use = 3
 water_use = 2
+model = ExtResource("1_e8gde")
+model_scale = 0.95
 placeholder_color = Color(0.72, 0.66, 0.58, 1)
 placeholder_height = 1.8

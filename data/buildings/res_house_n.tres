@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/kenney/suburban/building-type-n.glb" id="1_5gor7"]
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="2_o4x7c"]
+
+[resource]
+script = ExtResource("2_o4x7c")
+id = &"res_house_n"
+display_name = "Дом N"
+population = 10
+power_use = 1
+water_use = 1
+model = ExtResource("1_5gor7")
+model_scale = 1.35

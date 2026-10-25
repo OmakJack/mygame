@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/kenney/industrial/building-r.glb" id="1_cqsbv"]
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="2_j6xgn"]
+
+[resource]
+script = ExtResource("2_j6xgn")
+id = &"ind_factory_r"
+display_name = "Цех R"
+zone = 3
+jobs = 8
+power_use = 3
+water_use = 2
+model = ExtResource("1_cqsbv")
+model_scale = 0.95

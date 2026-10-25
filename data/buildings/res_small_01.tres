@@ -1,17 +1,16 @@
-[gd_resource type="Resource" script_class="BuildingData" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="BuildingData" format=3]
 
 [ext_resource type="Script" path="res://scripts/data/building_data.gd" id="1_data"]
+[ext_resource type="PackedScene" path="res://assets/models/kenney/suburban/building-type-a.glb" id="1_qejfd"]
 
 [resource]
 script = ExtResource("1_data")
 id = &"res_small_01"
 display_name = "Маленький дом"
-zone = 1
 population = 10
-jobs = 0
-cost = 0
-upkeep = 0
 power_use = 1
 water_use = 1
+model = ExtResource("1_qejfd")
+model_scale = 1.35
 placeholder_color = Color(0.92, 0.86, 0.72, 1)
 placeholder_height = 1.6

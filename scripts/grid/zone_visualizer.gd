@@ -20,9 +20,9 @@ const OVERLAY_HEIGHT: float = 0.04
 
 const ZONE_COLORS: Dictionary[CityGrid.Zone, Color] = {
 	CityGrid.Zone.NONE: Color(0, 0, 0, 0),
-	CityGrid.Zone.RESIDENTIAL: Color(0.25, 0.8, 0.3, 0.45),
-	CityGrid.Zone.COMMERCIAL: Color(0.25, 0.5, 0.95, 0.45),
-	CityGrid.Zone.INDUSTRIAL: Color(0.95, 0.8, 0.2, 0.45),
+	CityGrid.Zone.RESIDENTIAL: Color(0.3, 0.85, 0.35, 0.3),
+	CityGrid.Zone.COMMERCIAL: Color(0.3, 0.55, 0.95, 0.3),
+	CityGrid.Zone.INDUSTRIAL: Color(0.95, 0.8, 0.25, 0.3),
 }
 ## Зона без доступа к дороге: тот же цвет, но тусклее и прозрачнее.
 const NO_ACCESS_DIM: float = 0.45

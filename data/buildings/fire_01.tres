@@ -1,5 +1,6 @@
-[gd_resource type="Resource" script_class="BuildingData" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="BuildingData" format=3]
 
+[ext_resource type="PackedScene" path="res://assets/models/kenney/industrial/building-t.glb" id="1_0mj3p"]
 [ext_resource type="Script" path="res://scripts/data/building_data.gd" id="1_data"]
 
 [resource]
@@ -9,11 +10,12 @@ display_name = "Пожарная часть"
 zone = 0
 cost = 250
 upkeep = 8
-power_supply = 0
-water_supply = 0
 power_use = 2
 water_use = 2
 service = 3
 service_radius = 16
+model = ExtResource("1_0mj3p")
+model_scale = 0.95
+sign_color = Color(0.9, 0.3, 0.1, 1)
 placeholder_color = Color(0.85, 0.25, 0.2, 1)
 placeholder_height = 2.0

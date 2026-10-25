@@ -1,6 +1,6 @@
 class_name RoadMeshes
 extends RefCounted
-## Заглушки кусков дорог, сгенерированные кодом. Позже заменяются моделями —
+## Куски дорог: модели Kenney, а если их нет — заглушки, сгенерированные кодом.
 ## road_visualizer зависит только от номеров кусков (Piece).
 
 ## Номера кусков в MeshLibrary. Каждый нарисован в «базовом» повороте (BASE_MASKS).
@@ -29,6 +29,19 @@ const ASPHALT_Y: float = 0.03
 const MARKING_Y: float = 0.035
 
 
+## Модели Kenney для кусков (плитка 1×1, у нас клетка 2 м).
+const MODELS: Array[String] = [
+	"res://assets/models/kenney/roads/road-end.glb",
+	"res://assets/models/kenney/roads/road-straight.glb",
+	"res://assets/models/kenney/roads/road-bend.glb",
+	"res://assets/models/kenney/roads/road-intersection.glb",
+	"res://assets/models/kenney/roads/road-crossroad.glb",
+]
+## Вершина «у середины края» плитки 1×1: на краю (±0.5) и не дальше этого от середины.
+const EDGE_EPSILON: float = 0.02
+const EDGE_MIDDLE: float = 0.12
+
+
 static func build_library() -> MeshLibrary:
 	var library := MeshLibrary.new()
 	var material := StandardMaterial3D.new()
@@ -37,8 +50,57 @@ static func build_library() -> MeshLibrary:
 	for piece: int in BASE_MASKS.size():
 		library.create_item(piece)
 		library.set_item_name(piece, Piece.keys()[piece])
-		library.set_item_mesh(piece, _build_piece(BASE_MASKS[piece], piece, material))
+		var mesh: Mesh = _model_piece(piece)
+		if mesh == null:
+			mesh = _build_piece(BASE_MASKS[piece], piece, material)
+		library.set_item_mesh(piece, mesh)
 	return library
+
+
+## Кусок из модели, повёрнутый так, чтобы его рукава совпали с BASE_MASKS. null — модели нет
+## или её рукава никаким поворотом не совпадают (тогда — заглушка из кода).
+static func _model_piece(piece: int) -> ArrayMesh:
+	if not ResourceLoader.exists(MODELS[piece]):
+		return null
+	var scene: PackedScene = load(MODELS[piece])
+	var native: int = native_mask(ModelLoader.merge(scene))
+	for turns: int in 4:
+		if _rotate_cw(native, turns) == BASE_MASKS[piece]:
+			# Поворот на −90° вокруг Y — шаг по часовой (N → E), как в road_visualizer.
+			# По высоте не растягиваем: асфальт остаётся тонким (0..0.02).
+			var scale := Vector3(CityGrid.CELL_SIZE, 1.0, CityGrid.CELL_SIZE)
+			var basis := Basis(Vector3.UP, -turns * PI * 0.5) * Basis.from_scale(scale)
+			return ModelLoader.merge(scene, Transform3D(basis, Vector3.ZERO))
+	push_warning("RoadMeshes: рукава модели %s не совпали с куском %s" % [MODELS[piece], Piece.keys()[piece]])
+	return null
+
+
+## Рукава плитки по геометрии: вершины у середины края есть только там, где дорога выходит
+## за край (на закрытых сторонах там тротуар без вершин посередине). Биты: N=1, E=2, S=4, W=8.
+## half — половина стороны плитки (0.5 у модели, CELL_SIZE / 2 у готового куска).
+static func native_mask(mesh: Mesh, half: float = 0.5) -> int:
+	var k: float = half / 0.5
+	var epsilon: float = EDGE_EPSILON * k
+	var middle: float = EDGE_MIDDLE * k
+	var mask: int = 0
+	for surface: int in mesh.get_surface_count():
+		var vertices: PackedVector3Array = mesh.surface_get_arrays(surface)[Mesh.ARRAY_VERTEX]
+		for v: Vector3 in vertices:
+			if absf(v.z + half) < epsilon and absf(v.x) < middle:
+				mask |= CityGrid.DIR_N
+			elif absf(v.x - half) < epsilon and absf(v.z) < middle:
+				mask |= CityGrid.DIR_E
+			elif absf(v.z - half) < epsilon and absf(v.x) < middle:
+				mask |= CityGrid.DIR_S
+			elif absf(v.x + half) < epsilon and absf(v.z) < middle:
+				mask |= CityGrid.DIR_W
+	return mask
+
+
+static func _rotate_cw(mask: int, turns: int) -> int:
+	for i: int in turns:
+		mask = ((mask << 1) | (mask >> 3)) & 0xF
+	return mask
 
 
 static func _build_piece(mask: int, piece: int, material: Material) -> ArrayMesh:

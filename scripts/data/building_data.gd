@@ -32,7 +32,15 @@ enum Service { NONE, SCHOOL, HEALTH, FIRE, POLICE }
 @export var service_radius: int = 0
 
 @export_group("Вид")
-## Модель здания. Фасад смотрит на −Z. Пусто — коробка-заглушка.
+## 3D-модель (GLB). Пусто — mesh, а если и его нет — коробка-заглушка.
+@export var model: PackedScene
+## Масштаб модели; итог всё равно ужимается, чтобы основание влезло в клетку (BuildingMeshes.FOOTPRINT).
+@export var model_scale: float = 1.0
+## Поворот модели в шагах по 90° по часовой, чтобы фасад смотрел на −Z (у Kenney фасад на +Z → 2).
+@export var model_turns: int = 2
+## Цвет вывески над служебным зданием; прозрачный — без вывески.
+@export var sign_color: Color = Color(0, 0, 0, 0)
+## Готовый меш вместо модели. Фасад смотрит на −Z.
 @export var mesh: Mesh
 @export var placeholder_color: Color = Color.WHITE
 ## Высота заглушки, метры.

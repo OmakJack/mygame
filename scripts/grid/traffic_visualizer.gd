@@ -10,30 +10,50 @@ const MAX_CARS: int = 300
 const WORKERS_PER_CAR: float = 4.0
 ## Скорость, клеток в секунду на ×1.
 const SPEED: float = 2.0
-## Сдвиг на правую полосу от оси дороги, метры (полуширина асфальта — 0.7 м).
+## Сдвиг на правую полосу от оси дороги, метры (асфальт Kenney ×2 — полуширина ~0.8 м).
 const LANE_OFFSET: float = 0.3
 ## На загруженной клетке машинка медленнее в (1 + JAM_SLOWDOWN · загрузка) раз (загрузка до 2).
 const JAM_SLOWDOWN: float = 0.7
+## Модели машин (Kenney Car Kit). По одному MultiMesh на модель; полиция — реже (стоит одна в списке).
+const CAR_MODELS: Array[String] = [
+	"res://assets/models/kenney/cars/sedan.glb",
+	"res://assets/models/kenney/cars/taxi.glb",
+	"res://assets/models/kenney/cars/suv.glb",
+	"res://assets/models/kenney/cars/van.glb",
+	"res://assets/models/kenney/cars/truck.glb",
+	"res://assets/models/kenney/cars/delivery.glb",
+	"res://assets/models/kenney/cars/hatchback-sports.glb",
+	"res://assets/models/kenney/cars/police.glb",
+]
+## Масштаб моделей машин: седан 2.55 м → ~0.7 м, помещается в полосу.
+const CAR_MODEL_SCALE: float = 0.28
+## Поворот моделей: у Kenney перед машины на +Z, у нас «вперёд» — −Z.
+const CAR_MODEL_TURNS: int = 2
+## Верх асфальта (дороги Kenney — 0..0.02).
+const ROAD_TOP: float = 0.02
+## Заглушка, если моделей нет: коробочка своего цвета.
 const CAR_SIZE := Vector3(0.45, 0.3, 0.8)
-## Высота центра машинки: асфальт (0.03) + половина высоты.
-const CAR_Y: float = 0.03 + 0.15
 const CAR_COLORS: Array[Color] = [
 	Color(0.85, 0.2, 0.2), Color(0.2, 0.45, 0.85), Color(0.95, 0.85, 0.3),
 	Color(0.9, 0.9, 0.9), Color(0.25, 0.25, 0.28), Color(0.3, 0.7, 0.4),
 ]
 
 
-## Одна машинка: путь (индексы клеток), продвижение в клетках, направление.
+## Одна машинка: путь (индексы клеток), продвижение в клетках, направление, модель.
 class Car extends RefCounted:
 	var path := PackedInt32Array()
 	## От 0 до path.size(): целая часть — номер клетки, дробная — доля пути по ней.
 	var progress: float = 0.0
 	## true — от дома к работе, false — обратно.
 	var forward: bool = true
+	## Номер слоя (модели) в _layers.
+	var model: int = 0
 	var color := Color.WHITE
 
 
 var _cars: Array[Car] = []
+## Слои MultiMesh: по одному на модель машины; без моделей — один слой-заглушка (сам узел).
+var _layers: Array[MultiMeshInstance3D] = []
 var _rng := RandomNumberGenerator.new()
 var _seen_grid: CityGrid = null
 var _seen_roads_version: int = -1
@@ -41,19 +61,18 @@ var _seen_roads_version: int = -1
 
 func _ready() -> void:
 	_rng.randomize()
-	var box := BoxMesh.new()
-	box.size = CAR_SIZE
-	var material := StandardMaterial3D.new()
-	material.vertex_color_use_as_albedo = true
-	material.roughness = 0.6
-	box.material = material
-	multimesh = MultiMesh.new()
-	multimesh.transform_format = MultiMesh.TRANSFORM_3D
-	multimesh.use_colors = true
-	multimesh.mesh = box
-	multimesh.instance_count = MAX_CARS
-	multimesh.visible_instance_count = 0
-	cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	for path: String in CAR_MODELS:
+		if not ResourceLoader.exists(path):
+			continue
+		var scene: PackedScene = load(path)
+		var mesh: ArrayMesh = ModelLoader.merge(scene, ModelLoader.placement(ModelLoader.bounds(scene), CAR_MODEL_SCALE, CAR_MODEL_TURNS))
+		var layer := MultiMeshInstance3D.new()
+		layer.multimesh = _new_multimesh(mesh, false)
+		add_child(layer)
+		_layers.append(layer)
+	if _layers.is_empty():
+		multimesh = _new_multimesh(_placeholder_mesh(), true)
+		_layers.append(self)
 
 
 func _process(delta: float) -> void:
@@ -61,13 +80,61 @@ func _process(delta: float) -> void:
 	_sync_car_count()
 	var grid: CityGrid = GameState.grid
 	var step: float = SPEED * SimClock.speed * delta
-	for i: int in _cars.size():
-		var car: Car = _cars[i]
+	var counts := PackedInt32Array()
+	counts.resize(_layers.size())
+	counts.fill(0)
+	for car: Car in _cars:
 		if step > 0.0:
 			_advance(car, grid, step)
-		multimesh.set_instance_transform(i, _car_transform(car, grid))
-		multimesh.set_instance_color(i, car.color)
-	multimesh.visible_instance_count = _cars.size()
+		var layer: MultiMesh = _layers[car.model].multimesh
+		var index: int = counts[car.model]
+		counts[car.model] += 1
+		layer.set_instance_transform(index, _car_transform(car, grid))
+		if layer.use_colors:
+			layer.set_instance_color(index, car.color)
+	for i: int in _layers.size():
+		_layers[i].multimesh.visible_instance_count = counts[i]
+
+
+## Сколько машинок видно (для проверок).
+func visible_car_count() -> int:
+	var total: int = 0
+	for layer: MultiMeshInstance3D in _layers:
+		total += layer.multimesh.visible_instance_count
+	return total
+
+
+## Положение i-й машинки (для проверок).
+func car_origin(i: int) -> Vector3:
+	return _car_transform(_cars[i], GameState.grid).origin
+
+
+static func _new_multimesh(mesh: Mesh, colored: bool) -> MultiMesh:
+	var result := MultiMesh.new()
+	result.transform_format = MultiMesh.TRANSFORM_3D
+	result.use_colors = colored
+	result.mesh = mesh
+	result.instance_count = MAX_CARS
+	result.visible_instance_count = 0
+	return result
+
+
+## Коробочка, стоящая на асфальте (центр основания — в начале координат).
+static func _placeholder_mesh() -> ArrayMesh:
+	var box := BoxMesh.new()
+	box.size = CAR_SIZE
+	var arrays: Array = box.get_mesh_arrays()
+	var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+	for i: int in vertices.size():
+		vertices[i].y += CAR_SIZE.y * 0.5
+	arrays[Mesh.ARRAY_VERTEX] = vertices
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	var material := StandardMaterial3D.new()
+	material.vertex_color_use_as_albedo = true
+	material.roughness = 0.6
+	mesh.surface_set_material(0, material)
+	return mesh
 
 
 ## Сколько машинок нужно: по числу работников, не больше MAX_CARS; без путей — ни одной.
@@ -85,6 +152,7 @@ func _sync_car_count() -> void:
 	while _cars.size() < target:
 		var car := Car.new()
 		car.color = CAR_COLORS[_rng.randi_range(0, CAR_COLORS.size() - 1)]
+		car.model = _rng.randi_range(0, _layers.size() - 1)
 		if not _assign_path(car):
 			break
 		# Новые машинки — в случайном месте пути и в случайную сторону, чтобы не ехали стаей.
@@ -154,7 +222,7 @@ func _car_transform(car: Car, grid: CityGrid) -> Transform3D:
 	var k: int = mini(int(car.progress), count - 1)
 	var t: float = clampf(car.progress - k, 0.0, 1.0)
 	var cell: Vector2i = _cell_of(_path_index(car, k), grid)
-	var center: Vector3 = grid.grid_to_world(cell) + Vector3.UP * CAR_Y
+	var center: Vector3 = grid.grid_to_world(cell) + Vector3.UP * ROAD_TOP
 	var half: float = CityGrid.CELL_SIZE * 0.5
 	var has_prev: bool = k > 0
 	var has_next: bool = k < count - 1

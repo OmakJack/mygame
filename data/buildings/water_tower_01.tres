@@ -1,6 +1,7 @@
-[gd_resource type="Resource" script_class="BuildingData" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="BuildingData" format=3]
 
 [ext_resource type="Script" path="res://scripts/data/building_data.gd" id="1_data"]
+[ext_resource type="PackedScene" path="res://assets/models/kenney/industrial/water-tower.glb" id="1_nwa0f"]
 
 [resource]
 script = ExtResource("1_data")
@@ -9,11 +10,8 @@ display_name = "Водокачка"
 zone = 0
 cost = 150
 upkeep = 4
-power_supply = 0
 water_supply = 100
 power_use = 2
-water_use = 0
-service = 0
-service_radius = 0
+model = ExtResource("1_nwa0f")
 placeholder_color = Color(0.45, 0.7, 0.85, 1)
 placeholder_height = 3.2

@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/kenney/suburban/building-type-b.glb" id="1_wacyo"]
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="2_w61sf"]
+
+[resource]
+script = ExtResource("2_w61sf")
+id = &"res_house_b"
+display_name = "Дом B"
+population = 10
+power_use = 1
+water_use = 1
+model = ExtResource("1_wacyo")
+model_scale = 1.35

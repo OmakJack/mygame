@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/kenney/commercial/building-e.glb" id="1_al6fh"]
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="2_jjcuh"]
+
+[resource]
+script = ExtResource("2_jjcuh")
+id = &"com_shop_e"
+display_name = "Магазин E"
+zone = 2
+jobs = 5
+power_use = 2
+water_use = 1
+model = ExtResource("1_al6fh")
+model_scale = 1.9

@@ -1,5 +1,6 @@
-[gd_resource type="Resource" script_class="BuildingData" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="BuildingData" format=3]
 
+[ext_resource type="PackedScene" path="res://assets/models/kenney/commercial/building-m.glb" id="1_c21ra"]
 [ext_resource type="Script" path="res://scripts/data/building_data.gd" id="1_data"]
 
 [resource]
@@ -9,11 +10,12 @@ display_name = "Поликлиника"
 zone = 0
 cost = 200
 upkeep = 5
-power_supply = 0
-water_supply = 0
 power_use = 2
 water_use = 2
 service = 2
 service_radius = 14
+model = ExtResource("1_c21ra")
+model_scale = 1.9
+sign_color = Color(0.95, 0.25, 0.25, 1)
 placeholder_color = Color(0.95, 0.95, 0.95, 1)
 placeholder_height = 2.2

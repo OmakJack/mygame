@@ -1,6 +1,7 @@
-[gd_resource type="Resource" script_class="BuildingData" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="BuildingData" format=3]
 
 [ext_resource type="Script" path="res://scripts/data/building_data.gd" id="1_data"]
+[ext_resource type="PackedScene" path="res://assets/models/kenney/commercial/building-h.glb" id="1_h60th"]
 
 [resource]
 script = ExtResource("1_data")
@@ -9,11 +10,12 @@ display_name = "Полиция"
 zone = 0
 cost = 250
 upkeep = 8
-power_supply = 0
-water_supply = 0
 power_use = 2
 water_use = 1
 service = 4
 service_radius = 16
+model = ExtResource("1_h60th")
+model_scale = 1.9
+sign_color = Color(0.2, 0.4, 0.9, 1)
 placeholder_color = Color(0.25, 0.35, 0.7, 1)
 placeholder_height = 2.0
