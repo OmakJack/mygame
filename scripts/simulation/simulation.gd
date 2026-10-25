@@ -1,10 +1,13 @@
 extends Node
-## Порядок одного тика симуляции: заброшенные здания → рост → подсчёт → спрос → деньги → сигналы.
-## Вне тика (снос на паузе, налог, новая сетка) тоже пересчитывает статистику для UI.
+## Порядок одного тика симуляции: заброшенные → рост → пересчёт (сеть, свет и вода, подсчёт,
+## службы, спрос, прогноз денег) → деньги → сигналы.
+## Вне тика (стройка и снос на паузе, налог, новая сетка) тоже пересчитывает всё для UI.
 ## Узлы сцены не ищет: работает с GameState и Events.
 
-## Через сколько тиков без доступа к дороге здание сносится.
+## Через сколько тиков без доступа к дороге дом сносится.
 const ABANDON_TICKS: int = 3
+## Через сколько тиков без света или воды дом сносится (дольше — чтобы игрок успел поставить станцию).
+const UTILITY_ABANDON_TICKS: int = 10
 
 var _rng := RandomNumberGenerator.new()
 ## Идёт тик: свой же cells_changed не пересчитываем второй раз.
@@ -53,14 +56,20 @@ func _refresh_stats() -> void:
 	Events.stats_changed.emit()
 
 
+## Только дома R/C/I: служебные здания сами не сносятся, а просто не работают.
+## Флаги света и воды — из последнего пересчёта.
 func _abandon_buildings(grid: CityGrid, changed: Array[Vector2i]) -> void:
 	var abandoned: Array[int] = []
 	for building: BuildingInstance in grid.buildings.values():
-		if grid.has_road_access(building.cell):
-			building.no_road_ticks = 0
+		var data: BuildingData = BuildingCatalog.get_type(building.type_id)
+		if data == null or data.zone == CityGrid.Zone.NONE:
 			continue
-		building.no_road_ticks += 1
-		if building.no_road_ticks >= ABANDON_TICKS:
+		building.no_road_ticks = 0 if grid.has_road_access(building.cell) else building.no_road_ticks + 1
+		building.no_power_ticks = 0 if building.powered else building.no_power_ticks + 1
+		building.no_water_ticks = 0 if building.has_water else building.no_water_ticks + 1
+		if building.no_road_ticks >= ABANDON_TICKS \
+				or building.no_power_ticks >= UTILITY_ABANDON_TICKS \
+				or building.no_water_ticks >= UTILITY_ABANDON_TICKS:
 			abandoned.append(building.id)
 	# Удаляем после обхода, чтобы не менять словарь во время итерации.
 	for id: int in abandoned:
@@ -68,6 +77,7 @@ func _abandon_buildings(grid: CityGrid, changed: Array[Vector2i]) -> void:
 		grid.remove_building(id)
 
 
+## Шанс вырасти дому зоны на тике = спрос этой зоны.
 func _grow(grid: CityGrid, changed: Array[Vector2i]) -> void:
 	var demands: Dictionary[CityGrid.Zone, float] = {
 		CityGrid.Zone.RESIDENTIAL: GameState.demand_r,
@@ -75,19 +85,25 @@ func _grow(grid: CityGrid, changed: Array[Vector2i]) -> void:
 		CityGrid.Zone.INDUSTRIAL: GameState.demand_i,
 	}
 	for zone_type: CityGrid.Zone in demands:
-		if demands[zone_type] <= 0.0:
+		if _rng.randf() >= demands[zone_type]:
 			continue
-		var cell: Vector2i = Growth.grow_one(grid, zone_type, _rng)
-		if cell.x >= 0:
+		var cell: Vector2i = Growth.grow_one(grid, zone_type, _rng, GameState.network, GameState.utilities)
+		if cell != CityGrid.NO_CELL:
 			changed.append(cell)
 
 
-## Пересчитывает население и рабочие места по всем зданиям, затем спрос.
+## Пересчитывает всё, что видит UI: сеть, свет и воду, население и рабочие места,
+## покрытие служб, спрос и прогноз денег на день.
 func _update_stats() -> void:
+	var grid: CityGrid = GameState.grid
+	GameState.network.update(grid)
+	GameState.utilities = Utilities.distribute(grid, GameState.network)
+
 	var population: int = 0
 	var jobs_commercial: int = 0
 	var jobs_industrial: int = 0
-	for building: BuildingInstance in GameState.grid.buildings.values():
+	var service_upkeep: int = 0
+	for building: BuildingInstance in grid.buildings.values():
 		var data: BuildingData = BuildingCatalog.get_type(building.type_id)
 		if data == null:
 			continue
@@ -97,13 +113,18 @@ func _update_stats() -> void:
 				jobs_commercial += data.jobs
 			CityGrid.Zone.INDUSTRIAL:
 				jobs_industrial += data.jobs
+			CityGrid.Zone.NONE:
+				service_upkeep += data.upkeep
 	GameState.population = population
 	GameState.jobs_commercial = jobs_commercial
 	GameState.jobs_industrial = jobs_industrial
+
+	GameState.service_coverage = Services.coverage(grid, population)
+	var service_offset: float = Services.demand_offset(GameState.service_coverage, population)
 	var tax_rate: int = GameState.tax_rate
-	GameState.demand_r = Demand.residential(population, jobs_commercial, jobs_industrial, tax_rate)
+	GameState.demand_r = Demand.residential(population, jobs_commercial, jobs_industrial, tax_rate, service_offset)
 	GameState.demand_c = Demand.commercial(population, jobs_commercial, tax_rate)
 	GameState.demand_i = Demand.industrial(population, jobs_industrial, tax_rate)
 	# Прогноз денег на день — тоже здесь, чтобы UI видел его сразу (и на паузе).
 	GameState.income = Economy.daily_income(population, jobs_commercial + jobs_industrial, tax_rate)
-	GameState.expenses = Economy.daily_expenses(GameState.grid.road_cells.size())
+	GameState.expenses = Economy.daily_expenses(grid.road_cells.size(), service_upkeep)

@@ -22,6 +22,8 @@ var building_at: PackedInt32Array
 var buildings: Dictionary[int, BuildingInstance] = {}
 var road_cells: Dictionary[Vector2i, bool] = {}
 var next_building_id: int = 0
+## Растёт при каждом изменении дорог — по нему RoadNetwork понимает, что пора пересчитаться.
+var roads_version: int = 0
 ## Пустые клетки с зоной, по зонам R/C/I: Vector2i → true. Клетка здесь ⇔ EMPTY и зона не NONE.
 ## Обновляется только внутри CityGrid (_update_zoned_cache). Внутренний словарь без типа:
 ## Godot не поддерживает вложенные типизированные словари.
@@ -101,6 +103,7 @@ func set_road(cell: Vector2i) -> bool:
 	tile_type[i] = Tile.ROAD
 	zone[i] = Zone.NONE
 	road_cells[cell] = true
+	roads_version += 1
 	_update_zoned_cache(cell)
 	return true
 
@@ -111,6 +114,7 @@ func remove_road(cell: Vector2i) -> bool:
 		return false
 	tile_type[index_of(cell)] = Tile.EMPTY
 	road_cells.erase(cell)
+	roads_version += 1
 	return true
 
 
@@ -166,23 +170,33 @@ func set_zone(cell: Vector2i, zone_type: Zone) -> bool:
 	return true
 
 
+## «Клетки нет» — для find_nearest_road.
+const NO_CELL := Vector2i(-1, -1)
+
+
 ## Есть ли дорога на расстоянии не больше ROAD_ACCESS_RANGE клеток.
 func has_road_access(cell: Vector2i) -> bool:
-	return find_nearest_road_dir(cell) != -1
+	return find_nearest_road(cell) != NO_CELL
 
 
-## Направление на ближайшую дорогу: 0..3 = N/E/S/W (биты как в get_road_mask), −1 — дороги нет.
-## Ищет кольцами по Манхэттену от расстояния 1 до ROAD_ACCESS_RANGE.
-## Для дороги по диагонали берётся ось с большим смещением.
-func find_nearest_road_dir(cell: Vector2i) -> int:
+## Клетка ближайшей дороги не дальше ROAD_ACCESS_RANGE (по Манхэттену) или NO_CELL.
+## Ищет кольцами от расстояния 1.
+func find_nearest_road(cell: Vector2i) -> Vector2i:
 	for dist: int in range(1, ROAD_ACCESS_RANGE + 1):
 		for dy: int in range(-dist, dist + 1):
 			var dx: int = dist - absi(dy)
 			if road_cells.has(cell + Vector2i(-dx, dy)):
-				return _dir_of(Vector2i(-dx, dy))
+				return cell + Vector2i(-dx, dy)
 			if dx != 0 and road_cells.has(cell + Vector2i(dx, dy)):
-				return _dir_of(Vector2i(dx, dy))
-	return -1
+				return cell + Vector2i(dx, dy)
+	return NO_CELL
+
+
+## Направление на ближайшую дорогу: 0..3 = N/E/S/W (биты как в get_road_mask), −1 — дороги нет.
+## Для дороги по диагонали берётся ось с большим смещением.
+func find_nearest_road_dir(cell: Vector2i) -> int:
+	var road: Vector2i = find_nearest_road(cell)
+	return -1 if road == NO_CELL else _dir_of(road - cell)
 
 
 static func _dir_of(offset: Vector2i) -> int:
@@ -202,13 +216,16 @@ func _update_zoned_cache(cell: Vector2i) -> void:
 # --- Здания ---
 
 ## Ставит здание на пустую клетку. Какой тип на какой зоне — решает вызывающий.
+## clear_zone — стереть зону клетки (служебные здания: после их сноса дом не вырастет).
 ## Возвращает номер экземпляра или −1. Сигнал шлёт вызывающий (пакетом).
-func place_building(type_id: StringName, cell: Vector2i, orientation: int) -> int:
+func place_building(type_id: StringName, cell: Vector2i, orientation: int, clear_zone: bool = false) -> int:
 	if not is_in_bounds(cell):
 		return -1
 	var i: int = index_of(cell)
 	if tile_type[i] != Tile.EMPTY:
 		return -1
+	if clear_zone:
+		zone[i] = Zone.NONE
 	var id: int = next_building_id
 	next_building_id += 1
 	buildings[id] = BuildingInstance.new(id, type_id, cell, orientation)

@@ -32,6 +32,11 @@ static func types_for_zone(zone_type: CityGrid.Zone) -> Array[BuildingData]:
 	return _by_zone.get(zone_type, _empty)
 
 
+## Служебные здания (zone = NONE), которые ставит игрок. Возвращает общий массив — не изменять.
+static func buildable_types() -> Array[BuildingData]:
+	return types_for_zone(CityGrid.Zone.NONE)
+
+
 static func _ensure_loaded() -> void:
 	if _loaded:
 		return

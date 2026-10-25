@@ -10,8 +10,14 @@ var type_id: StringName
 var cell: Vector2i
 ## Направление на дорогу 0/1/2/3 = N/E/S/W (поворот по часовой 0°/90°/180°/270°).
 var orientation: int
-## Сколько тиков подряд у здания нет доступа к дороге (состояние симуляции).
+# Состояние симуляции.
+## Сколько тиков подряд нет дороги / света / воды.
 var no_road_ticks: int = 0
+var no_power_ticks: int = 0
+var no_water_ticks: int = 0
+## Результат последнего распределения света и воды.
+var powered: bool = false
+var has_water: bool = false
 
 
 func _init(p_id: int, p_type_id: StringName, p_cell: Vector2i, p_orientation: int) -> void:

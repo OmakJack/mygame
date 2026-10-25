@@ -1,9 +1,21 @@
+class_name ZoneVisualizer
 extends MultiMeshInstance3D
-## Раскрашивает зоны. Один экземпляр на клетку (номер = CityGrid.index_of),
-## цвет экземпляра — цвет зоны; без зоны — прозрачный.
+## Раскраска клеток: один экземпляр на клетку (номер = CityGrid.index_of), цвет — по слою карты.
+## Слои (клавиша V по кругу): зоны / свет / вода / службы.
 
-## Высота над землёй: выше линий сетки (0.01), ниже тротуаров (0.02).
+enum Overlay { ZONES, POWER, WATER, SERVICES }
+
+const OVERLAY_NAMES: Dictionary[Overlay, String] = {
+	Overlay.ZONES: "Зоны",
+	Overlay.POWER: "Свет",
+	Overlay.WATER: "Вода",
+	Overlay.SERVICES: "Службы",
+}
+
+## Высота зон: выше линий сетки (0.01), ниже тротуаров (0.02).
 const ZONE_HEIGHT: float = 0.015
+## Высота остальных слоёв: поверх дорог (разметка — 0.035), ниже превью (0.05).
+const OVERLAY_HEIGHT: float = 0.04
 
 const ZONE_COLORS: Dictionary[CityGrid.Zone, Color] = {
 	CityGrid.Zone.NONE: Color(0, 0, 0, 0),
@@ -14,6 +26,24 @@ const ZONE_COLORS: Dictionary[CityGrid.Zone, Color] = {
 ## Зона без доступа к дороге: тот же цвет, но тусклее и прозрачнее.
 const NO_ACCESS_DIM: float = 0.45
 const NO_ACCESS_ALPHA: float = 0.25
+
+const CLEAR := Color(0, 0, 0, 0)
+const SERVED := Color(0.2, 0.85, 0.3, 0.75)
+const UNSERVED := Color(1.0, 0.15, 0.15, 0.85)
+## Станция / дорога с ресурсом для слоёв света и воды.
+const POWER_SOURCE := Color(1.0, 0.85, 0.1, 0.9)
+const POWER_ROAD := Color(1.0, 0.85, 0.1, 0.35)
+const WATER_SOURCE := Color(0.2, 0.75, 1.0, 0.9)
+const WATER_ROAD := Color(0.2, 0.75, 1.0, 0.35)
+const NO_SUPPLY_ROAD := Color(0.4, 0.4, 0.4, 0.35)
+## Слой служб: прозрачность растёт с числом служб, покрывающих клетку.
+const COVERAGE_COLOR := Color(0.3, 0.9, 0.4)
+const SERVICE_BUILDING := Color(1.0, 1.0, 1.0, 0.9)
+
+var overlay: Overlay = Overlay.ZONES
+
+## Слой служб: клетка → битовая маска покрывающих служб (пересчитывается при перерисовке).
+var _service_mask := PackedByteArray()
 
 
 func _ready() -> void:
@@ -31,22 +61,48 @@ func _ready() -> void:
 	cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	Events.cells_changed.connect(_on_cells_changed)
 	Events.grid_reset.connect(_rebuild)
+	# Свет, вода и службы меняются на каждом пересчёте — перерисовываем слой целиком.
+	Events.stats_changed.connect(func() -> void:
+		if overlay != Overlay.ZONES:
+			_repaint_all())
 	_rebuild()
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed(&"overlay_next"):
+		set_overlay(((overlay + 1) % Overlay.size()) as Overlay)
+
+
+func set_overlay(new_overlay: Overlay) -> void:
+	overlay = new_overlay
+	_rebuild()
+	Events.overlay_changed.emit(overlay)
 
 
 func _rebuild() -> void:
 	var grid: CityGrid = GameState.grid
 	multimesh.instance_count = grid.size * grid.size
+	var height: float = ZONE_HEIGHT if overlay == Overlay.ZONES else OVERLAY_HEIGHT
 	for y: int in grid.size:
 		for x: int in grid.size:
 			var cell := Vector2i(x, y)
-			var pos: Vector3 = grid.grid_to_world(cell) + Vector3.UP * ZONE_HEIGHT
+			var pos: Vector3 = grid.grid_to_world(cell) + Vector3.UP * height
 			multimesh.set_instance_transform(grid.index_of(cell), Transform3D(Basis.IDENTITY, pos))
-			_update_cell(cell)
+	_repaint_all()
+
+
+func _repaint_all() -> void:
+	var grid: CityGrid = GameState.grid
+	if overlay == Overlay.SERVICES:
+		_build_service_mask(grid)
+	for y: int in grid.size:
+		for x: int in grid.size:
+			_update_cell(Vector2i(x, y))
 
 
 func _on_cells_changed(cells: Array[Vector2i]) -> void:
-	if cells.is_empty():
+	if cells.is_empty() or overlay != Overlay.ZONES:
+		# Остальные слои перерисуются целиком по stats_changed.
 		return
 	# Доступ к дороге мог измениться у соседей в радиусе ROAD_ACCESS_RANGE.
 	# Перекрашиваем либо общий прямоугольник, либо квадрат вокруг каждой клетки — что меньше
@@ -76,10 +132,83 @@ func _update_rect(top_left: Vector2i, bottom_right: Vector2i) -> void:
 
 
 func _update_cell(cell: Vector2i) -> void:
+	var color: Color
+	match overlay:
+		Overlay.ZONES:
+			color = _zone_color(cell)
+		Overlay.POWER:
+			color = _utility_color(cell, true)
+		Overlay.WATER:
+			color = _utility_color(cell, false)
+		Overlay.SERVICES:
+			color = _service_color(cell)
+	multimesh.set_instance_color(GameState.grid.index_of(cell), color)
+
+
+func _zone_color(cell: Vector2i) -> Color:
 	var grid: CityGrid = GameState.grid
 	var zone_type: CityGrid.Zone = grid.get_zone(cell)
 	var color: Color = ZONE_COLORS[zone_type]
 	if zone_type != CityGrid.Zone.NONE and not grid.has_road_access(cell):
 		color = color.darkened(NO_ACCESS_DIM)
 		color.a = NO_ACCESS_ALPHA
-	multimesh.set_instance_color(grid.index_of(cell), color)
+	return color
+
+
+## Свет (power = true) или вода: станции, здания со ресурсом и без, дороги с запасом.
+func _utility_color(cell: Vector2i, power: bool) -> Color:
+	var grid: CityGrid = GameState.grid
+	if grid.is_road(cell):
+		var component: int = GameState.network.component_of.get(cell, -1)
+		var supplied: Dictionary[int, bool] = GameState.utilities.powered_components if power \
+				else GameState.utilities.watered_components
+		if supplied.has(component):
+			return POWER_ROAD if power else WATER_ROAD
+		return NO_SUPPLY_ROAD
+	var building: BuildingInstance = grid.get_building_at(cell)
+	if building == null:
+		return CLEAR
+	var data: BuildingData = BuildingCatalog.get_type(building.type_id)
+	if data == null:
+		return CLEAR
+	if (data.power_supply if power else data.water_supply) > 0:
+		return POWER_SOURCE if power else WATER_SOURCE
+	if (data.power_use if power else data.water_use) == 0:
+		return CLEAR
+	return SERVED if (building.powered if power else building.has_water) else UNSERVED
+
+
+func _service_color(cell: Vector2i) -> Color:
+	var grid: CityGrid = GameState.grid
+	var building: BuildingInstance = grid.get_building_at(cell)
+	if building != null:
+		var data: BuildingData = BuildingCatalog.get_type(building.type_id)
+		if data != null and data.service != BuildingData.Service.NONE:
+			return SERVICE_BUILDING
+	var mask: int = _service_mask[grid.index_of(cell)]
+	if mask == 0:
+		return CLEAR
+	var count: int = 0
+	while mask > 0:
+		count += mask & 1
+		mask >>= 1
+	var color: Color = COVERAGE_COLOR
+	color.a = 0.15 + 0.15 * count
+	return color
+
+
+## Для каждой клетки — какие работающие службы её покрывают (бит = номер службы).
+func _build_service_mask(grid: CityGrid) -> void:
+	_service_mask.resize(grid.size * grid.size)
+	_service_mask.fill(0)
+	for building: BuildingInstance in grid.buildings.values():
+		var data: BuildingData = BuildingCatalog.get_type(building.type_id)
+		if data == null or not Services.is_active(grid, building, data):
+			continue
+		var r: int = data.service_radius
+		for dy: int in range(-r, r + 1):
+			var reach: int = r - absi(dy)
+			for dx: int in range(-reach, reach + 1):
+				var cell: Vector2i = building.cell + Vector2i(dx, dy)
+				if grid.is_in_bounds(cell):
+					_service_mask[grid.index_of(cell)] |= 1 << data.service

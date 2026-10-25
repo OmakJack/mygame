@@ -1,10 +1,10 @@
 class_name BuildTool
 extends Node
-## Инструменты строительства: дорога, снос, зоны.
+## Инструменты строительства: дорога, снос, зоны, постановка служебных зданий.
 ## Меняет клетки только через CityGrid и шлёт один Events.cells_changed на операцию.
 ## Платные режимы списывают деньги через Economy и останавливаются, когда денег нет.
 
-enum Mode { NONE, ROAD, BULLDOZE, ZONE_R, ZONE_C, ZONE_I, DEZONE }
+enum Mode { NONE, ROAD, BULLDOZE, ZONE_R, ZONE_C, ZONE_I, DEZONE, PLACE }
 
 const CURSOR_COLORS: Dictionary[Mode, Color] = {
 	Mode.NONE: Color(1.0, 1.0, 1.0, 0.35),
@@ -14,7 +14,10 @@ const CURSOR_COLORS: Dictionary[Mode, Color] = {
 	Mode.ZONE_C: Color(0.25, 0.5, 0.95, 0.7),
 	Mode.ZONE_I: Color(0.95, 0.8, 0.2, 0.7),
 	Mode.DEZONE: Color(0.75, 0.5, 1.0, 0.55),
+	Mode.PLACE: Color(0.85, 0.9, 1.0, 0.6),
 }
+## Цвет клетки, куда здание поставить нельзя.
+const INVALID_COLOR := Color(1.0, 0.15, 0.15, 0.6)
 
 ## Какую зону ставит режим (DEZONE ставит NONE, т. е. снимает).
 const MODE_ZONES: Dictionary[Mode, CityGrid.Zone] = {
@@ -47,6 +50,8 @@ const MODE_ACTIONS: Dictionary[StringName, Mode] = {
 @export var preview: ToolPreview
 
 var mode: Mode = Mode.NONE
+## Тип служебного здания для режима PLACE.
+var place_type: StringName = &""
 
 var _dragging: bool = false
 var _drag_start: Vector2i = Vector2i.ZERO
@@ -59,6 +64,7 @@ var _drag_cells: Array[Vector2i] = []
 func _ready() -> void:
 	cursor.set_color(CURSOR_COLORS[mode])
 	Events.tool_requested.connect(func(requested: int) -> void: _set_mode(requested as Mode))
+	Events.building_place_requested.connect(func(type_id: StringName) -> void: _set_mode(Mode.PLACE, type_id))
 	# Деньги могли измениться на тике, пока мышь стоит, — обновляем превью.
 	Events.stats_changed.connect(func() -> void:
 		if _dragging:
@@ -71,6 +77,9 @@ static func cost_of(tool_mode: Mode) -> int:
 
 
 func _process(_delta: float) -> void:
+	# В режиме постановки курсор краснеет там, куда поставить нельзя.
+	if mode == Mode.PLACE and not _dragging and cursor.has_cell:
+		cursor.set_color(CURSOR_COLORS[mode] if _can_place(cursor.hovered_cell) else INVALID_COLOR)
 	if not _dragging or not cursor.has_ground_hit:
 		return
 	# Мышь за картой — прижимаем конец протягивания к краю.
@@ -108,14 +117,15 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 
-func _set_mode(new_mode: Mode) -> void:
+func _set_mode(new_mode: Mode, type_id: StringName = &"") -> void:
 	# Повторное нажатие той же клавиши не сбрасывает протягивание.
-	if new_mode == mode:
+	if new_mode == mode and type_id == place_type:
 		return
 	mode = new_mode
+	place_type = type_id
 	_end_drag()
 	cursor.set_color(CURSOR_COLORS[mode])
-	Events.tool_mode_changed.emit(mode)
+	Events.tool_mode_changed.emit(mode, place_type)
 
 
 func _update_drag(end: Vector2i) -> void:
@@ -131,8 +141,24 @@ func _update_drag(end: Vector2i) -> void:
 			var zone_type: CityGrid.Zone = MODE_ZONES[mode]
 			_drag_cells = _rect_cells(_drag_start, _drag_end).filter(
 				func(cell: Vector2i) -> bool: return grid.can_zone(cell, zone_type))
+		Mode.PLACE:
+			# Здание ставится на клетку, где отпустили мышь.
+			var valid: bool = _can_place(_drag_end)
+			_drag_cells.clear()
+			if valid:
+				_drag_cells.append(_drag_end)
+			var target: Array[Vector2i] = [_drag_end]
+			preview.show_cells(target, CURSOR_COLORS[mode] if valid else INVALID_COLOR)
+			return
 	_drag_cells = _affordable(_drag_cells)
 	preview.show_cells(_drag_cells, CURSOR_COLORS[mode])
+
+
+## Можно ли поставить выбранное служебное здание: пустая клетка, дорога рядом, хватает денег.
+func _can_place(cell: Vector2i) -> bool:
+	var data: BuildingData = BuildingCatalog.get_type(place_type)
+	var grid: CityGrid = GameState.grid
+	return data != null and grid.can_set_road(cell) and grid.has_road_access(cell) 			and Economy.can_afford(data.cost)
 
 
 ## Обрезает клетки операции там, где кончаются деньги. Клетки, которые не изменятся
@@ -170,6 +196,9 @@ func _end_drag() -> void:
 
 func _apply() -> void:
 	var grid: CityGrid = GameState.grid
+	if mode == Mode.PLACE:
+		_apply_place(grid)
+		return
 	var cost: int = cost_of(mode)
 	var changed: Array[Vector2i] = []
 	for cell: Vector2i in _drag_cells:
@@ -189,6 +218,18 @@ func _apply() -> void:
 			changed.append(cell)
 	if not changed.is_empty():
 		Events.cells_changed.emit(changed)
+
+
+## Ставит служебное здание: стирает зону клетки, фасад к дороге, списывает цену.
+func _apply_place(grid: CityGrid) -> void:
+	if _drag_cells.is_empty() or not _can_place(_drag_cells[0]):
+		return
+	var cell: Vector2i = _drag_cells[0]
+	var data: BuildingData = BuildingCatalog.get_type(place_type)
+	Economy.spend(data.cost)
+	grid.place_building(data.id, cell, grid.find_nearest_road_dir(cell), true)
+	var changed: Array[Vector2i] = [cell]
+	Events.cells_changed.emit(changed)
 
 
 ## Путь буквой «Г»: сначала по длинной оси, потом по короткой.

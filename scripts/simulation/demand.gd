@@ -21,9 +21,11 @@ static func tax_offset(tax_rate: int) -> float:
 	return (Economy.DEFAULT_TAX_RATE - tax_rate) * TAX_SENSITIVITY
 
 
-static func residential(population: int, jobs_commercial: int, jobs_industrial: int, tax_rate: int) -> float:
+## service_offset — поправка от покрытия служб (Services.demand_offset).
+static func residential(population: int, jobs_commercial: int, jobs_industrial: int, tax_rate: int,
+		service_offset: float = 0.0) -> float:
 	var target: float = jobs_commercial + jobs_industrial + R_BUFFER
-	return clampf((target - population) / R_SCALE + tax_offset(tax_rate), -1.0, 1.0)
+	return clampf((target - population) / R_SCALE + tax_offset(tax_rate) + service_offset, -1.0, 1.0)
 
 
 static func industrial(population: int, jobs_industrial: int, tax_rate: int) -> float:

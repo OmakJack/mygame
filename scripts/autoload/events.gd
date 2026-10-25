@@ -22,9 +22,17 @@ signal stats_changed()
 @warning_ignore("unused_signal")
 signal tool_requested(mode: int)
 
-## Инструмент сменил режим (от кнопки или клавиши).
+## Инструмент сменил режим (от кнопки или клавиши). type_id — здание для режима PLACE.
 @warning_ignore("unused_signal")
-signal tool_mode_changed(mode: int)
+signal tool_mode_changed(mode: int, type_id: StringName)
+
+## UI просит режим постановки служебного здания.
+@warning_ignore("unused_signal")
+signal building_place_requested(type_id: StringName)
+
+## Сменился слой карты (клавиша V): ZoneVisualizer.Overlay.
+@warning_ignore("unused_signal")
+signal overlay_changed(mode: int)
 
 ## SimClock сменил скорость (0 — пауза).
 @warning_ignore("unused_signal")

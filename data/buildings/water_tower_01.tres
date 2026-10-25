@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="BuildingData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="1_data"]
+
+[resource]
+script = ExtResource("1_data")
+id = &"water_tower_01"
+display_name = "Водокачка"
+zone = 0
+cost = 200
+upkeep = 6
+power_supply = 0
+water_supply = 100
+power_use = 2
+water_use = 0
+service = 0
+service_radius = 0
+placeholder_color = Color(0.45, 0.7, 0.85, 1)
+placeholder_height = 3.2

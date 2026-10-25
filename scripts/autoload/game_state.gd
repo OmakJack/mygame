@@ -1,6 +1,6 @@
 extends Node
-## Состояние города: деньги, налог, население, рабочие места, спрос, день и сетка.
-## Статистику пишет simulation.gd, деньги меняет только Economy.
+## Состояние города: деньги, налог, население, рабочие места, спрос, свет и вода, службы,
+## день и сетка. Статистику пишет simulation.gd, деньги меняет только Economy.
 
 var grid: CityGrid
 var money: int = Economy.START_MONEY
@@ -18,6 +18,12 @@ var demand_c: float = 0.0
 var demand_i: float = 0.0
 ## Номер дня с начала игры (1 тик = 1 день, считает SimClock).
 var day: int = 0
+## Связные компоненты дорог (пересчитывает simulation.gd).
+var network := RoadNetwork.new()
+## Последнее распределение света и воды: итоги по городу и запас по компонентам.
+var utilities := Utilities.new()
+## Покрытие служб в [0, 1].
+var service_coverage: Dictionary[BuildingData.Service, float] = {}
 
 
 func _init() -> void:

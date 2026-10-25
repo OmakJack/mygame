@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="BuildingData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="1_data"]
+
+[resource]
+script = ExtResource("1_data")
+id = &"health_01"
+display_name = "Поликлиника"
+zone = 0
+cost = 250
+upkeep = 8
+power_supply = 0
+water_supply = 0
+power_use = 2
+water_use = 2
+service = 2
+service_radius = 14
+placeholder_color = Color(0.95, 0.95, 0.95, 1)
+placeholder_height = 2.2

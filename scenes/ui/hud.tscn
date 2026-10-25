@@ -14,77 +14,101 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
-[node name="TopBar" type="PanelContainer" parent="Root"]
+[node name="TopArea" type="VBoxContainer" parent="Root"]
 layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
 grow_horizontal = 2
+mouse_filter = 2
 
-[node name="Row" type="HBoxContainer" parent="Root/TopBar"]
+[node name="TopBar" type="PanelContainer" parent="Root/TopArea"]
 layout_mode = 2
-theme_override_constants/separation = 20
 
-[node name="MoneyLabel" type="Label" parent="Root/TopBar/Row"]
+[node name="Row" type="HFlowContainer" parent="Root/TopArea/TopBar"]
+layout_mode = 2
+theme_override_constants/h_separation = 20
+theme_override_constants/v_separation = 4
+
+[node name="MoneyLabel" type="Label" parent="Root/TopArea/TopBar/Row"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 1
+
+[node name="DayLabel" type="Label" parent="Root/TopArea/TopBar/Row"]
 unique_name_in_owner = true
 layout_mode = 2
 
-[node name="DayLabel" type="Label" parent="Root/TopBar/Row"]
+[node name="PopLabel" type="Label" parent="Root/TopArea/TopBar/Row"]
 unique_name_in_owner = true
 layout_mode = 2
 
-[node name="PopLabel" type="Label" parent="Root/TopBar/Row"]
+[node name="JobsLabel" type="Label" parent="Root/TopArea/TopBar/Row"]
 unique_name_in_owner = true
 layout_mode = 2
 
-[node name="JobsLabel" type="Label" parent="Root/TopBar/Row"]
+[node name="PowerLabel" type="Label" parent="Root/TopArea/TopBar/Row"]
 unique_name_in_owner = true
 layout_mode = 2
+mouse_filter = 1
 
-[node name="Demand" type="HBoxContainer" parent="Root/TopBar/Row"]
+[node name="WaterLabel" type="Label" parent="Root/TopArea/TopBar/Row"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 1
+
+[node name="Demand" type="HBoxContainer" parent="Root/TopArea/TopBar/Row"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="Spacer" type="Control" parent="Root/TopBar/Row"]
-layout_mode = 2
-size_flags_horizontal = 3
-mouse_filter = 2
-
-[node name="Tax" type="HBoxContainer" parent="Root/TopBar/Row"]
+[node name="OverlayLabel" type="Label" parent="Root/TopArea/TopBar/Row"]
+unique_name_in_owner = true
 layout_mode = 2
 
-[node name="TaxDown" type="Button" parent="Root/TopBar/Row/Tax"]
+[node name="Tax" type="HBoxContainer" parent="Root/TopArea/TopBar/Row"]
+layout_mode = 2
+
+[node name="TaxDown" type="Button" parent="Root/TopArea/TopBar/Row/Tax"]
 unique_name_in_owner = true
 layout_mode = 2
 focus_mode = 0
 text = "−"
 
-[node name="TaxLabel" type="Label" parent="Root/TopBar/Row/Tax"]
+[node name="TaxLabel" type="Label" parent="Root/TopArea/TopBar/Row/Tax"]
 unique_name_in_owner = true
 layout_mode = 2
 
-[node name="TaxUp" type="Button" parent="Root/TopBar/Row/Tax"]
+[node name="TaxUp" type="Button" parent="Root/TopArea/TopBar/Row/Tax"]
 unique_name_in_owner = true
 layout_mode = 2
 focus_mode = 0
 text = "+"
 
-[node name="Speed" type="HBoxContainer" parent="Root/TopBar/Row"]
+[node name="Speed" type="HBoxContainer" parent="Root/TopArea/TopBar/Row"]
 unique_name_in_owner = true
 layout_mode = 2
+
+[node name="HintsPanel" type="PanelContainer" parent="Root/TopArea"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 0
+mouse_filter = 2
+
+[node name="Hints" type="VBoxContainer" parent="Root/TopArea/HintsPanel"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
 
 [node name="Toolbar" type="PanelContainer" parent="Root"]
 layout_mode = 1
-anchors_preset = 7
-anchor_left = 0.5
+anchors_preset = 12
 anchor_top = 1.0
-anchor_right = 0.5
+anchor_right = 1.0
 anchor_bottom = 1.0
-offset_top = -8.0
-offset_bottom = -8.0
 grow_horizontal = 2
 grow_vertical = 0
 
-[node name="Tools" type="HBoxContainer" parent="Root/Toolbar"]
+[node name="Tools" type="HFlowContainer" parent="Root/Toolbar"]
 unique_name_in_owner = true
 layout_mode = 2
+alignment = 1

@@ -8,7 +8,7 @@ const START_MONEY: int = 2000
 ## Цены за реально изменённую клетку. Снос и снятие зоны — бесплатно.
 const ROAD_COST: int = 10
 const ZONE_COST: int = 5
-## Содержание дорог за день, $ за клетку.
+## Содержание дорог за день, $ за клетку. Служебные здания платят свой BuildingData.upkeep.
 const ROAD_UPKEEP: float = 0.2
 ## Налог, %.
 const DEFAULT_TAX_RATE: int = 9
@@ -34,8 +34,8 @@ static func daily_income(population: int, jobs: int, tax_rate: int) -> int:
 	return roundi((population + jobs) * tax_rate * TAX_FACTOR)
 
 
-static func daily_expenses(road_cells: int) -> int:
-	return roundi(road_cells * ROAD_UPKEEP)
+static func daily_expenses(road_cells: int, service_upkeep: int = 0) -> int:
+	return roundi(road_cells * ROAD_UPKEEP) + service_upkeep
 
 
 ## Начисляет доход и списывает расходы за день по прогнозу в GameState.
