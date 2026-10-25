@@ -1,7 +1,8 @@
 class_name Economy
 extends RefCounted
 ## Деньги: цены, налоги, содержание. Единственное место изменения GameState.money —
-## spend() при строительстве и apply_day() в тике.
+## spend() при строительстве и apply_day() в тике. Прогноз income/expenses на день
+## считает simulation.gd вместе со статистикой.
 
 const START_MONEY: int = 2000
 ## Цены за реально изменённую клетку. Снос и снятие зоны — бесплатно.
@@ -37,9 +38,6 @@ static func daily_expenses(road_cells: int) -> int:
 	return roundi(road_cells * ROAD_UPKEEP)
 
 
-## Начисляет доход и списывает расходы за день; записывает их в GameState для UI.
+## Начисляет доход и списывает расходы за день по прогнозу в GameState.
 static func apply_day() -> void:
-	var jobs: int = GameState.jobs_commercial + GameState.jobs_industrial
-	GameState.income = daily_income(GameState.population, jobs, GameState.tax_rate)
-	GameState.expenses = daily_expenses(GameState.grid.road_cells.size())
 	GameState.money += GameState.income - GameState.expenses

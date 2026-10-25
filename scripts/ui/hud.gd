@@ -27,7 +27,7 @@ const DEBT_COLOR := Color(1.0, 0.35, 0.3)
 
 var _tool_buttons: Dictionary[int, Button] = {}
 var _speed_buttons: Dictionary[int, Button] = {}
-var _demand_bars: Array[ProgressBar] = []
+var _demand_bars: Array[DemandBar] = []
 var _current_tool: int = BuildTool.Mode.NONE
 
 
@@ -48,6 +48,8 @@ func _ready() -> void:
 func _refresh_stats() -> void:
 	var balance: int = GameState.income - GameState.expenses
 	%MoneyLabel.text = "$%d (%+d/день)" % [GameState.money, balance]
+	%MoneyLabel.tooltip_text = "Доход: +$%d/день
+Содержание дорог: −$%d/день" % [GameState.income, GameState.expenses]
 	if GameState.money < 0:
 		%MoneyLabel.add_theme_color_override(&"font_color", DEBT_COLOR)
 	else:
@@ -56,6 +58,8 @@ func _refresh_stats() -> void:
 	%PopLabel.text = "Жители: %d" % GameState.population
 	%JobsLabel.text = "Работа: C %d · I %d" % [GameState.jobs_commercial, GameState.jobs_industrial]
 	%TaxLabel.text = "Налог %d%%" % GameState.tax_rate
+	%TaxDown.disabled = GameState.tax_rate <= Economy.MIN_TAX_RATE
+	%TaxUp.disabled = GameState.tax_rate >= Economy.MAX_TAX_RATE
 	var demands: Array[float] = [GameState.demand_r, GameState.demand_c, GameState.demand_i]
 	for i: int in _demand_bars.size():
 		_demand_bars[i].value = demands[i]
@@ -67,16 +71,9 @@ func _build_demand_bars() -> void:
 		var label := Label.new()
 		label.text = entry.name
 		%Demand.add_child(label)
-		var bar := ProgressBar.new()
-		bar.min_value = -1.0
-		bar.max_value = 1.0
-		bar.step = 0.01
-		bar.show_percentage = false
-		bar.custom_minimum_size = Vector2(60, 14)
+		var bar := DemandBar.new()
+		bar.color = entry.color
 		bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		var fill := StyleBoxFlat.new()
-		fill.bg_color = entry.color
-		bar.add_theme_stylebox_override(&"fill", fill)
 		%Demand.add_child(bar)
 		_demand_bars.append(bar)
 

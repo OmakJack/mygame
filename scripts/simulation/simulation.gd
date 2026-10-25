@@ -104,3 +104,6 @@ func _update_stats() -> void:
 	GameState.demand_r = Demand.residential(population, jobs_commercial, jobs_industrial, tax_rate)
 	GameState.demand_c = Demand.commercial(population, jobs_commercial, tax_rate)
 	GameState.demand_i = Demand.industrial(population, jobs_industrial, tax_rate)
+	# Прогноз денег на день — тоже здесь, чтобы UI видел его сразу (и на паузе).
+	GameState.income = Economy.daily_income(population, jobs_commercial + jobs_industrial, tax_rate)
+	GameState.expenses = Economy.daily_expenses(GameState.grid.road_cells.size())

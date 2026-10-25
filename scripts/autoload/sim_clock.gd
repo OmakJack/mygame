@@ -15,6 +15,11 @@ var _speed_before_pause: int = 1
 var _accumulator: float = 0.0
 
 
+func _ready() -> void:
+	# Новая карта — начинаем отсчёт тика заново.
+	Events.grid_reset.connect(func() -> void: _accumulator = 0.0)
+
+
 func _process(delta: float) -> void:
 	if speed == 0:
 		return

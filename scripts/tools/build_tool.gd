@@ -59,6 +59,11 @@ var _drag_cells: Array[Vector2i] = []
 func _ready() -> void:
 	cursor.set_color(CURSOR_COLORS[mode])
 	Events.tool_requested.connect(func(requested: int) -> void: _set_mode(requested as Mode))
+	# Деньги могли измениться на тике, пока мышь стоит, — обновляем превью.
+	Events.stats_changed.connect(func() -> void:
+		if _dragging:
+			_update_drag(_drag_end))
+	Events.grid_reset.connect(_end_drag)
 
 
 static func cost_of(tool_mode: Mode) -> int:
