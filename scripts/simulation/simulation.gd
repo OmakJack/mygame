@@ -41,7 +41,12 @@ func _on_sim_tick() -> void:
 	var grid: CityGrid = GameState.grid
 	var changed: Array[Vector2i] = []
 	_abandon_buildings(grid, changed)
+	# Фаза 10: упадок несчастных домов, конец стройки, рост, повышения и перестройки.
+	changed.append_array(Levels.decline(grid, GameState.happiness))
+	changed.append_array(Levels.tick_construction(grid))
 	_grow(grid, changed)
+	changed.append_array(Levels.step(grid, _rng, GameState.network, GameState.utilities, GameState.land,
+			GameState.happiness, _demands()))
 	_ticks_since_traffic += 1
 	_update_stats(true)
 	Economy.apply_day()
@@ -94,19 +99,29 @@ func _abandon_buildings(grid: CityGrid, changed: Array[Vector2i]) -> void:
 ## Шанс вырасти дому зоны на тике = min(1, спрос · GROWTH_CHANCE_FACTOR):
 ## при спросе 0.5 — примерно раз в 3 тика, при просадке (налог, нет служб) — реже.
 func _grow(grid: CityGrid, changed: Array[Vector2i]) -> void:
-	var demands: Dictionary[CityGrid.Zone, float] = {
-		CityGrid.Zone.RESIDENTIAL: GameState.demand_r,
-		CityGrid.Zone.COMMERCIAL: GameState.demand_c,
-		CityGrid.Zone.INDUSTRIAL: GameState.demand_i,
-	}
-	for zone_type: CityGrid.Zone in demands:
-		var chance: float = clampf(demands[zone_type] * GROWTH_CHANCE_FACTOR, 0.0, 1.0)
+	var demands: Dictionary[CityGrid.Zone, float] = _demands()
+	# Каждая зона (и высокой плотности, и офисы) растёт по спросу своей категории (фаза 10).
+	for zone_type: CityGrid.Zone in grid.zoned_empty_cells:
+		if grid.zoned_empty_cells[zone_type].is_empty():
+			continue
+		var demand: float = demands[CityGrid.zone_category(zone_type)]
+		var chance: float = clampf(demand * GROWTH_CHANCE_FACTOR, 0.0, 1.0)
 		if _rng.randf() >= chance:
 			continue
 		var cell: Vector2i = Growth.grow_one(grid, zone_type, _rng, GameState.network, GameState.utilities,
 				GameState.land)
 		if cell != CityGrid.NO_CELL:
+			grid.get_building_at(cell).construction_ticks = Levels.CONSTRUCTION_TICKS
 			changed.append(cell)
+
+
+## Спрос по категориям зон.
+func _demands() -> Dictionary[CityGrid.Zone, float]:
+	return {
+		CityGrid.Zone.RESIDENTIAL: GameState.demand_r,
+		CityGrid.Zone.COMMERCIAL: GameState.demand_c,
+		CityGrid.Zone.INDUSTRIAL: GameState.demand_i,
+	}
 
 
 ## Пересчитывает всё, что видит UI: сеть, свет и воду, население и рабочие места,
@@ -125,7 +140,7 @@ func _update_stats(from_tick: bool = false) -> void:
 		if data == null:
 			continue
 		population += data.population
-		match data.zone:
+		match CityGrid.zone_category(data.zone):
 			CityGrid.Zone.COMMERCIAL:
 				jobs_commercial += data.jobs
 			CityGrid.Zone.INDUSTRIAL:
@@ -150,6 +165,9 @@ func _update_stats(from_tick: bool = false) -> void:
 		_land_traffic = GameState.traffic
 		_land_buildings_version = grid.buildings_version
 
+	GameState.happiness = Happiness.compute(grid, GameState.land, GameState.traffic, GameState.tax_rate)
+	_update_rank(population)
+
 	GameState.service_coverage = Services.coverage(grid, population)
 	var offset: float = Services.demand_offset(GameState.service_coverage, population) \
 			+ GameState.traffic.demand_offset()
@@ -160,6 +178,18 @@ func _update_stats(from_tick: bool = false) -> void:
 	# Прогноз денег на день — тоже здесь, чтобы UI видел его сразу (и на паузе).
 	GameState.income = Economy.daily_income(_tax_base(grid), tax_rate)
 	GameState.expenses = Economy.daily_expenses(grid.road_cells.size(), service_upkeep)
+
+
+## Звание растёт с населением и не падает. Старое сохранение (−1) — по населению, без награды.
+func _update_rank(population: int) -> void:
+	var reached: int = Ranks.for_population(population)
+	if GameState.rank < 0:
+		GameState.rank = reached
+	elif reached > GameState.rank:
+		for rank: int in range(GameState.rank + 1, reached + 1):
+			GameState.money += Ranks.REWARDS[rank]
+		GameState.rank = reached
+		Events.rank_changed.emit(reached)
 
 
 ## Налоговая база: жители и рабочие места, каждое здание — с поправкой на стоимость земли под ним.

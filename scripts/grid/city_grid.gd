@@ -4,7 +4,8 @@ extends RefCounted
 ## Визуал только читает эти данные и слушает Events.
 
 enum Tile { EMPTY, ROAD, BUILDING }
-enum Zone { NONE, RESIDENTIAL, COMMERCIAL, INDUSTRIAL }
+## Значения 0..3 не менять: на них держатся сохранения. Новые — только в конец (фаза 10).
+enum Zone { NONE, RESIDENTIAL, COMMERCIAL, INDUSTRIAL, RESIDENTIAL_HIGH, COMMERCIAL_HIGH, OFFICE }
 
 const GRID_SIZE: int = 64
 ## Размер клетки в мире, метры.
@@ -35,7 +36,28 @@ var zoned_empty_cells: Dictionary[Zone, Dictionary] = {
 	Zone.RESIDENTIAL: {},
 	Zone.COMMERCIAL: {},
 	Zone.INDUSTRIAL: {},
+	Zone.RESIDENTIAL_HIGH: {},
+	Zone.COMMERCIAL_HIGH: {},
+	Zone.OFFICE: {},
 }
+
+
+## Категория зоны для спроса и подсчёта: высокая плотность — к своей зоне, офисы — к промзоне
+## («базовые» рабочие места, ревью Argon 013).
+static func zone_category(zone_type: Zone) -> Zone:
+	match zone_type:
+		Zone.RESIDENTIAL_HIGH:
+			return Zone.RESIDENTIAL
+		Zone.COMMERCIAL_HIGH:
+			return Zone.COMMERCIAL
+		Zone.OFFICE:
+			return Zone.INDUSTRIAL
+	return zone_type
+
+
+## Жильё ли это (любой плотности).
+static func is_residential(zone_type: Zone) -> bool:
+	return zone_category(zone_type) == Zone.RESIDENTIAL
 
 
 func _init(p_size: int = GRID_SIZE) -> void:
@@ -173,13 +195,24 @@ func can_zone(cell: Vector2i, zone_type: Zone) -> bool:
 	if not is_in_bounds(cell):
 		return false
 	var i: int = index_of(cell)
-	if tile_type[i] != Tile.EMPTY or zone[i] == zone_type:
+	if zone[i] == zone_type:
+		return false
+	# Под домом можно сменить плотность той же категории (R ↔ R высокая, C ↔ C высокая):
+	# дом потом перестроится (фаза 10). Офисы и промзона — разные зоны, хоть и одна категория.
+	if tile_type[i] == Tile.BUILDING:
+		return zone[i] != Zone.NONE and zone_type != Zone.NONE and _same_density_family(zone[i] as Zone, zone_type)
+	if tile_type[i] != Tile.EMPTY:
 		return false
 	# На воде зон нет; снять зону с воды нечего.
 	if water[i] == 1:
 		return false
 	# Снять зону можно всегда, поставить — только рядом с дорогой.
 	return zone_type == Zone.NONE or has_road_access(cell)
+
+
+static func _same_density_family(a: Zone, b: Zone) -> bool:
+	var ca: Zone = zone_category(a)
+	return ca == zone_category(b) and ca != Zone.INDUSTRIAL
 
 
 ## Ставит или снимает (Zone.NONE) зону. Единственное место изменения зон.

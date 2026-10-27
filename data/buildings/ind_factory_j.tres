@@ -6,7 +6,7 @@
 [resource]
 script = ExtResource("2_k6tif")
 id = &"ind_factory_j"
-display_name = "Цех J"
+display_name = "Цех J · ур. 1"
 zone = 3
 jobs = 8
 power_use = 3

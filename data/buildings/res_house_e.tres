@@ -6,9 +6,10 @@
 [resource]
 script = ExtResource("2_2b30k")
 id = &"res_house_e"
-display_name = "Дом E"
-population = 10
-power_use = 1
-water_use = 1
+display_name = "Дом E · ур. 2"
+population = 20
+level = 2
+power_use = 2
+water_use = 2
 model = ExtResource("1_way8x")
 model_scale = 1.1

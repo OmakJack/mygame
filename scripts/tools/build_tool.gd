@@ -4,7 +4,8 @@ extends Node
 ## Меняет клетки только через CityGrid и шлёт один Events.cells_changed на операцию.
 ## Платные режимы списывают деньги через Economy и останавливаются, когда денег нет.
 
-enum Mode { NONE, ROAD, BULLDOZE, ZONE_R, ZONE_C, ZONE_I, DEZONE, PLACE }
+## Новые режимы — только в конец (номера режимов шлёт HUD через Events.tool_requested).
+enum Mode { NONE, ROAD, BULLDOZE, ZONE_R, ZONE_C, ZONE_I, DEZONE, PLACE, ZONE_R_HIGH, ZONE_C_HIGH, ZONE_O }
 
 const CURSOR_COLORS: Dictionary[Mode, Color] = {
 	Mode.NONE: Color(1.0, 1.0, 1.0, 0.35),
@@ -15,6 +16,9 @@ const CURSOR_COLORS: Dictionary[Mode, Color] = {
 	Mode.ZONE_I: Color(0.95, 0.8, 0.2, 0.7),
 	Mode.DEZONE: Color(0.75, 0.5, 1.0, 0.55),
 	Mode.PLACE: Color(0.85, 0.9, 1.0, 0.6),
+	Mode.ZONE_R_HIGH: Color(0.1, 0.6, 0.25, 0.75),
+	Mode.ZONE_C_HIGH: Color(0.15, 0.3, 0.85, 0.75),
+	Mode.ZONE_O: Color(0.6, 0.35, 0.9, 0.75),
 }
 ## Цвет клетки, куда здание поставить нельзя.
 const INVALID_COLOR := Color(1.0, 0.15, 0.15, 0.6)
@@ -25,6 +29,9 @@ const MODE_ZONES: Dictionary[Mode, CityGrid.Zone] = {
 	Mode.ZONE_C: CityGrid.Zone.COMMERCIAL,
 	Mode.ZONE_I: CityGrid.Zone.INDUSTRIAL,
 	Mode.DEZONE: CityGrid.Zone.NONE,
+	Mode.ZONE_R_HIGH: CityGrid.Zone.RESIDENTIAL_HIGH,
+	Mode.ZONE_C_HIGH: CityGrid.Zone.COMMERCIAL_HIGH,
+	Mode.ZONE_O: CityGrid.Zone.OFFICE,
 }
 
 ## Цена за реально изменённую клетку. Чего нет в словаре — бесплатно.
@@ -33,6 +40,9 @@ const MODE_COSTS: Dictionary[Mode, int] = {
 	Mode.ZONE_R: Economy.ZONE_COST,
 	Mode.ZONE_C: Economy.ZONE_COST,
 	Mode.ZONE_I: Economy.ZONE_COST,
+	Mode.ZONE_R_HIGH: Economy.ZONE_COST,
+	Mode.ZONE_C_HIGH: Economy.ZONE_COST,
+	Mode.ZONE_O: Economy.ZONE_COST,
 }
 
 ## Горячие клавиши режимов (действия из project.godot).
@@ -43,6 +53,9 @@ const MODE_ACTIONS: Dictionary[StringName, Mode] = {
 	&"tool_zone_c": Mode.ZONE_C,
 	&"tool_zone_i": Mode.ZONE_I,
 	&"tool_dezone": Mode.DEZONE,
+	&"tool_zone_rh": Mode.ZONE_R_HIGH,
+	&"tool_zone_ch": Mode.ZONE_C_HIGH,
+	&"tool_zone_o": Mode.ZONE_O,
 	&"tool_cancel": Mode.NONE,
 }
 
@@ -129,7 +142,14 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 
+## Закрыт ли режим званием города (фаза 10): высокая плотность — с «городка», офисы — с «города».
+static func is_locked(tool_mode: Mode) -> bool:
+	return MODE_ZONES.has(tool_mode) and not Ranks.is_unlocked(MODE_ZONES[tool_mode], GameState.rank)
+
+
 func _set_mode(new_mode: Mode, type_id: StringName = &"") -> void:
+	if is_locked(new_mode):
+		return
 	# Повторное нажатие той же клавиши не сбрасывает протягивание.
 	if new_mode == mode and type_id == place_type:
 		return
@@ -147,7 +167,7 @@ func _update_drag(end: Vector2i) -> void:
 			_drag_cells = _l_path(_drag_start, _drag_end)
 		Mode.BULLDOZE:
 			_drag_cells = _rect_cells(_drag_start, _drag_end)
-		Mode.ZONE_R, Mode.ZONE_C, Mode.ZONE_I, Mode.DEZONE:
+		Mode.ZONE_R, Mode.ZONE_C, Mode.ZONE_I, Mode.DEZONE, Mode.ZONE_R_HIGH, Mode.ZONE_C_HIGH, Mode.ZONE_O:
 			# Показываем только клетки, где зона реально изменится.
 			var grid: CityGrid = GameState.grid
 			var zone_type: CityGrid.Zone = MODE_ZONES[mode]
@@ -195,7 +215,7 @@ func _would_change(cell: Vector2i) -> bool:
 	match mode:
 		Mode.ROAD:
 			return grid.can_set_road(cell)
-		Mode.ZONE_R, Mode.ZONE_C, Mode.ZONE_I, Mode.DEZONE:
+		Mode.ZONE_R, Mode.ZONE_C, Mode.ZONE_I, Mode.DEZONE, Mode.ZONE_R_HIGH, Mode.ZONE_C_HIGH, Mode.ZONE_O:
 			return grid.can_zone(cell, MODE_ZONES[mode])
 	return true
 
@@ -223,7 +243,7 @@ func _apply() -> void:
 				did_change = grid.set_road(cell)
 			Mode.BULLDOZE:
 				did_change = grid.bulldoze(cell)
-			Mode.ZONE_R, Mode.ZONE_C, Mode.ZONE_I, Mode.DEZONE:
+			Mode.ZONE_R, Mode.ZONE_C, Mode.ZONE_I, Mode.DEZONE, Mode.ZONE_R_HIGH, Mode.ZONE_C_HIGH, Mode.ZONE_O:
 				did_change = grid.set_zone(cell, MODE_ZONES[mode])
 		if did_change:
 			Economy.spend(cost)

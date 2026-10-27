@@ -15,6 +15,10 @@ var orientation: int
 var no_road_ticks: int = 0
 var no_power_ticks: int = 0
 var no_water_ticks: int = 0
+## Сколько дней подряд жителям плохо (фаза 10): после Levels.DECLINE_TICKS дом пустеет.
+var unhappy_ticks: int = 0
+## Сколько дней ещё стоит стройплощадкой (не сохраняется: после загрузки — сразу дом).
+var construction_ticks: int = 0
 ## Результат последнего распределения света и воды.
 var powered: bool = false
 var has_water: bool = false

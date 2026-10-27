@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/kenney/commercial/building-g.glb" id="1_ribs8"]
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="2_qdbkn"]
+
+[resource]
+script = ExtResource("2_qdbkn")
+id = &"res_block_g"
+display_name = "Многоэтажка G · ур. 1"
+zone = 4
+population = 60
+power_use = 6
+water_use = 6
+noise = 4
+model = ExtResource("1_ribs8")
+model_scale = 1.4

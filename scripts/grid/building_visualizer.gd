@@ -2,6 +2,8 @@ extends GridMap
 ## Показывает здания из GameState.grid. Поворот — по BuildingInstance.orientation.
 
 var _item_for_type: Dictionary[StringName, int] = {}
+## Кусок стройплощадки — последний в библиотеке (BuildingMeshes.build_library).
+var _construction_item: int = 0
 ## Ориентация GridMap для направлений N/E/S/W (поворот по часовой, как у дорог).
 var _orientation_for_dir: Array[int] = []
 
@@ -9,6 +11,7 @@ var _orientation_for_dir: Array[int] = []
 func _ready() -> void:
 	var types: Array[BuildingData] = BuildingCatalog.all_types()
 	mesh_library = BuildingMeshes.build_library(types)
+	_construction_item = types.size()
 	for item: int in types.size():
 		_item_for_type[types[item].id] = item
 	for dir: int in 4:
@@ -44,4 +47,5 @@ func _update_cell(cell: Vector2i) -> void:
 	if not _item_for_type.has(building.type_id):
 		push_warning("BuildingVisualizer: неизвестный тип %s" % building.type_id)
 		return
-	set_cell_item(map_cell, _item_for_type[building.type_id], _orientation_for_dir[building.orientation])
+	var item: int = _construction_item if building.construction_ticks > 0 else _item_for_type[building.type_id]
+	set_cell_item(map_cell, item, _orientation_for_dir[building.orientation])

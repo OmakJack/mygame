@@ -6,7 +6,7 @@
 [resource]
 script = ExtResource("1_data")
 id = &"res_small_01"
-display_name = "Маленький дом"
+display_name = "Дом A · ур. 1"
 population = 10
 power_use = 1
 water_use = 1

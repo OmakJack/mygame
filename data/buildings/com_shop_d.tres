@@ -6,11 +6,12 @@
 [resource]
 script = ExtResource("2_lxs06")
 id = &"com_shop_d"
-display_name = "Магазин D"
+display_name = "Магазин D · ур. 2"
 zone = 2
-jobs = 5
-power_use = 2
-water_use = 1
-noise = 12
+jobs = 10
+level = 2
+power_use = 4
+water_use = 2
+noise = 14
 model = ExtResource("1_dgf3m")
 model_scale = 1.4

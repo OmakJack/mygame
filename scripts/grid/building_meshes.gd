@@ -14,8 +14,25 @@ const DOOR_COLOR := Color(0.25, 0.18, 0.12)
 const SIGN_SIZE := Vector3(0.8, 0.32, 0.06)
 const SIGN_POST := Vector3(0.06, 0.3, 0.06)
 const SIGN_POST_COLOR := Color(0.3, 0.3, 0.32)
+const CONSTRUCTION_GROUND := Color(0.55, 0.44, 0.32)
+const FOUNDATION_COLOR := Color(0.72, 0.72, 0.7)
+const KENNEY_ROADS := "res://assets/models/kenney/roads/"
+## Детали стройплощадки: [модель, x, z, поворот, масштаб] (дорожный набор Kenney: 1 ед. ≈ 0.4 м забора).
+const CONSTRUCTION_PARTS: Array = [
+	[KENNEY_ROADS + "construction-fence", -0.85, -0.45, 0, 2.5],
+	[KENNEY_ROADS + "construction-fence", -0.85, 0.45, 0, 2.5],
+	[KENNEY_ROADS + "construction-fence", 0.85, -0.45, 0, 2.5],
+	[KENNEY_ROADS + "construction-fence", 0.85, 0.45, 0, 2.5],
+	[KENNEY_ROADS + "construction-fence", -0.45, 0.85, 1, 2.5],
+	[KENNEY_ROADS + "construction-fence", 0.45, 0.85, 1, 2.5],
+	[KENNEY_ROADS + "construction-barrier", -0.45, -0.85, 1, 2.5],
+	[KENNEY_ROADS + "construction-cone", 0.3, -0.8, 0, 2.5],
+	[KENNEY_ROADS + "construction-cone", 0.55, -0.8, 0, 2.5],
+	[KENNEY_ROADS + "construction-light", 0.8, -0.8, 0, 2.5],
+]
 
 
+## Куски по типам (номер = порядок types), последним — стройплощадка (номер types.size()).
 static func build_library(types: Array[BuildingData]) -> MeshLibrary:
 	var library := MeshLibrary.new()
 	for item: int in types.size():
@@ -23,7 +40,19 @@ static func build_library(types: Array[BuildingData]) -> MeshLibrary:
 		library.create_item(item)
 		library.set_item_name(item, String(data.id))
 		library.set_item_mesh(item, mesh_for(data))
+	library.create_item(types.size())
+	library.set_item_name(types.size(), "construction")
+	library.set_item_mesh(types.size(), construction_mesh())
 	return library
+
+
+## Стройплощадка (фаза 10): земля, фундамент с опорами, заборчики, конусы и фонарь Kenney.
+static func construction_mesh() -> ArrayMesh:
+	var mesh: ArrayMesh = ParkMeshes.build_layout(CONSTRUCTION_PARTS, CONSTRUCTION_GROUND)
+	_add_box(mesh, Vector3(1.2, 0.12, 1.2), Vector3(0.0, 0.09, 0.05), FOUNDATION_COLOR)
+	for corner: Vector2 in [Vector2(-0.5, -0.45), Vector2(0.5, -0.45), Vector2(-0.5, 0.55), Vector2(0.5, 0.55)]:
+		_add_box(mesh, Vector3(0.1, 0.7, 0.1), Vector3(corner.x, 0.5, corner.y), FOUNDATION_COLOR)
+	return mesh
 
 
 ## Меш типа здания в координатах клетки: центр основания — в начале координат, фасад на −Z.

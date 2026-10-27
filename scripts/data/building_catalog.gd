@@ -32,11 +32,16 @@ static func types_for_zone(zone_type: CityGrid.Zone) -> Array[BuildingData]:
 	return _by_zone.get(zone_type, _empty)
 
 
-## Типы зоны, которые растут сами (BuildingData.grows).
+## Типы зоны, которые растут сами (BuildingData.grows): рост ставит только уровень 1.
 static func growable_types(zone_type: CityGrid.Zone) -> Array[BuildingData]:
+	return level_types(zone_type, 1)
+
+
+## Растущие типы зоны данного уровня — для роста (ур.1) и повышения (фаза 10).
+static func level_types(zone_type: CityGrid.Zone, level: int) -> Array[BuildingData]:
 	var result: Array[BuildingData] = []
 	for data: BuildingData in types_for_zone(zone_type):
-		if data.grows:
+		if data.grows and data.level == level:
 			result.append(data)
 	return result
 

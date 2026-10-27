@@ -46,6 +46,10 @@ signal modal_changed(open: bool)
 @warning_ignore("unused_signal")
 signal cell_inspected(cell: Vector2i)
 
+## Город получил новое звание (Ranks, фаза 10) — HUD показывает сообщение.
+@warning_ignore("unused_signal")
+signal rank_changed(rank: int)
+
 ## Кнопка «Меню» в HUD просит открыть главное меню (как Esc).
 @warning_ignore("unused_signal")
 signal menu_requested

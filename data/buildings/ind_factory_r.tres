@@ -6,11 +6,12 @@
 [resource]
 script = ExtResource("2_j6xgn")
 id = &"ind_factory_r"
-display_name = "Цех R"
+display_name = "Цех R · ур. 3"
 zone = 3
-jobs = 8
-power_use = 3
-water_use = 2
-pollution = 30
-noise = 15
+jobs = 24
+level = 3
+power_use = 9
+water_use = 6
+pollution = 40
+noise = 18
 model = ExtResource("1_cqsbv")

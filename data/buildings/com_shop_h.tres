@@ -6,12 +6,13 @@
 [resource]
 script = ExtResource("2_wvybl")
 id = &"com_shop_h"
-display_name = "Магазин H"
+display_name = "Магазин H · ур. 2"
 zone = 2
-jobs = 5
+jobs = 10
+level = 2
 grows = false
-power_use = 2
-water_use = 1
-noise = 12
+power_use = 4
+water_use = 2
+noise = 14
 model = ExtResource("1_rq0yj")
 model_scale = 1.4

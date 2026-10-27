@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/kenney/commercial/building-j.glb" id="1_5f4ki"]
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="2_5a473"]
+
+[resource]
+script = ExtResource("2_5a473")
+id = &"com_tower_j"
+display_name = "Торговый дом J · ур. 3"
+zone = 5
+jobs = 60
+level = 3
+power_use = 16
+water_use = 8
+noise = 22
+model = ExtResource("1_5f4ki")
+model_scale = 1.4

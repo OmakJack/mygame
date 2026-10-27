@@ -61,7 +61,7 @@ func load_city(file_id: String) -> bool:
 		return false
 	for warning: String in result.warnings:
 		push_warning("Загрузка «%s»: %s" % [file_id, warning])
-	_apply(result.grid, result.name, result.money, result.tax_rate, result.day)
+	_apply(result.grid, result.name, result.money, result.tax_rate, result.day, result.rank)
 	Events.load_done.emit(result.name, result.warnings.size())
 	return true
 
@@ -71,7 +71,7 @@ func new_city() -> void:
 	var grid := CityGrid.new(CityGrid.GRID_SIZE)
 	if with_river:
 		MapGenerator.add_river(grid, randi())
-	_apply(grid, DEFAULT_CITY_NAME, Economy.START_MONEY, Economy.DEFAULT_TAX_RATE, 0)
+	_apply(grid, DEFAULT_CITY_NAME, Economy.START_MONEY, Economy.DEFAULT_TAX_RATE, 0, 0)
 
 
 ## Сохранения: file, name, day, population, money, saved_at, broken. Новые — первыми.
@@ -140,7 +140,7 @@ static func file_id_for(city_name: String) -> String:
 func _write(file_id: String, label: String) -> bool:
 	DirAccess.make_dir_recursive_absolute(save_dir)
 	var data: Dictionary = CitySerializer.to_dict(GameState.grid, GameState.city_name, GameState.money,
-			GameState.tax_rate, GameState.day, GameState.population)
+			GameState.tax_rate, GameState.day, GameState.population, GameState.rank)
 	var path: String = _path(file_id)
 	var temp_path: String = path + ".tmp"
 	# Сначала во временный файл, потом поверх старого: при сбое старое сохранение цело.
@@ -159,8 +159,9 @@ func _write(file_id: String, label: String) -> bool:
 	return true
 
 
-func _apply(grid: CityGrid, city_name: String, money: int, tax_rate: int, day: int) -> void:
+func _apply(grid: CityGrid, city_name: String, money: int, tax_rate: int, day: int, rank: int) -> void:
 	GameState.grid = grid
+	GameState.rank = rank
 	GameState.city_name = city_name
 	GameState.money = money
 	GameState.tax_rate = tax_rate
@@ -169,6 +170,7 @@ func _apply(grid: CityGrid, city_name: String, money: int, tax_rate: int, day: i
 	GameState.utilities = Utilities.new()
 	GameState.service_coverage = {}
 	GameState.land = LandValue.new()
+	GameState.happiness = Happiness.new()
 	Events.grid_reset.emit()
 
 

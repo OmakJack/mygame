@@ -6,7 +6,7 @@
 [resource]
 script = ExtResource("2_gsdak")
 id = &"res_house_l"
-display_name = "Дом L"
+display_name = "Дом L · ур. 1"
 population = 10
 power_use = 1
 water_use = 1

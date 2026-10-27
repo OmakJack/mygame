@@ -6,7 +6,7 @@
 [resource]
 script = ExtResource("2_ca664")
 id = &"res_house_k"
-display_name = "Дом K"
+display_name = "Дом K · ур. 1"
 population = 10
 power_use = 1
 water_use = 1

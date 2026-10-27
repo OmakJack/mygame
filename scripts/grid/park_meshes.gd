@@ -44,9 +44,15 @@ const LAYOUTS: Dictionary = {
 
 
 static func build(park: BuildingData.Park) -> ArrayMesh:
+	return build_layout(LAYOUTS.get(park, []), PAVING if park == BuildingData.Park.PLAZA else GRASS)
+
+
+## Основание цвета base и детали Kenney по списку [модель, x, z, поворот, масштаб].
+## Ей же собирается стройплощадка (BuildingMeshes).
+static func build_layout(parts: Array, base: Color) -> ArrayMesh:
 	var mesh := ArrayMesh.new()
-	_add_base(mesh, PAVING if park == BuildingData.Park.PLAZA else GRASS)
-	for part: Array in LAYOUTS.get(park, []):
+	_add_base(mesh, base)
+	for part: Array in parts:
 		var path: String = part[0] + ".glb"
 		if not ResourceLoader.exists(path):
 			continue

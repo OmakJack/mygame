@@ -6,7 +6,7 @@
 [resource]
 script = ExtResource("2_7d4j3")
 id = &"com_shop_c"
-display_name = "Магазин C"
+display_name = "Магазин C · ур. 1"
 zone = 2
 jobs = 5
 grows = false

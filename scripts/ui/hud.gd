@@ -14,6 +14,9 @@ const TABS: Array[Dictionary] = [
 		{"mode": BuildTool.Mode.ZONE_C, "name": "Коммерция", "key": "2"},
 		{"mode": BuildTool.Mode.ZONE_I, "name": "Промзона", "key": "3"},
 		{"mode": BuildTool.Mode.DEZONE, "name": "Снять зону", "key": "4"},
+		{"mode": BuildTool.Mode.ZONE_R_HIGH, "name": "Многоэтажки", "key": "5"},
+		{"mode": BuildTool.Mode.ZONE_C_HIGH, "name": "Торговые дома", "key": "6"},
+		{"mode": BuildTool.Mode.ZONE_O, "name": "Офисы", "key": "7"},
 	]},
 	{"id": "utilities", "name": "Свет и вода", "buildings": "utilities"},
 	{"id": "services", "name": "Службы", "buildings": "services"},
@@ -51,6 +54,8 @@ var _new_city_confirm := ConfirmationDialog.new()
 var _toast := PanelContainer.new()
 var _toast_label := Label.new()
 var _info := InfoPanel.new()
+## Плашка звания (фаза 10) — создаётся кодом рядом с «Жителями»; счастье — в плашке «Жители».
+var _rank_label := Label.new()
 ## Номер последнего сообщения: старый таймер не прячет новое сообщение.
 var _toast_serial: int = 0
 ## Скорость до окна подтверждения «Новый город».
@@ -66,6 +71,8 @@ func _ready() -> void:
 	_build_bottom_extras()
 	_build_city_controls()
 	$Root.add_child(_info)
+	_build_rank_chips()
+	Events.rank_changed.connect(_on_rank_changed)
 	_new_city_confirm.theme = theme
 	for window: Node in _save_dialog.find_children("*", "Window", true, false):
 		(window as Window).theme = theme
@@ -98,6 +105,8 @@ func _refresh_stats() -> void:
 	_show_resource(%WaterLabel, "Вода", utilities.water_use, utilities.water_supply, utilities.no_water_count)
 	_show_traffic()
 	_show_hints()
+	_show_rank()
+	_sync_locks()
 	%TaxLabel.text = "Налог %d%%" % GameState.tax_rate
 	%TaxDown.disabled = GameState.tax_rate <= Economy.MIN_TAX_RATE
 	%TaxUp.disabled = GameState.tax_rate >= Economy.MAX_TAX_RATE
@@ -124,6 +133,58 @@ func _show_traffic() -> void:
 	%TrafficLabel.tooltip_text = tip % [traffic.jammed_cells, traffic.average_commute,
 			roundi(Traffic.OK_COMMUTE), roundi(traffic.long_commute_share * 100.0)]
 	_mark_bad(%TrafficLabel, traffic.jammed_cells > 0)
+
+
+## «Посёлок · 230/600»: звание и сколько жителей до следующего; счастье — среднее по жителям.
+func _show_rank() -> void:
+	var rank: int = maxi(0, GameState.rank)
+	_rank_label.text = Ranks.NAMES[rank]
+	if rank + 1 < Ranks.THRESHOLDS.size():
+		_rank_label.text += " · %d/%d" % [GameState.population, Ranks.THRESHOLDS[rank + 1]]
+		var next_unlocks: PackedStringArray = Ranks.unlocks_of(rank + 1)
+		_rank_label.tooltip_text = "Следующее звание: %s (%d жителей), награда $%d" % [
+				Ranks.NAMES[rank + 1], Ranks.THRESHOLDS[rank + 1], Ranks.REWARDS[rank + 1]]
+		if not next_unlocks.is_empty():
+			_rank_label.tooltip_text += "
+Откроет: " + ", ".join(next_unlocks)
+	var mood: int = GameState.happiness.average
+	if mood >= 0:
+		%PopLabel.text += " · счастье %d%%" % mood
+	%PopLabel.tooltip_text = "Счастье жителей: службы, цена земли, загрязнение, шум, дорога до работы, налог. Подробнее — клик по дому."
+	_mark_bad(%PopLabel, mood >= 0 and mood < Levels.DECLINE_HAPPINESS + 15)
+
+
+## Карточки закрытых зон — серые, с подсказкой, с какого звания откроются.
+func _sync_locks() -> void:
+	for mode: int in _tool_buttons:
+		if not BuildTool.MODE_ZONES.has(mode) or mode == BuildTool.Mode.DEZONE:
+			continue
+		var zone_type: CityGrid.Zone = BuildTool.MODE_ZONES[mode]
+		var locked: bool = BuildTool.is_locked(mode)
+		_tool_buttons[mode].disabled = locked
+		_tool_buttons[mode].tooltip_text = ("Откроется на звании «%s» (%d жителей)" % [
+				Ranks.NAMES[Ranks.UNLOCKS[zone_type]], Ranks.THRESHOLDS[Ranks.UNLOCKS[zone_type]]]) if locked else ""
+
+
+func _build_rank_chips() -> void:
+	var row: Node = %PopLabel.get_parent().get_parent()
+	var after: int = %PopLabel.get_parent().get_index()
+	var chip := PanelContainer.new()
+	chip.theme_type_variation = &"Chip"
+	_rank_label.mouse_filter = Control.MOUSE_FILTER_PASS
+	_rank_label.theme_type_variation = &"Title"
+	chip.add_child(_rank_label)
+	row.add_child(chip)
+	row.move_child(chip, after + 1)
+	%PopLabel.mouse_filter = Control.MOUSE_FILTER_PASS
+
+
+func _on_rank_changed(rank: int) -> void:
+	var text: String = "Новое звание: %s! Награда $%d" % [Ranks.NAMES[rank], Ranks.REWARDS[rank]]
+	var unlocks: PackedStringArray = Ranks.unlocks_of(rank)
+	if not unlocks.is_empty():
+		text += ". Открыты: " + ", ".join(unlocks)
+	_show_toast(text)
 
 
 func _mark_bad(label: Label, bad: bool) -> void:

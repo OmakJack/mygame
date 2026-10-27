@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/kenney/commercial/building-skyscraper-a.glb" id="1_ab6r4"]
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="2_hcjjm"]
+
+[resource]
+script = ExtResource("2_hcjjm")
+id = &"off_tower_a"
+display_name = "Офис A · ур. 1"
+zone = 6
+jobs = 40
+power_use = 6
+water_use = 3
+noise = 8
+model = ExtResource("1_ab6r4")
+model_scale = 1.4

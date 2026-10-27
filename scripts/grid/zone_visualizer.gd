@@ -26,6 +26,9 @@ const ZONE_COLORS: Dictionary[CityGrid.Zone, Color] = {
 	CityGrid.Zone.RESIDENTIAL: Color(0.3, 0.85, 0.35, 0.3),
 	CityGrid.Zone.COMMERCIAL: Color(0.3, 0.55, 0.95, 0.3),
 	CityGrid.Zone.INDUSTRIAL: Color(0.95, 0.8, 0.25, 0.3),
+	CityGrid.Zone.RESIDENTIAL_HIGH: Color(0.1, 0.6, 0.25, 0.4),
+	CityGrid.Zone.COMMERCIAL_HIGH: Color(0.15, 0.3, 0.85, 0.4),
+	CityGrid.Zone.OFFICE: Color(0.6, 0.35, 0.9, 0.35),
 }
 ## Под построенным домом зона почти прозрачная: видны трава и тени, а пустые участки читаются ярче.
 const BUILT_ALPHA: float = 0.08

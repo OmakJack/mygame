@@ -80,13 +80,13 @@ static func compute(grid: CityGrid) -> Traffic:
 		var road: Vector2i = grid.find_nearest_road(building.cell)
 		if road == CityGrid.NO_CELL:
 			continue
-		if data.zone == CityGrid.Zone.RESIDENTIAL and data.population > 0:
+		if CityGrid.is_residential(data.zone) and data.population > 0:
 			home_ids.append(building.id)
 			home_road.append(grid.index_of(road))
 			home_access.append(absi(road.x - building.cell.x) + absi(road.y - building.cell.y))
 			home_workers.append(data.population * WORK_SHARE)
 		elif data.jobs > 0 and building.powered and building.has_water \
-				and (data.zone == CityGrid.Zone.COMMERCIAL or data.zone == CityGrid.Zone.INDUSTRIAL):
+				and data.zone != CityGrid.Zone.NONE:
 			jobs_at[grid.index_of(road)] += data.jobs
 	var sources := PackedInt32Array()
 	for index: int in cell_count:

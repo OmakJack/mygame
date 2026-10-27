@@ -23,7 +23,8 @@ static func grow_one(grid: CityGrid, zone_type: CityGrid.Zone, rng: RandomNumber
 	var candidates: Array[Vector2i] = []
 	var components: Array[int] = []
 	for cell: Vector2i in grid.zoned_empty_cells[zone_type]:
-		if zone_type == CityGrid.Zone.RESIDENTIAL and land != null 				and land.value_at(land.pollution, grid, cell) >= MAX_HOME_POLLUTION:
+		if CityGrid.is_residential(zone_type) and land != null \
+				and land.value_at(land.pollution, grid, cell) >= MAX_HOME_POLLUTION:
 			continue
 		var component: int = network.component_for(grid, cell)
 		if component == -1:

@@ -86,6 +86,9 @@ func _refresh() -> void:
 			_add("Даёт воду", str(data.water_supply))
 		if data.land_value > 0:
 			_add("Цена земли вокруг", "+%d" % data.land_value)
+		if building.construction_ticks > 0:
+			_add("Стройка", "ещё %d дн." % building.construction_ticks)
+		_add_mood(grid, building, data)
 	elif grid.is_road(cell):
 		_title.text = "Мост" if grid.is_water(cell) else "Дорога"
 		var ratio: float = GameState.traffic.load_ratio(grid, grid.index_of(cell))
@@ -107,6 +110,26 @@ func _refresh() -> void:
 			_add("Налог с участка", "×%.2f" % Economy.land_factor(value))
 
 
+## Счастье дома с причинами и что мешает следующему уровню (фаза 10).
+func _add_mood(grid: CityGrid, building: BuildingInstance, data: BuildingData) -> void:
+	if data.population > 0:
+		var factors: Array[Array] = Happiness.factors(grid, building, data, GameState.land, GameState.traffic,
+				GameState.tax_rate)
+		var mood: int = Happiness.score_of(factors)
+		_add("Счастье", "%d / 100" % mood, mood < Levels.DECLINE_HAPPINESS)
+		for factor: Array in factors:
+			var delta: int = roundi(factor[1])
+			if delta != 0:
+				_add("   " + factor[0], "%+d" % delta, delta < 0)
+	if not data.grows or data.zone == CityGrid.Zone.NONE:
+		return
+	if data.level >= 3:
+		_add("Уровень", "3 — высший")
+		return
+	var blockers: PackedStringArray = Levels.blockers(grid, building, data, GameState.land, GameState.happiness)
+	_add("До ур. %d" % (data.level + 1), "готов" if blockers.is_empty() else ", ".join(blockers), not blockers.is_empty())
+
+
 func _add(label_text: String, value_text: String, bad: bool = false) -> void:
 	var label := Label.new()
 	label.text = label_text
@@ -114,6 +137,9 @@ func _add(label_text: String, value_text: String, bad: bool = false) -> void:
 	_rows.add_child(label)
 	var value := Label.new()
 	value.text = value_text
+	value.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	value.custom_minimum_size = Vector2(120, 0)
+	value.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	if bad:
 		value.add_theme_color_override(&"font_color", UiTheme.BAD)
 	_rows.add_child(value)
@@ -137,4 +163,10 @@ static func _zone_name(zone: CityGrid.Zone) -> String:
 			return "Коммерция"
 		CityGrid.Zone.INDUSTRIAL:
 			return "Промзона"
+		CityGrid.Zone.RESIDENTIAL_HIGH:
+			return "Многоэтажки"
+		CityGrid.Zone.COMMERCIAL_HIGH:
+			return "Торговые дома"
+		CityGrid.Zone.OFFICE:
+			return "Офисы"
 	return "Без зоны"

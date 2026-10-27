@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/kenney/commercial/building-n.glb" id="1_rqafa"]
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="2_vd0yi"]
+
+[resource]
+script = ExtResource("2_vd0yi")
+id = &"res_block_n"
+display_name = "Многоэтажка N · ур. 3"
+zone = 4
+population = 120
+level = 3
+power_use = 12
+water_use = 12
+noise = 6
+model = ExtResource("1_rqafa")
+model_scale = 1.4

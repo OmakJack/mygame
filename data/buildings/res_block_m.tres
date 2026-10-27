@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/kenney/commercial/building-m.glb" id="1_bvmy1"]
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="2_2c1co"]
+
+[resource]
+script = ExtResource("2_2c1co")
+id = &"res_block_m"
+display_name = "Многоэтажка M · ур. 2"
+zone = 4
+population = 90
+level = 2
+power_use = 9
+water_use = 9
+noise = 5
+model = ExtResource("1_bvmy1")
+model_scale = 1.4

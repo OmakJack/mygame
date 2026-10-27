@@ -30,6 +30,10 @@ var service_coverage: Dictionary[BuildingData.Service, float] = {}
 var traffic := Traffic.new()
 ## Загрязнение, шум и стоимость земли (фаза 9).
 var land := LandValue.new()
+## Счастье домов (фаза 10).
+var happiness := Happiness.new()
+## Звание города (Ranks): не падает; −1 — ещё не выставлено (старое сохранение).
+var rank: int = 0
 
 
 func _init() -> void:

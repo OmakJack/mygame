@@ -70,6 +70,12 @@ static func build() -> Array[String]:
 		hints.append("Дома рядом с заводами: %d — жильё лучше подальше от промзоны" % dirty_homes)
 	elif dirty_zone > 0:
 		hints.append("Жильё не растёт у заводов: %d кл. жилой зоны в загрязнении" % dirty_zone)
+	var unhappy: int = 0
+	for mood: int in GameState.happiness.by_building.values():
+		if mood < Levels.DECLINE_HAPPINESS:
+			unhappy += 1
+	if unhappy > 0:
+		hints.append("Жителям плохо в %d домах — скоро уедут (клик по дому: почему)" % unhappy)
 	if GameState.population >= PARK_HINT_FROM and not _has_parks(grid):
 		hints.append("Парк поднимет цену земли и налоги вокруг (вкладка «Парки»)")
 

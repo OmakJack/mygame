@@ -20,10 +20,11 @@ class LoadResult extends RefCounted:
 	var money: int = 0
 	var tax_rate: int = 0
 	var day: int = 0
+	var rank: int = -1
 
 
 static func to_dict(grid: CityGrid, city_name: String, money: int, tax_rate: int, day: int,
-		population: int) -> Dictionary:
+		population: int, rank: int = -1) -> Dictionary:
 	var roads := PackedByteArray()
 	roads.resize(grid.size * grid.size)
 	roads.fill(0)
@@ -40,13 +41,14 @@ static func to_dict(grid: CityGrid, city_name: String, money: int, tax_rate: int
 			"nr": building.no_road_ticks,
 			"np": building.no_power_ticks,
 			"nw": building.no_water_ticks,
+			"nh": building.unhappy_ticks,
 		})
 	return {
 		"format": FORMAT,
 		"version": VERSION,
 		"saved_at": Time.get_datetime_string_from_system(),
 		"meta": {"name": city_name, "day": day, "population": population, "money": money},
-		"state": {"money": money, "tax_rate": tax_rate, "day": day},
+		"state": {"money": money, "tax_rate": tax_rate, "day": day, "rank": rank},
 		"grid": {
 			"size": grid.size,
 			"next_building_id": grid.next_building_id,
@@ -128,6 +130,8 @@ static func from_dict(data: Variant) -> LoadResult:
 	result.tax_rate = clampi(_int(state.get("tax_rate"), Economy.DEFAULT_TAX_RATE),
 			Economy.MIN_TAX_RATE, Economy.MAX_TAX_RATE)
 	result.day = maxi(0, _int(state.get("day"), 0))
+	# Звание (фаза 10): нет поля — −1, Simulation выставит по населению без награды.
+	result.rank = clampi(_int(state.get("rank"), -1), -1, Ranks.NAMES.size() - 1)
 	var meta: Dictionary = _dict(root.get("meta"))
 	result.name = str(meta.get("name", "Город"))
 	result.grid = grid
@@ -156,6 +160,7 @@ static func _load_building(grid: CityGrid, entry: Dictionary, occupied: Dictiona
 	building.no_road_ticks = maxi(0, _int(entry.get("nr"), 0))
 	building.no_power_ticks = maxi(0, _int(entry.get("np"), 0))
 	building.no_water_ticks = maxi(0, _int(entry.get("nw"), 0))
+	building.unhappy_ticks = maxi(0, _int(entry.get("nh"), 0))
 	grid.buildings[id] = building
 	occupied[cell] = true
 	# Под служебным зданием зоны нет (как при постройке): после сноса там не вырастет дом.

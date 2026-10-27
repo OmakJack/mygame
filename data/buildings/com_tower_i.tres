@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/kenney/commercial/building-i.glb" id="1_2akbi"]
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="2_3vb3i"]
+
+[resource]
+script = ExtResource("2_3vb3i")
+id = &"com_tower_i"
+display_name = "Торговый дом I · ур. 1"
+zone = 5
+jobs = 30
+power_use = 8
+water_use = 4
+noise = 18
+model = ExtResource("1_2akbi")
+model_scale = 1.4

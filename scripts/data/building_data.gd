@@ -16,6 +16,8 @@ enum Park { NONE, SQUARE, GARDEN, PLAZA }
 @export var population: int = 0
 ## Рабочие места (для зданий C и I).
 @export var jobs: int = 0
+## Уровень 1..3 (фаза 10): рост ставит ур.1, повышение меняет тип на тип той же зоны следующего уровня.
+@export var level: int = 1
 ## Растёт ли сам на зоне. false — тип только для служб, сохранений или будущих уровней
 ## (например, многоэтажки), рост его не выбирает.
 @export var grows: bool = true
