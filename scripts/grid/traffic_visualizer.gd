@@ -14,17 +14,20 @@ const SPEED: float = 2.0
 const LANE_OFFSET: float = 0.3
 ## На загруженной клетке машинка медленнее в (1 + JAM_SLOWDOWN · загрузка) раз (загрузка до 2).
 const JAM_SLOWDOWN: float = 0.7
-## Модели машин (Kenney Car Kit). По одному MultiMesh на модель; полиция — реже (стоит одна в списке).
-const CAR_MODELS: Array[String] = [
-	"res://assets/models/kenney/cars/sedan.glb",
-	"res://assets/models/kenney/cars/taxi.glb",
-	"res://assets/models/kenney/cars/suv.glb",
-	"res://assets/models/kenney/cars/van.glb",
-	"res://assets/models/kenney/cars/truck.glb",
-	"res://assets/models/kenney/cars/delivery.glb",
-	"res://assets/models/kenney/cars/hatchback-sports.glb",
-	"res://assets/models/kenney/cars/police.glb",
-]
+## Модели машин (Kenney Car Kit) и их вес при выборе. По одному MultiMesh на модель.
+## Полиция — вес 0.25 из 9.25, около 3 % машин.
+const CAR_MODELS: Dictionary[String, float] = {
+	"res://assets/models/kenney/cars/sedan.glb": 1.0,
+	"res://assets/models/kenney/cars/taxi.glb": 1.0,
+	"res://assets/models/kenney/cars/suv.glb": 1.0,
+	"res://assets/models/kenney/cars/van.glb": 1.0,
+	"res://assets/models/kenney/cars/truck.glb": 1.0,
+	"res://assets/models/kenney/cars/delivery.glb": 1.0,
+	"res://assets/models/kenney/cars/hatchback-sports.glb": 1.0,
+	"res://assets/models/kenney/cars/sedan-sports.glb": 1.0,
+	"res://assets/models/kenney/cars/suv-luxury.glb": 1.0,
+	"res://assets/models/kenney/cars/police.glb": 0.25,
+}
 ## Масштаб моделей машин: седан 2.55 м → ~0.7 м, помещается в полосу.
 const CAR_MODEL_SCALE: float = 0.28
 ## Поворот моделей: у Kenney перед машины на +Z, у нас «вперёд» — −Z.
@@ -54,6 +57,8 @@ class Car extends RefCounted:
 var _cars: Array[Car] = []
 ## Слои MultiMesh: по одному на модель машины; без моделей — один слой-заглушка (сам узел).
 var _layers: Array[MultiMeshInstance3D] = []
+## Вес выбора каждого слоя (как в CAR_MODELS).
+var _weights := PackedFloat32Array()
 var _rng := RandomNumberGenerator.new()
 var _seen_grid: CityGrid = null
 var _seen_roads_version: int = -1
@@ -64,15 +69,19 @@ func _ready() -> void:
 	for path: String in CAR_MODELS:
 		if not ResourceLoader.exists(path):
 			continue
-		var scene: PackedScene = load(path)
-		var mesh: ArrayMesh = ModelLoader.merge(scene, ModelLoader.placement(ModelLoader.bounds(scene), CAR_MODEL_SCALE, CAR_MODEL_TURNS))
+		var mesh: ArrayMesh = ModelLoader.fitted(load(path), CAR_MODEL_SCALE, CAR_MODEL_TURNS)
 		var layer := MultiMeshInstance3D.new()
 		layer.multimesh = _new_multimesh(mesh, false)
+		# Машины мелкие и их много: тени от них почти не видны, а стоят дорого.
+		layer.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(layer)
 		_layers.append(layer)
+		_weights.append(CAR_MODELS[path])
 	if _layers.is_empty():
 		multimesh = _new_multimesh(_placeholder_mesh(), true)
+		cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		_layers.append(self)
+		_weights.append(1.0)
 
 
 func _process(delta: float) -> void:
@@ -152,7 +161,7 @@ func _sync_car_count() -> void:
 	while _cars.size() < target:
 		var car := Car.new()
 		car.color = CAR_COLORS[_rng.randi_range(0, CAR_COLORS.size() - 1)]
-		car.model = _rng.randi_range(0, _layers.size() - 1)
+		car.model = _rng.rand_weighted(_weights)
 		if not _assign_path(car):
 			break
 		# Новые машинки — в случайном месте пути и в случайную сторону, чтобы не ехали стаей.

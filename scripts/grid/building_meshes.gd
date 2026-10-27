@@ -36,21 +36,44 @@ static func mesh_for(data: BuildingData) -> Mesh:
 
 
 static func _from_model(data: BuildingData) -> ArrayMesh:
-	var box: AABB = ModelLoader.bounds(data.model)
-	# Масштаб типа, но не больше, чем позволяет клетка.
-	var widest: float = maxf(box.size.x, box.size.z)
-	var scale: float = minf(data.model_scale, FOOTPRINT / widest) if widest > 0.0 else data.model_scale
-	var mesh: ArrayMesh = ModelLoader.merge(data.model, ModelLoader.placement(box, scale, data.model_turns))
+	# Масштаб типа, но основание не шире клетки; модель загружается один раз.
+	var mesh: ArrayMesh = ModelLoader.fitted(data.model, data.model_scale, data.model_turns, FOOTPRINT)
 	if data.sign_color.a > 0.0:
-		_add_sign(mesh, box.size.y * scale, data.sign_color)
+		_add_sign(mesh, data.sign_color, data.sign_cross)
 	return mesh
 
 
-## Табличка цвета службы над крышей у фасада — чтобы службы отличались от обычных домов.
-static func _add_sign(mesh: ArrayMesh, roof: float, color: Color) -> void:
+## Вывеска цвета службы над крышей у фасада — чтобы службы отличались от обычных домов.
+## Столбик стоит на реальной крыше в точке крепления, а не на верхушке трубы или шпиля.
+static func _add_sign(mesh: ArrayMesh, color: Color, cross: bool) -> void:
 	var front: float = -FOOTPRINT * 0.25
+	var roof: float = _roof_height(mesh, Vector2(0.0, front))
+	var center := Vector3(0.0, roof + SIGN_POST.y + SIGN_SIZE.y * 0.5, front)
 	_add_box(mesh, SIGN_POST, Vector3(0.0, roof + SIGN_POST.y * 0.5, front), SIGN_POST_COLOR)
-	_add_box(mesh, SIGN_SIZE, Vector3(0.0, roof + SIGN_POST.y + SIGN_SIZE.y * 0.5, front), color)
+	if not cross:
+		_add_box(mesh, SIGN_SIZE, center, color)
+		return
+	# Крест цвета службы на белой подложке — узнаётся без подписей.
+	var plate := Vector3(SIGN_SIZE.y * 1.6, SIGN_SIZE.y * 1.6, SIGN_SIZE.z)
+	_add_box(mesh, plate, center + Vector3(0.0, plate.y * 0.5 - SIGN_SIZE.y * 0.5, 0.0), Color.WHITE)
+	var arm: float = plate.x * 0.7
+	var thick: float = plate.x * 0.22
+	var bar_center: Vector3 = center + Vector3(0.0, plate.y * 0.5 - SIGN_SIZE.y * 0.5, -SIGN_SIZE.z)
+	_add_box(mesh, Vector3(arm, thick, SIGN_SIZE.z), bar_center, color)
+	_add_box(mesh, Vector3(thick, arm, SIGN_SIZE.z), bar_center, color)
+
+
+## Высота модели над точкой at (x, z): наибольшая высота вершин рядом с ней;
+## если рядом вершин нет — половина высоты модели.
+static func _roof_height(mesh: ArrayMesh, at: Vector2) -> float:
+	var reach: float = 0.25
+	var best: float = -1.0
+	for surface: int in mesh.get_surface_count():
+		var vertices: PackedVector3Array = mesh.surface_get_arrays(surface)[Mesh.ARRAY_VERTEX]
+		for v: Vector3 in vertices:
+			if absf(v.x - at.x) < reach and absf(v.z - at.y) < reach:
+				best = maxf(best, v.y)
+	return best if best >= 0.0 else mesh.get_aabb().size.y * 0.5
 
 
 static func _placeholder(data: BuildingData) -> ArrayMesh:

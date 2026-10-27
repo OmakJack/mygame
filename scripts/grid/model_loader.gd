@@ -1,19 +1,14 @@
 class_name ModelLoader
 extends RefCounted
-## Собирает из сцены модели (GLB) один ArrayMesh: все MeshInstance3D со своими трансформами,
-## с материалами (общая палитра-текстура Kenney). Нужен для MeshLibrary и MultiMesh,
-## которые принимают один меш, а не сцену.
+## Собирает из сцены модели (GLB) один ArrayMesh: все MeshInstance3D со своими трансформами.
+## Части с одним материалом склеиваются в одну поверхность (у Kenney это почти всегда одна
+## палитра-текстура) — одна поверхность = один вызов отрисовки в MeshLibrary и MultiMesh.
 
 
 ## Габариты модели в её собственных координатах.
 static func bounds(scene: PackedScene) -> AABB:
 	var root: Node = scene.instantiate()
-	var box := AABB()
-	var first: bool = true
-	for entry: Array in _mesh_nodes(root, Transform3D.IDENTITY):
-		var part: AABB = (entry[1] as Transform3D) * (entry[0] as MeshInstance3D).mesh.get_aabb()
-		box = part if first else box.merge(part)
-		first = false
+	var box: AABB = _bounds_of(_mesh_nodes(root, Transform3D.IDENTITY))
 	root.free()
 	return box
 
@@ -21,28 +16,23 @@ static func bounds(scene: PackedScene) -> AABB:
 ## Один меш из всех частей модели; transform применяется к вершинам («запекается»).
 static func merge(scene: PackedScene, transform: Transform3D = Transform3D.IDENTITY) -> ArrayMesh:
 	var root: Node = scene.instantiate()
-	var result := ArrayMesh.new()
-	for entry: Array in _mesh_nodes(root, Transform3D.IDENTITY):
-		var node: MeshInstance3D = entry[0]
-		var xf: Transform3D = transform * (entry[1] as Transform3D)
-		var normal_basis: Basis = xf.basis.inverse().transposed()
-		for surface: int in node.mesh.get_surface_count():
-			var arrays: Array = node.mesh.surface_get_arrays(surface)
-			var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
-			for i: int in vertices.size():
-				vertices[i] = xf * vertices[i]
-			arrays[Mesh.ARRAY_VERTEX] = vertices
-			if arrays[Mesh.ARRAY_NORMAL] != null:
-				var normals: PackedVector3Array = arrays[Mesh.ARRAY_NORMAL]
-				for i: int in normals.size():
-					normals[i] = (normal_basis * normals[i]).normalized()
-				arrays[Mesh.ARRAY_NORMAL] = normals
-			# Касательные после поворота неверны; у моделей Kenney нет карт нормалей — убираем.
-			arrays[Mesh.ARRAY_TANGENT] = null
-			result.add_surface_from_arrays(node.mesh.surface_get_primitive_type(surface), arrays)
-			result.surface_set_material(result.get_surface_count() - 1, node.get_active_material(surface))
+	var mesh: ArrayMesh = _merge_parts(_mesh_nodes(root, Transform3D.IDENTITY), transform)
 	root.free()
-	return result
+	return mesh
+
+
+## Модель основанием в центр клетки, с поворотом; масштаб — scale, но основание не шире footprint
+## (0 — без предела). Сцена загружается один раз.
+static func fitted(scene: PackedScene, scale: float, turns: int, footprint: float = 0.0) -> ArrayMesh:
+	var root: Node = scene.instantiate()
+	var parts: Array[Array] = _mesh_nodes(root, Transform3D.IDENTITY)
+	var box: AABB = _bounds_of(parts)
+	var widest: float = maxf(box.size.x, box.size.z)
+	if footprint > 0.0 and widest > 0.0:
+		scale = minf(scale, footprint / widest)
+	var mesh: ArrayMesh = _merge_parts(parts, placement(box, scale, turns))
+	root.free()
+	return mesh
 
 
 ## Трансформ, который ставит модель основанием на землю в центр клетки, с поворотом и масштабом.
@@ -50,6 +40,46 @@ static func placement(box: AABB, scale: float, turns: int) -> Transform3D:
 	var basis := Basis(Vector3.UP, -turns * PI * 0.5).scaled(Vector3.ONE * scale)
 	var bottom_center := Vector3(box.position.x + box.size.x * 0.5, box.position.y, box.position.z + box.size.z * 0.5)
 	return Transform3D(basis, -(basis * bottom_center))
+
+
+static func _merge_parts(parts: Array[Array], transform: Transform3D) -> ArrayMesh:
+	# Материал → SurfaceTool, куда складываются все части с этим материалом.
+	var tools: Dictionary[Material, SurfaceTool] = {}
+	var no_material := SurfaceTool.new()
+	var has_no_material: bool = false
+	for entry: Array in parts:
+		var node: MeshInstance3D = entry[0]
+		var xf: Transform3D = transform * (entry[1] as Transform3D)
+		for surface: int in node.mesh.get_surface_count():
+			if node.mesh.surface_get_primitive_type(surface) != Mesh.PRIMITIVE_TRIANGLES:
+				continue
+			var material: Material = node.get_active_material(surface)
+			var tool: SurfaceTool = no_material
+			if material == null:
+				has_no_material = true
+			else:
+				if not tools.has(material):
+					tools[material] = SurfaceTool.new()
+				tool = tools[material]
+			# append_from сама переносит вершины и нормали трансформом.
+			tool.append_from(node.mesh, surface, xf)
+	var result := ArrayMesh.new()
+	for material: Material in tools:
+		tools[material].commit(result)
+		result.surface_set_material(result.get_surface_count() - 1, material)
+	if has_no_material:
+		no_material.commit(result)
+	return result
+
+
+static func _bounds_of(parts: Array[Array]) -> AABB:
+	var box := AABB()
+	var first: bool = true
+	for entry: Array in parts:
+		var part: AABB = (entry[1] as Transform3D) * (entry[0] as MeshInstance3D).mesh.get_aabb()
+		box = part if first else box.merge(part)
+		first = false
+	return box
 
 
 ## Пары [MeshInstance3D, трансформ относительно корня модели].

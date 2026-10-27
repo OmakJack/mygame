@@ -12,4 +12,3 @@ jobs = 8
 power_use = 3
 water_use = 2
 model = ExtResource("1_c7we8")
-model_scale = 0.95

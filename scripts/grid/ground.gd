@@ -30,8 +30,9 @@ void fragment() {
 	vec3 color = mix(grass_dark, grass_light, smoothstep(0.3, 0.7, large));
 	color = mix(color, dry_grass, smoothstep(0.62, 0.8, patches) * 0.3);
 	color *= 0.93 + 0.12 * fine;
-	// За краем карты — темнее, с мягким переходом.
-	vec2 inside_xz = step(vec2(0.0), world_pos.xz) * step(world_pos.xz, vec2(map_size));
+	// За краем карты — темнее, с мягким переходом шириной 3 м.
+	vec2 inside_xz = smoothstep(vec2(-1.5), vec2(1.5), world_pos.xz)
+			* (vec2(1.0) - smoothstep(vec2(map_size - 1.5), vec2(map_size + 1.5), world_pos.xz));
 	color *= mix(outside_dim, 1.0, inside_xz.x * inside_xz.y);
 	ALBEDO = color;
 	ROUGHNESS = 0.95;

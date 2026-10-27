@@ -7,7 +7,7 @@ extends RefCounted
 ## Ставит одно здание на зону zone_type. Возвращает клетку или −1/−1, если места нет.
 static func grow_one(grid: CityGrid, zone_type: CityGrid.Zone, rng: RandomNumberGenerator,
 		network: RoadNetwork, utilities: Utilities) -> Vector2i:
-	var types: Array[BuildingData] = BuildingCatalog.types_for_zone(zone_type)
+	var types: Array[BuildingData] = BuildingCatalog.growable_types(zone_type)
 	if types.is_empty():
 		return CityGrid.NO_CELL
 	var data: BuildingData = types[rng.randi_range(0, types.size() - 1)]

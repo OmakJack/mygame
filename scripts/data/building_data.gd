@@ -14,6 +14,9 @@ enum Service { NONE, SCHOOL, HEALTH, FIRE, POLICE }
 @export var population: int = 0
 ## Рабочие места (для зданий C и I).
 @export var jobs: int = 0
+## Растёт ли сам на зоне. false — тип только для служб, сохранений или будущих уровней
+## (например, многоэтажки), рост его не выбирает.
+@export var grows: bool = true
 ## Цена постройки и содержание за день — только для служебных зданий.
 @export var cost: int = 0
 @export var upkeep: int = 0
@@ -40,6 +43,8 @@ enum Service { NONE, SCHOOL, HEALTH, FIRE, POLICE }
 @export var model_turns: int = 2
 ## Цвет вывески над служебным зданием; прозрачный — без вывески.
 @export var sign_color: Color = Color(0, 0, 0, 0)
+## Вывеска-крест (цвет sign_color на белой подложке) вместо таблички — для поликлиники.
+@export var sign_cross: bool = false
 ## Готовый меш вместо модели. Фасад смотрит на −Z.
 @export var mesh: Mesh
 @export var placeholder_color: Color = Color.WHITE

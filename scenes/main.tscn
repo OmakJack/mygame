@@ -1,4 +1,4 @@
-[gd_scene load_steps=19 format=3]
+[gd_scene load_steps=20 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/camera/rts_camera.tscn" id="1_cam"]
 [ext_resource type="Script" path="res://scripts/grid/grid_visualizer.gd" id="2_grid"]
@@ -12,6 +12,7 @@
 [ext_resource type="Script" path="res://scripts/simulation/simulation.gd" id="10_sim"]
 [ext_resource type="PackedScene" path="res://scenes/ui/hud.tscn" id="11_hud"]
 [ext_resource type="Script" path="res://scripts/grid/traffic_visualizer.gd" id="12_traffic"]
+[ext_resource type="Script" path="res://scripts/grid/tree_visualizer.gd" id="13_trees"]
 
 [sub_resource type="ProceduralSkyMaterial" id="sky_mat"]
 sky_top_color = Color(0.42, 0.62, 0.88, 1)
@@ -27,9 +28,9 @@ sky_material = SubResource("sky_mat")
 background_mode = 2
 sky = SubResource("sky")
 ambient_light_source = 3
-ambient_light_energy = 0.9
+ambient_light_energy = 0.5
 tonemap_mode = 2
-tonemap_white = 1.2
+tonemap_white = 1.4
 ssao_enabled = true
 ssao_radius = 1.5
 ssao_intensity = 1.6
@@ -58,7 +59,10 @@ transform = Transform3D(0.7880108, -0.4575257, 0.41195792, 0, 0.66913056, 0.7431
 light_color = Color(1, 0.95, 0.86, 1)
 light_energy = 1.15
 shadow_enabled = true
+shadow_bias = 0.03
+shadow_normal_bias = 1.2
 shadow_blur = 1.5
+directional_shadow_mode = 1
 directional_shadow_max_distance = 160.0
 
 [node name="Simulation" type="Node" parent="."]
@@ -80,6 +84,9 @@ script = ExtResource("4_roads")
 
 [node name="BuildingVisualizer" type="GridMap" parent="."]
 script = ExtResource("9_buildings")
+
+[node name="TreeVisualizer" type="Node3D" parent="."]
+script = ExtResource("13_trees")
 
 [node name="TrafficVisualizer" type="MultiMeshInstance3D" parent="."]
 script = ExtResource("12_traffic")

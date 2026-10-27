@@ -37,6 +37,10 @@ const MODELS: Array[String] = [
 	"res://assets/models/kenney/roads/road-intersection.glb",
 	"res://assets/models/kenney/roads/road-crossroad.glb",
 ]
+## Поворот каждой модели (шаги по 90° по часовой), чтобы её рукава совпали с BASE_MASKS.
+## Модели Kenney: тупик открыт на E, прямая — E–W, поворот — S–W, T закрыт с N.
+## Таблицу проверяет тест через native_mask (см. ниже) — эвристика только в тесте.
+const MODEL_TURNS: Array[int] = [3, 1, 2, 3, 0]
 ## Вершина «у середины края» плитки 1×1: на краю (±0.5) и не дальше этого от середины.
 const EDGE_EPSILON: float = 0.02
 const EDGE_MIDDLE: float = 0.12
@@ -57,22 +61,15 @@ static func build_library() -> MeshLibrary:
 	return library
 
 
-## Кусок из модели, повёрнутый так, чтобы его рукава совпали с BASE_MASKS. null — модели нет
-## или её рукава никаким поворотом не совпадают (тогда — заглушка из кода).
+## Кусок из модели с поворотом из MODEL_TURNS. null — модели нет (тогда — заглушка из кода).
 static func _model_piece(piece: int) -> ArrayMesh:
 	if not ResourceLoader.exists(MODELS[piece]):
 		return null
-	var scene: PackedScene = load(MODELS[piece])
-	var native: int = native_mask(ModelLoader.merge(scene))
-	for turns: int in 4:
-		if _rotate_cw(native, turns) == BASE_MASKS[piece]:
-			# Поворот на −90° вокруг Y — шаг по часовой (N → E), как в road_visualizer.
-			# По высоте не растягиваем: асфальт остаётся тонким (0..0.02).
-			var scale := Vector3(CityGrid.CELL_SIZE, 1.0, CityGrid.CELL_SIZE)
-			var basis := Basis(Vector3.UP, -turns * PI * 0.5) * Basis.from_scale(scale)
-			return ModelLoader.merge(scene, Transform3D(basis, Vector3.ZERO))
-	push_warning("RoadMeshes: рукава модели %s не совпали с куском %s" % [MODELS[piece], Piece.keys()[piece]])
-	return null
+	# Поворот на −90° вокруг Y — шаг по часовой (N → E), как в road_visualizer.
+	# По высоте не растягиваем: асфальт остаётся тонким (0..0.02).
+	var scale := Vector3(CityGrid.CELL_SIZE, 1.0, CityGrid.CELL_SIZE)
+	var basis := Basis(Vector3.UP, -MODEL_TURNS[piece] * PI * 0.5) * Basis.from_scale(scale)
+	return ModelLoader.merge(load(MODELS[piece]), Transform3D(basis, Vector3.ZERO))
 
 
 ## Рукава плитки по геометрии: вершины у середины края есть только там, где дорога выходит
@@ -97,10 +94,6 @@ static func native_mask(mesh: Mesh, half: float = 0.5) -> int:
 	return mask
 
 
-static func _rotate_cw(mask: int, turns: int) -> int:
-	for i: int in turns:
-		mask = ((mask << 1) | (mask >> 3)) & 0xF
-	return mask
 
 
 static func _build_piece(mask: int, piece: int, material: Material) -> ArrayMesh:

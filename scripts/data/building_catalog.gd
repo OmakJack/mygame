@@ -32,6 +32,15 @@ static func types_for_zone(zone_type: CityGrid.Zone) -> Array[BuildingData]:
 	return _by_zone.get(zone_type, _empty)
 
 
+## Типы зоны, которые растут сами (BuildingData.grows).
+static func growable_types(zone_type: CityGrid.Zone) -> Array[BuildingData]:
+	var result: Array[BuildingData] = []
+	for data: BuildingData in types_for_zone(zone_type):
+		if data.grows:
+			result.append(data)
+	return result
+
+
 ## Служебные здания (zone = NONE), которые ставит игрок. Возвращает общий массив — не изменять.
 static func buildable_types() -> Array[BuildingData]:
 	return types_for_zone(CityGrid.Zone.NONE)

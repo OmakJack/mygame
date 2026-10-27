@@ -12,6 +12,5 @@ jobs = 8
 power_use = 3
 water_use = 2
 model = ExtResource("1_e8gde")
-model_scale = 0.95
 placeholder_color = Color(0.72, 0.66, 0.58, 1)
 placeholder_height = 1.8

@@ -11,4 +11,4 @@ population = 10
 power_use = 1
 water_use = 1
 model = ExtResource("1_2pcfc")
-model_scale = 1.35
+model_scale = 1.1

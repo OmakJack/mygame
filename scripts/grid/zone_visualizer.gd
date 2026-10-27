@@ -13,8 +13,8 @@ const OVERLAY_NAMES: Dictionary[Overlay, String] = {
 	Overlay.TRAFFIC: "Трафик",
 }
 
-## Высота зон: выше линий сетки (0.01), ниже тротуаров (0.02).
-const ZONE_HEIGHT: float = 0.015
+## Высота зон: чуть над землёй, ниже линий сетки (0.01) и асфальта (0..0.02) — не срезает крыльца домов.
+const ZONE_HEIGHT: float = 0.006
 ## Высота остальных слоёв: поверх дорог (разметка — 0.035), ниже превью (0.05).
 const OVERLAY_HEIGHT: float = 0.04
 
@@ -24,6 +24,8 @@ const ZONE_COLORS: Dictionary[CityGrid.Zone, Color] = {
 	CityGrid.Zone.COMMERCIAL: Color(0.3, 0.55, 0.95, 0.3),
 	CityGrid.Zone.INDUSTRIAL: Color(0.95, 0.8, 0.25, 0.3),
 }
+## Под построенным домом зона почти прозрачная: видны трава и тени, а пустые участки читаются ярче.
+const BUILT_ALPHA: float = 0.08
 ## Зона без доступа к дороге: тот же цвет, но тусклее и прозрачнее.
 const NO_ACCESS_DIM: float = 0.45
 const NO_ACCESS_ALPHA: float = 0.25
@@ -165,6 +167,8 @@ func _zone_color(cell: Vector2i) -> Color:
 	if zone_type != CityGrid.Zone.NONE and not grid.has_road_access(cell):
 		color = color.darkened(NO_ACCESS_DIM)
 		color.a = NO_ACCESS_ALPHA
+	elif zone_type != CityGrid.Zone.NONE and grid.get_building_at(cell) != null:
+		color.a = BUILT_ALPHA
 	return color
 
 
