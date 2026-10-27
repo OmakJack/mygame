@@ -11,4 +11,6 @@ zone = 3
 jobs = 8
 power_use = 3
 water_use = 2
+pollution = 30
+noise = 15
 model = ExtResource("1_cqsbv")

@@ -4,6 +4,9 @@ extends RefCounted
 
 const MAX_HINTS: int = 5
 
+## С этого населения советуем первый парк.
+const PARK_HINT_FROM: int = 100
+
 const SERVICE_NAMES: Dictionary[BuildingData.Service, String] = {
 	BuildingData.Service.SCHOOL: "школа",
 	BuildingData.Service.HEALTH: "поликлиника",
@@ -14,6 +17,8 @@ const SERVICE_NAMES: Dictionary[BuildingData.Service, String] = {
 const LOW_COVERAGE: float = 0.5
 ## С этой доли тяжёлых поездок подсказываем, что жителям далеко до работы.
 const LONG_COMMUTE_HINT: float = 0.25
+## С этого загрязнения жилой участок считается «у завода» (как запрет роста жилья).
+const DIRTY_HOME: int = Growth.MAX_HOME_POLLUTION
 
 
 static func build() -> Array[String]:
@@ -50,6 +55,24 @@ static func build() -> Array[String]:
 	if traffic.total_workers > 0.0 and traffic.long_commute_share >= LONG_COMMUTE_HINT:
 		hints.append("Жителям далеко до работы: %d%%" % roundi(traffic.long_commute_share * 100.0))
 
+	# Фаза 9: грязь у жилья и подсказка про парки.
+	var land: LandValue = GameState.land
+	var dirty_homes: int = 0
+	for building: BuildingInstance in grid.buildings.values():
+		var data: BuildingData = BuildingCatalog.get_type(building.type_id)
+		if data != null and data.population > 0 and land.value_at(land.pollution, grid, building.cell) >= DIRTY_HOME:
+			dirty_homes += 1
+	var dirty_zone: int = 0
+	for cell: Vector2i in grid.zoned_empty_cells[CityGrid.Zone.RESIDENTIAL]:
+		if land.value_at(land.pollution, grid, cell) >= DIRTY_HOME:
+			dirty_zone += 1
+	if dirty_homes > 0:
+		hints.append("Дома рядом с заводами: %d — жильё лучше подальше от промзоны" % dirty_homes)
+	elif dirty_zone > 0:
+		hints.append("Жильё не растёт у заводов: %d кл. жилой зоны в загрязнении" % dirty_zone)
+	if GameState.population >= PARK_HINT_FROM and not _has_parks(grid):
+		hints.append("Парк поднимет цену земли и налоги вокруг (вкладка «Парки»)")
+
 	var balance: int = GameState.income - GameState.expenses
 	if GameState.money < 0:
 		hints.append("Казна в минусе: поднимите налог или снесите лишнее")
@@ -59,6 +82,14 @@ static func build() -> Array[String]:
 	if hints.size() > MAX_HINTS:
 		hints.resize(MAX_HINTS)
 	return hints
+
+
+static func _has_parks(grid: CityGrid) -> bool:
+	for building: BuildingInstance in grid.buildings.values():
+		var data: BuildingData = BuildingCatalog.get_type(building.type_id)
+		if data != null and data.park != BuildingData.Park.NONE:
+			return true
+	return false
 
 
 static func _first_step(grid: CityGrid, utilities: Utilities, zoned: int) -> String:

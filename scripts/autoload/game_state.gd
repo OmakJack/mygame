@@ -28,6 +28,8 @@ var utilities := Utilities.new()
 var service_coverage: Dictionary[BuildingData.Service, float] = {}
 ## Последний расчёт трафика: нагрузка дорог, время до работы, пути для машинок.
 var traffic := Traffic.new()
+## Загрязнение, шум и стоимость земли (фаза 9).
+var land := LandValue.new()
 
 
 func _init() -> void:

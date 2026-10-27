@@ -62,4 +62,13 @@ func _update_cell(cell: Vector2i) -> void:
 			set_cell_item(map_cell, INVALID_CELL_ITEM)
 		return
 	var mask: int = grid.get_road_mask(cell)
+	# Прямая дорога по воде — мост; поворот и перекрёсток на воде — обычный кусок.
+	if grid.is_water(cell):
+		var along_z: int = CityGrid.DIR_N | CityGrid.DIR_S
+		if mask & ~along_z == 0:
+			set_cell_item(map_cell, RoadMeshes.BRIDGE_ITEM, 0)
+			return
+		if mask & along_z == 0:
+			set_cell_item(map_cell, RoadMeshes.BRIDGE_ITEM, _orientation_for_mask[CityGrid.DIR_E | CityGrid.DIR_W])
+			return
 	set_cell_item(map_cell, _piece_for_mask[mask], _orientation_for_mask[mask])

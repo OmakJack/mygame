@@ -2,11 +2,17 @@ class_name Growth
 extends RefCounted
 ## Рост зданий: выбирает пустую клетку с зоной, у компонента дорог которой хватает
 ## свободного света и воды, и ставит на неё дом. Свободный запас сразу уменьшается.
+## Фаза 9: жильё не растёт в грязи; жильё и магазины выбирают землю подороже.
+
+## С такого загрязнения жильё на клетке не растёт.
+const MAX_HOME_POLLUTION: int = 40
+## Из скольких случайных подходящих клеток выбирается самая дорогая.
+const VALUE_SAMPLES: int = 6
 
 
 ## Ставит одно здание на зону zone_type. Возвращает клетку или −1/−1, если места нет.
 static func grow_one(grid: CityGrid, zone_type: CityGrid.Zone, rng: RandomNumberGenerator,
-		network: RoadNetwork, utilities: Utilities) -> Vector2i:
+		network: RoadNetwork, utilities: Utilities, land: LandValue = null) -> Vector2i:
 	var types: Array[BuildingData] = BuildingCatalog.growable_types(zone_type)
 	if types.is_empty():
 		return CityGrid.NO_CELL
@@ -17,6 +23,8 @@ static func grow_one(grid: CityGrid, zone_type: CityGrid.Zone, rng: RandomNumber
 	var candidates: Array[Vector2i] = []
 	var components: Array[int] = []
 	for cell: Vector2i in grid.zoned_empty_cells[zone_type]:
+		if zone_type == CityGrid.Zone.RESIDENTIAL and land != null 				and land.value_at(land.pollution, grid, cell) >= MAX_HOME_POLLUTION:
+			continue
 		var component: int = network.component_for(grid, cell)
 		if component == -1:
 			continue
@@ -27,6 +35,15 @@ static func grow_one(grid: CityGrid, zone_type: CityGrid.Zone, rng: RandomNumber
 	if candidates.is_empty():
 		return CityGrid.NO_CELL
 	var pick: int = rng.randi_range(0, candidates.size() - 1)
+	# Промзоне всё равно, где расти; жильё и магазины — на земле подороже.
+	if land != null and zone_type != CityGrid.Zone.INDUSTRIAL:
+		var best: int = land.value_at(land.land_value, grid, candidates[pick])
+		for sample: int in VALUE_SAMPLES - 1:
+			var other: int = rng.randi_range(0, candidates.size() - 1)
+			var value: int = land.value_at(land.land_value, grid, candidates[other])
+			if value > best:
+				best = value
+				pick = other
 	var cell: Vector2i = candidates[pick]
 	var component: int = components[pick]
 	# Фасад — к ближайшей дороге.

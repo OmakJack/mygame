@@ -17,6 +17,7 @@ const TABS: Array[Dictionary] = [
 	]},
 	{"id": "utilities", "name": "Свет и вода", "buildings": "utilities"},
 	{"id": "services", "name": "Службы", "buildings": "services"},
+	{"id": "parks", "name": "Парки", "buildings": "parks"},
 ]
 const SPEEDS: Array[Dictionary] = [
 	{"speed": 0, "name": "Пауза"},
@@ -49,6 +50,7 @@ var _save_dialog := SaveDialog.new()
 var _new_city_confirm := ConfirmationDialog.new()
 var _toast := PanelContainer.new()
 var _toast_label := Label.new()
+var _info := InfoPanel.new()
 ## Номер последнего сообщения: старый таймер не прячет новое сообщение.
 var _toast_serial: int = 0
 ## Скорость до окна подтверждения «Новый город».
@@ -63,6 +65,7 @@ func _ready() -> void:
 	_build_tabs()
 	_build_bottom_extras()
 	_build_city_controls()
+	$Root.add_child(_info)
 	_new_city_confirm.theme = theme
 	for window: Node in _save_dialog.find_children("*", "Window", true, false):
 		(window as Window).theme = theme
@@ -198,15 +201,22 @@ func _build_tabs() -> void:
 		_tab_buttons[id] = button
 
 
-## Служебные здания вкладки: «utilities» — дают свет или воду, «services» — службы по порядку ступеней.
+## Здания вкладки: «utilities» — дают свет или воду, «parks» — парки (по цене),
+## «services» — остальные службы по порядку ступеней.
 func _tab_buildings(kind: String) -> Array[BuildingData]:
 	var result: Array[BuildingData] = []
 	for data: BuildingData in BuildingCatalog.buildable_types():
-		var is_utility: bool = data.power_supply > 0 or data.water_supply > 0
-		if (kind == "utilities") == is_utility:
+		var data_kind: String = "services"
+		if data.power_supply > 0 or data.water_supply > 0:
+			data_kind = "utilities"
+		elif data.park != BuildingData.Park.NONE:
+			data_kind = "parks"
+		if data_kind == kind:
 			result.append(data)
 	result.sort_custom(func(a: BuildingData, b: BuildingData) -> bool:
-		return a.service < b.service or (a.service == b.service and a.id < b.id))
+		if a.service != b.service:
+			return a.service < b.service
+		return a.cost < b.cost or (a.cost == b.cost and a.id < b.id))
 	return result
 
 
@@ -315,6 +325,10 @@ func _service_tooltip(data: BuildingData) -> String:
 		lines.append("Даёт воду: %d" % data.water_supply)
 	if data.power_use > 0 or data.water_use > 0:
 		lines.append("Потребляет: свет %d, вода %d" % [data.power_use, data.water_use])
+	if data.land_value > 0:
+		lines.append("Цена земли вокруг: +%d" % data.land_value)
+	if data.pollution > 0:
+		lines.append("Загрязнение вокруг: %d" % data.pollution)
 	if data.service != BuildingData.Service.NONE:
 		var needed_from: int = Services.REQUIRED_FROM.get(data.service, 0)
 		lines.append("Радиус: %d кл.; нужна городу с %d жителей" % [data.service_radius, needed_from])

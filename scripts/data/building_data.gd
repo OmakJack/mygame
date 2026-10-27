@@ -4,6 +4,8 @@ extends Resource
 ## zone = NONE — служебное здание: ставит игрок за cost, каждый день списывается upkeep.
 
 enum Service { NONE, SCHOOL, HEALTH, FIRE, POLICE }
+## Вид парка (фаза 9): модель собирается из деревьев, клумб и дорожек Kenney.
+enum Park { NONE, SQUARE, GARDEN, PLAZA }
 
 ## Уникальный строковый id. НИКОГДА не меняется после создания — на нём держатся сохранения.
 @export var id: StringName
@@ -33,6 +35,15 @@ enum Service { NONE, SCHOOL, HEALTH, FIRE, POLICE }
 @export var service: Service = Service.NONE
 ## Радиус покрытия в клетках (по Манхэттену).
 @export var service_radius: int = 0
+
+@export_group("Город вокруг")
+## Сила загрязнения (цеха, ТЭЦ), шума (магазины) и прибавки к стоимости земли (парки, службы)
+## в своей клетке, 0..100; вокруг слабеет (LandValue).
+@export var pollution: int = 0
+@export var noise: int = 0
+@export var land_value: int = 0
+## Парк: вид модели. NONE — не парк.
+@export var park: Park = Park.NONE
 
 @export_group("Вид")
 ## 3D-модель (GLB). Пусто — mesh, а если и его нет — коробка-заглушка.

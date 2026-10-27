@@ -28,6 +28,8 @@ static func build_library(types: Array[BuildingData]) -> MeshLibrary:
 
 ## Меш типа здания в координатах клетки: центр основания — в начале координат, фасад на −Z.
 static func mesh_for(data: BuildingData) -> Mesh:
+	if data.park != BuildingData.Park.NONE:
+		return ParkMeshes.build(data.park)
 	if data.model != null:
 		return _from_model(data)
 	if data.mesh != null:

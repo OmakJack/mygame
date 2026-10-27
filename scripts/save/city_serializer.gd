@@ -52,6 +52,7 @@ static func to_dict(grid: CityGrid, city_name: String, money: int, tax_rate: int
 			"next_building_id": grid.next_building_id,
 			"roads": Marshalls.raw_to_base64(roads),
 			"zones": Marshalls.raw_to_base64(grid.zone),
+			"water": Marshalls.raw_to_base64(grid.water),
 		},
 		"buildings": buildings,
 	}
@@ -93,6 +94,14 @@ static func from_dict(data: Variant) -> LoadResult:
 			grid.zone[i] = zones[i]
 	if zones_on_roads > 0:
 		result.warnings.append("зона снята с %d клеток дороги" % zones_on_roads)
+	# Вода (фаза 9): нет поля — суша; битое поле — суша с предупреждением.
+	if grid_data.has("water"):
+		var water: PackedByteArray = _bytes(grid_data.get("water"))
+		if water.size() == size * size:
+			for i: int in size * size:
+				grid.water[i] = 1 if water[i] == 1 else 0
+		else:
+			result.warnings.append("повреждён слой воды — карта без воды")
 	grid.next_building_id = maxi(0, _int(grid_data.get("next_building_id"), 0))
 
 	var entries: Array[Dictionary] = []
@@ -139,7 +148,7 @@ static func _load_building(grid: CityGrid, entry: Dictionary, occupied: Dictiona
 		return "пропущено здание неизвестного типа «%s»" % type_id
 	if not grid.is_in_bounds(cell):
 		return "пропущено здание за картой"
-	if grid.tile_type[grid.index_of(cell)] == CityGrid.Tile.ROAD or occupied.has(cell):
+	if grid.tile_type[grid.index_of(cell)] == CityGrid.Tile.ROAD or grid.is_water(cell) or occupied.has(cell):
 		return "пропущено здание на занятой клетке %s" % cell
 	if orientation < 0 or orientation > 3:
 		return "пропущено здание с неверным поворотом"

@@ -21,6 +21,9 @@ var _traffic_grid: CityGrid = null
 var _traffic_roads_version: int = -1
 var _traffic_buildings_version: int = -1
 var _ticks_since_traffic: int = 0
+# По чему были посчитаны слои земли.
+var _land_traffic: Traffic = null
+var _land_buildings_version: int = -1
 
 
 func _ready() -> void:
@@ -99,7 +102,8 @@ func _grow(grid: CityGrid, changed: Array[Vector2i]) -> void:
 		var chance: float = clampf(demands[zone_type] * GROWTH_CHANCE_FACTOR, 0.0, 1.0)
 		if _rng.randf() >= chance:
 			continue
-		var cell: Vector2i = Growth.grow_one(grid, zone_type, _rng, GameState.network, GameState.utilities)
+		var cell: Vector2i = Growth.grow_one(grid, zone_type, _rng, GameState.network, GameState.utilities,
+				GameState.land)
 		if cell != CityGrid.NO_CELL:
 			changed.append(cell)
 
@@ -138,6 +142,12 @@ func _update_stats(from_tick: bool = false) -> void:
 		_traffic_buildings_version = grid.buildings_version
 		_ticks_since_traffic = 0
 
+	# Слои земли — по зданиям, воде и трафику: при любой их смене (и на паузе).
+	if GameState.land.size != grid.size or GameState.traffic != _land_traffic 			or grid.buildings_version != _land_buildings_version:
+		GameState.land = LandValue.compute(grid, GameState.traffic)
+		_land_traffic = GameState.traffic
+		_land_buildings_version = grid.buildings_version
+
 	GameState.service_coverage = Services.coverage(grid, population)
 	var offset: float = Services.demand_offset(GameState.service_coverage, population) \
 			+ GameState.traffic.demand_offset()
@@ -146,8 +156,20 @@ func _update_stats(from_tick: bool = false) -> void:
 	GameState.demand_c = Demand.commercial(population, jobs_commercial, tax_rate)
 	GameState.demand_i = Demand.industrial(population, jobs_industrial, tax_rate)
 	# Прогноз денег на день — тоже здесь, чтобы UI видел его сразу (и на паузе).
-	GameState.income = Economy.daily_income(population, jobs_commercial + jobs_industrial, tax_rate)
+	GameState.income = Economy.daily_income(_tax_base(grid), tax_rate)
 	GameState.expenses = Economy.daily_expenses(grid.road_cells.size(), service_upkeep)
+
+
+## Налоговая база: жители и рабочие места, каждое здание — с поправкой на стоимость земли под ним.
+func _tax_base(grid: CityGrid) -> float:
+	var base: float = 0.0
+	for building: BuildingInstance in grid.buildings.values():
+		var data: BuildingData = BuildingCatalog.get_type(building.type_id)
+		if data == null or data.population + data.jobs == 0:
+			continue
+		var value: int = GameState.land.value_at(GameState.land.land_value, grid, building.cell)
+		base += (data.population + data.jobs) * Economy.land_factor(value)
+	return base
 
 
 ## Дороги или сетка изменились — сразу (иначе ездили бы по снесённой улице).

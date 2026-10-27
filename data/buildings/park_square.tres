@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="1_hdtum"]
+
+[resource]
+script = ExtResource("1_hdtum")
+id = &"park_square"
+display_name = "Сквер"
+zone = 0
+grows = false
+cost = 60
+upkeep = 1
+land_value = 35
+park = 1

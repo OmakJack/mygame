@@ -21,6 +21,7 @@ const CATEGORY_COLORS: Dictionary[String, Color] = {
 	"zones": Color(0.33, 0.68, 0.36),
 	"utilities": Color(0.92, 0.7, 0.18),
 	"services": Color(0.82, 0.3, 0.27),
+	"parks": Color(0.2, 0.62, 0.55),
 	"bulldoze": Color(0.62, 0.32, 0.25),
 }
 

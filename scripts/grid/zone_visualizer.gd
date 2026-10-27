@@ -3,7 +3,7 @@ extends MultiMeshInstance3D
 ## Раскраска клеток: один экземпляр на клетку (номер = CityGrid.index_of), цвет — по слою карты.
 ## Слои (клавиша V по кругу): зоны / свет / вода / службы.
 
-enum Overlay { ZONES, POWER, WATER, SERVICES, TRAFFIC }
+enum Overlay { ZONES, POWER, WATER, SERVICES, TRAFFIC, LAND_VALUE, POLLUTION, NOISE }
 
 const OVERLAY_NAMES: Dictionary[Overlay, String] = {
 	Overlay.ZONES: "Зоны",
@@ -11,6 +11,9 @@ const OVERLAY_NAMES: Dictionary[Overlay, String] = {
 	Overlay.WATER: "Вода",
 	Overlay.SERVICES: "Службы",
 	Overlay.TRAFFIC: "Трафик",
+	Overlay.LAND_VALUE: "Цена земли",
+	Overlay.POLLUTION: "Загрязнение",
+	Overlay.NOISE: "Шум",
 }
 
 ## Высота зон: чуть над землёй, ниже линий сетки (0.01) и асфальта (0..0.02) — не срезает крыльца домов.
@@ -49,6 +52,13 @@ const TRAFFIC_JAM := Color(1.0, 0.15, 0.1, 0.9)
 ## С этой загрузки цвет идёт от жёлтого к красному.
 const TRAFFIC_BUSY_RATIO: float = 0.7
 const LONG_COMMUTE := Color(1.0, 0.45, 0.1)
+## Цена земли: от красного (дёшево) через жёлтый к зелёному (дорого).
+const VALUE_LOW := Color(0.9, 0.25, 0.2, 0.55)
+const VALUE_MID := Color(0.98, 0.85, 0.25, 0.5)
+const VALUE_HIGH := Color(0.2, 0.8, 0.35, 0.6)
+## Загрязнение и шум: цвет, прозрачность растёт со значением.
+const POLLUTION_COLOR := Color(0.45, 0.3, 0.15)
+const NOISE_COLOR := Color(0.95, 0.45, 0.85)
 
 var overlay: Overlay = Overlay.ZONES
 
@@ -157,6 +167,12 @@ func _update_cell(cell: Vector2i) -> void:
 			color = _service_color(cell)
 		Overlay.TRAFFIC:
 			color = _traffic_color(cell)
+		Overlay.LAND_VALUE:
+			color = _value_color(cell)
+		Overlay.POLLUTION:
+			color = _amount_color(GameState.land.pollution, cell, POLLUTION_COLOR)
+		Overlay.NOISE:
+			color = _amount_color(GameState.land.noise, cell, NOISE_COLOR)
 	multimesh.set_instance_color(GameState.grid.index_of(cell), color)
 
 
@@ -254,3 +270,24 @@ func _build_service_mask(grid: CityGrid) -> void:
 				var cell: Vector2i = building.cell + Vector2i(dx, dy)
 				if grid.is_in_bounds(cell):
 					_service_mask[grid.index_of(cell)] |= 1 << data.service
+
+
+## Цена земли на суше; на воде и дорогах — пусто.
+func _value_color(cell: Vector2i) -> Color:
+	var grid: CityGrid = GameState.grid
+	if grid.is_water(cell) or grid.is_road(cell):
+		return CLEAR
+	var value: float = GameState.land.value_at(GameState.land.land_value, grid, cell) / 100.0
+	if value < 0.5:
+		return VALUE_LOW.lerp(VALUE_MID, value * 2.0)
+	return VALUE_MID.lerp(VALUE_HIGH, (value - 0.5) * 2.0)
+
+
+## Загрязнение или шум: чем больше, тем гуще цвет; слабое (< 5) — не рисуем.
+func _amount_color(layer: PackedByteArray, cell: Vector2i, base: Color) -> Color:
+	var amount: int = GameState.land.value_at(layer, GameState.grid, cell)
+	if amount < 5:
+		return CLEAR
+	var color: Color = base
+	color.a = 0.15 + 0.7 * amount / 100.0
+	return color

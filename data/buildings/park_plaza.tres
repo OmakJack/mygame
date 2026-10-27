@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="1_30lxs"]
+
+[resource]
+script = ExtResource("1_30lxs")
+id = &"park_plaza"
+display_name = "Площадь"
+zone = 0
+grows = false
+cost = 200
+upkeep = 3
+land_value = 60
+park = 3

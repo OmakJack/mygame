@@ -14,8 +14,11 @@ const ROAD_UPKEEP: float = 0.2
 const DEFAULT_TAX_RATE: int = 9
 const MIN_TAX_RATE: int = 0
 const MAX_TAX_RATE: int = 20
-## Доход за день = (жители + рабочие места) · налог(%) · TAX_FACTOR.
+## Доход за день = налоговая база · налог(%) · TAX_FACTOR. База — жители и рабочие места,
+## каждое здание с поправкой land_factor на стоимость земли под ним (фаза 9).
 const TAX_FACTOR: float = 0.015
+## Мост через воду, $ за клетку (обычная дорога — ROAD_COST).
+const BRIDGE_COST: int = 40
 
 
 static func can_afford(amount: int) -> bool:
@@ -30,8 +33,13 @@ static func spend(amount: int) -> bool:
 	return true
 
 
-static func daily_income(population: int, jobs: int, tax_rate: int) -> int:
-	return roundi((population + jobs) * tax_rate * TAX_FACTOR)
+static func daily_income(tax_base: float, tax_rate: int) -> int:
+	return roundi(tax_base * tax_rate * TAX_FACTOR)
+
+
+## Поправка налога на стоимость земли 0..100: дешёвая земля — ×0.7, средняя (50) — ×1, дорогая — ×1.3.
+static func land_factor(land_value: int) -> float:
+	return 0.7 + 0.6 * land_value / 100.0
 
 
 static func daily_expenses(road_cells: int, service_upkeep: int = 0) -> int:

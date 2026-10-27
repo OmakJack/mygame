@@ -19,6 +19,8 @@ const RESERVED_NAMES: Array[String] = [
 
 ## Папка сохранений. Переменная, чтобы тесты писали в свою.
 var save_dir: String = "user://saves/"
+## Река на новой карте. Переменная, чтобы тесты строили на ровной суше.
+var with_river: bool = true
 ## День последнего автосохранения (или загрузки / нового города).
 var _last_autosave_day: int = 0
 
@@ -64,9 +66,12 @@ func load_city(file_id: String) -> bool:
 	return true
 
 
+## Новый город. С рекой по случайному зерну (фаза 9); тесты выключают реку через with_river.
 func new_city() -> void:
-	_apply(CityGrid.new(CityGrid.GRID_SIZE), DEFAULT_CITY_NAME, Economy.START_MONEY,
-			Economy.DEFAULT_TAX_RATE, 0)
+	var grid := CityGrid.new(CityGrid.GRID_SIZE)
+	if with_river:
+		MapGenerator.add_river(grid, randi())
+	_apply(grid, DEFAULT_CITY_NAME, Economy.START_MONEY, Economy.DEFAULT_TAX_RATE, 0)
 
 
 ## Сохранения: file, name, day, population, money, saved_at, broken. Новые — первыми.

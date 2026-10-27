@@ -17,6 +17,8 @@ var size: int
 var tile_type: PackedByteArray
 var zone: PackedByteArray
 var building_at: PackedInt32Array
+## Вода (фаза 9): 1 — вода, 0 — суша. Отдельный слой: дорога-мост лежит поверх воды, после сноса вода остаётся.
+var water: PackedByteArray
 
 # Кэши, чтобы не сканировать всю карту.
 var buildings: Dictionary[int, BuildingInstance] = {}
@@ -45,6 +47,8 @@ func _init(p_size: int = GRID_SIZE) -> void:
 	zone.fill(Zone.NONE)
 	building_at.resize(count)
 	building_at.fill(-1)
+	water.resize(count)
+	water.fill(0)
 
 
 func is_in_bounds(cell: Vector2i) -> bool:
@@ -89,6 +93,19 @@ const NEIGHBORS: Array[Vector2i] = [Vector2i(0, -1), Vector2i(1, 0), Vector2i(0,
 
 func is_road(cell: Vector2i) -> bool:
 	return road_cells.has(cell)
+
+
+## Вода на клетке. Клетка должна быть в границах.
+func is_water(cell: Vector2i) -> bool:
+	return water[index_of(cell)] == 1
+
+
+## Можно ли поставить здание: пустая клетка суши.
+func can_place_building(cell: Vector2i) -> bool:
+	if not is_in_bounds(cell):
+		return false
+	var i: int = index_of(cell)
+	return tile_type[i] == Tile.EMPTY and water[i] == 0
 
 
 ## Можно ли поставить дорогу (те же правила, что в set_road).
@@ -158,6 +175,9 @@ func can_zone(cell: Vector2i, zone_type: Zone) -> bool:
 	var i: int = index_of(cell)
 	if tile_type[i] != Tile.EMPTY or zone[i] == zone_type:
 		return false
+	# На воде зон нет; снять зону с воды нечего.
+	if water[i] == 1:
+		return false
 	# Снять зону можно всегда, поставить — только рядом с дорогой.
 	return zone_type == Zone.NONE or has_road_access(cell)
 
@@ -221,11 +241,9 @@ func _update_zoned_cache(cell: Vector2i) -> void:
 ## clear_zone — стереть зону клетки (служебные здания: после их сноса дом не вырастет).
 ## Возвращает номер экземпляра или −1. Сигнал шлёт вызывающий (пакетом).
 func place_building(type_id: StringName, cell: Vector2i, orientation: int, clear_zone: bool = false) -> int:
-	if not is_in_bounds(cell):
+	if not can_place_building(cell):
 		return -1
 	var i: int = index_of(cell)
-	if tile_type[i] != Tile.EMPTY:
-		return -1
 	if clear_zone:
 		zone[i] = Zone.NONE
 	var id: int = next_building_id
@@ -268,6 +286,9 @@ func rebuild_caches() -> void:
 	for y: int in size:
 		for x: int in size:
 			var i: int = index_of(Vector2i(x, y))
+			if water[i] == 1:
+				# На воде зон не бывает (как в can_zone).
+				zone[i] = Zone.NONE
 			if tile_type[i] == Tile.ROAD:
 				road_cells[Vector2i(x, y)] = true
 				# Под дорогой зоны не бывает (как в set_road).

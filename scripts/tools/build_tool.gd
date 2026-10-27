@@ -76,6 +76,13 @@ static func cost_of(tool_mode: Mode) -> int:
 	return MODE_COSTS.get(tool_mode, 0)
 
 
+## Цена клетки: дорога по воде — мост.
+func _cell_cost(cell: Vector2i) -> int:
+	if mode == Mode.ROAD and GameState.grid.is_in_bounds(cell) and GameState.grid.is_water(cell):
+		return Economy.BRIDGE_COST
+	return cost_of(mode)
+
+
 func _process(_delta: float) -> void:
 	# В режиме постановки курсор краснеет там, куда поставить нельзя.
 	if mode == Mode.PLACE and cursor.has_cell:
@@ -96,7 +103,12 @@ func _unhandled_input(event: InputEvent) -> void:
 			break
 
 	var button := event as InputEventMouseButton
-	if button == null or mode == Mode.NONE:
+	if button == null:
+		return
+	if mode == Mode.NONE:
+		# Без инструмента клик показывает, что на клетке (карточка «Инфо»).
+		if button.button_index == MOUSE_BUTTON_LEFT and button.pressed and cursor.has_cell:
+			Events.cell_inspected.emit(cursor.hovered_cell)
 		return
 	if button.button_index == MOUSE_BUTTON_LEFT and button.pressed and cursor.has_cell:
 		_dragging = true
@@ -158,19 +170,19 @@ func _update_drag(end: Vector2i) -> void:
 func _can_place(cell: Vector2i) -> bool:
 	var data: BuildingData = BuildingCatalog.get_type(place_type)
 	var grid: CityGrid = GameState.grid
-	return data != null and grid.can_set_road(cell) and grid.has_road_access(cell) 			and Economy.can_afford(data.cost)
+	return data != null and grid.can_place_building(cell) and grid.has_road_access(cell) 			and Economy.can_afford(data.cost)
 
 
 ## Обрезает клетки операции там, где кончаются деньги. Клетки, которые не изменятся
 ## (например, уже есть дорога), бесплатны и не обрезаются.
 func _affordable(cells: Array[Vector2i]) -> Array[Vector2i]:
-	var cost: int = cost_of(mode)
-	if cost == 0:
+	if cost_of(mode) == 0:
 		return cells
 	var budget: int = GameState.money
 	var result: Array[Vector2i] = []
 	for cell: Vector2i in cells:
 		if _would_change(cell):
+			var cost: int = _cell_cost(cell)
 			if budget < cost:
 				break
 			budget -= cost
@@ -199,9 +211,9 @@ func _apply() -> void:
 	if mode == Mode.PLACE:
 		_apply_place(grid)
 		return
-	var cost: int = cost_of(mode)
 	var changed: Array[Vector2i] = []
 	for cell: Vector2i in _drag_cells:
+		var cost: int = _cell_cost(cell)
 		# Деньги могли измениться с момента превью — проверяем ещё раз.
 		if cost > 0 and _would_change(cell) and not Economy.can_afford(cost):
 			break

@@ -14,6 +14,7 @@ power_use = 2
 water_use = 2
 service = 2
 service_radius = 14
+land_value = 15
 model = ExtResource("1_c21ra")
 model_scale = 1.4
 sign_color = Color(0.9, 0.15, 0.15, 1)

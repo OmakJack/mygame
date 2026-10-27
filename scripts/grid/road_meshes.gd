@@ -41,6 +41,11 @@ const MODELS: Array[String] = [
 ## Модели Kenney: тупик открыт на E, прямая — E–W, поворот — S–W, T закрыт с N.
 ## Таблицу проверяет тест через native_mask (см. ниже) — эвристика только в тесте.
 const MODEL_TURNS: Array[int] = [3, 1, 2, 3, 0]
+## Мост через воду (фаза 9): отдельный кусок после Piece. Модель Kenney — настил на опорах,
+## идёт с N на S; опускаем настил до высоты асфальта, опоры уходят под воду.
+const BRIDGE_ITEM: int = 5
+const BRIDGE_MODEL: String = "res://assets/models/kenney/roads/road-bridge.glb"
+const BRIDGE_DROP: float = 0.49
 ## Вершина «у середины края» плитки 1×1: на краю (±0.5) и не дальше этого от середины.
 const EDGE_EPSILON: float = 0.02
 const EDGE_MIDDLE: float = 0.12
@@ -58,6 +63,13 @@ static func build_library() -> MeshLibrary:
 		if mesh == null:
 			mesh = _build_piece(BASE_MASKS[piece], piece, material)
 		library.set_item_mesh(piece, mesh)
+	library.create_item(BRIDGE_ITEM)
+	library.set_item_name(BRIDGE_ITEM, "BRIDGE")
+	var bridge: Mesh = _model_piece(Piece.STRAIGHT)
+	if ResourceLoader.exists(BRIDGE_MODEL):
+		var scale := Vector3(CityGrid.CELL_SIZE, 1.0, CityGrid.CELL_SIZE)
+		bridge = ModelLoader.merge(load(BRIDGE_MODEL), Transform3D(Basis.from_scale(scale), Vector3.DOWN * BRIDGE_DROP))
+	library.set_item_mesh(BRIDGE_ITEM, bridge)
 	return library
 
 

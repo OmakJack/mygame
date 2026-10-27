@@ -42,6 +42,10 @@ signal save_error(message: String)
 @warning_ignore("unused_signal")
 signal modal_changed(open: bool)
 
+## Клик по клетке без инструмента в руке — HUD показывает карточку «Инфо» (фаза 9).
+@warning_ignore("unused_signal")
+signal cell_inspected(cell: Vector2i)
+
 ## Кнопка «Меню» в HUD просит открыть главное меню (как Esc).
 @warning_ignore("unused_signal")
 signal menu_requested

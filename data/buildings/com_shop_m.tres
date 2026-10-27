@@ -12,5 +12,6 @@ jobs = 5
 grows = false
 power_use = 2
 water_use = 1
+noise = 12
 model = ExtResource("1_y7s3r")
 model_scale = 1.4

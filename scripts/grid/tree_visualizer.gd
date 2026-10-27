@@ -101,4 +101,4 @@ func tree_count() -> int:
 
 static func _is_free(grid: CityGrid, cell: Vector2i) -> bool:
 	var i: int = grid.index_of(cell)
-	return grid.tile_type[i] == CityGrid.Tile.EMPTY and grid.zone[i] == CityGrid.Zone.NONE
+	return grid.tile_type[i] == CityGrid.Tile.EMPTY and grid.zone[i] == CityGrid.Zone.NONE and grid.water[i] == 0
