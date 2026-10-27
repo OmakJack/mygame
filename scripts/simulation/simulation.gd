@@ -9,7 +9,7 @@ const ABANDON_TICKS: int = 3
 ## Через сколько тиков без света или воды дом сносится (дольше — чтобы игрок успел поставить станцию).
 const UTILITY_ABANDON_TICKS: int = 10
 ## Во сколько раз шанс роста больше спроса.
-const GROWTH_CHANCE_FACTOR: float = 2.0
+const GROWTH_CHANCE_FACTOR: float = 0.7
 ## На тике трафик пересчитывается раз в столько тиков (и сразу — при изменении дорог).
 const TRAFFIC_PERIOD: int = 5
 
@@ -88,7 +88,7 @@ func _abandon_buildings(grid: CityGrid, changed: Array[Vector2i]) -> void:
 
 
 ## Шанс вырасти дому зоны на тике = min(1, спрос · GROWTH_CHANCE_FACTOR):
-## при нормальном спросе — каждый тик, при просадке (налог, нет служб) — плавно реже.
+## при спросе 0.5 — примерно раз в 3 тика, при просадке (налог, нет служб) — реже.
 func _grow(grid: CityGrid, changed: Array[Vector2i]) -> void:
 	var demands: Dictionary[CityGrid.Zone, float] = {
 		CityGrid.Zone.RESIDENTIAL: GameState.demand_r,

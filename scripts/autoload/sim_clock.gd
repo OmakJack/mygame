@@ -4,7 +4,7 @@ extends Node
 ## Допустимые скорости: пауза, ×1, ×3.
 const SPEEDS: Array[int] = [0, 1, 3]
 ## Длина тика на скорости ×1, секунды.
-const TICK_SECONDS: float = 1.0
+const TICK_SECONDS: float = 2.0
 ## Больше тиков за кадр не делаем, даже если кадр был очень долгим.
 const MAX_TICKS_PER_FRAME: int = 3
 
