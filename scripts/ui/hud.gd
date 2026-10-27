@@ -1,16 +1,21 @@
 extends CanvasLayer
-## Панель статистики и кнопки. Состояние напрямую не меняет:
-## только сигналы Events и публичный SimClock.set_speed().
+## Интерфейс: верхняя панель с показателями, подсказки, нижняя панель с вкладками инструментов.
+## Состояние напрямую не меняет: только сигналы Events и публичные SimClock.set_speed() / SaveManager.
 
-## Кнопки инструментов: режим, название, клавиша.
-const TOOLS: Array[Dictionary] = [
-	{"mode": BuildTool.Mode.ROAD, "name": "Дорога", "key": "R"},
-	{"mode": BuildTool.Mode.ZONE_R, "name": "Жилая", "key": "1"},
-	{"mode": BuildTool.Mode.ZONE_C, "name": "Коммерция", "key": "2"},
-	{"mode": BuildTool.Mode.ZONE_I, "name": "Промзона", "key": "3"},
-	{"mode": BuildTool.Mode.DEZONE, "name": "Снять зону", "key": "4"},
-	{"mode": BuildTool.Mode.BULLDOZE, "name": "Снос", "key": "B"},
-	{"mode": BuildTool.Mode.NONE, "name": "Выкл.", "key": "Esc"},
+## Вкладки инструментов. Инструменты — режимы BuildTool; здания — служебные из каталога
+## («utilities» — дают свет или воду, «services» — службы).
+const TABS: Array[Dictionary] = [
+	{"id": "roads", "name": "Дороги", "tools": [
+		{"mode": BuildTool.Mode.ROAD, "name": "Дорога", "key": "R"},
+	]},
+	{"id": "zones", "name": "Зоны", "tools": [
+		{"mode": BuildTool.Mode.ZONE_R, "name": "Жилая", "key": "1"},
+		{"mode": BuildTool.Mode.ZONE_C, "name": "Коммерция", "key": "2"},
+		{"mode": BuildTool.Mode.ZONE_I, "name": "Промзона", "key": "3"},
+		{"mode": BuildTool.Mode.DEZONE, "name": "Снять зону", "key": "4"},
+	]},
+	{"id": "utilities", "name": "Свет и вода", "buildings": "utilities"},
+	{"id": "services", "name": "Службы", "buildings": "services"},
 ]
 const SPEEDS: Array[Dictionary] = [
 	{"speed": 0, "name": "Пауза"},
@@ -19,13 +24,12 @@ const SPEEDS: Array[Dictionary] = [
 ]
 ## Полоски спроса: подпись и цвет (как у зон).
 const DEMANDS: Array[Dictionary] = [
-	{"name": "R", "color": Color(0.25, 0.8, 0.3)},
+	{"name": "R", "color": Color(0.25, 0.75, 0.3)},
 	{"name": "C", "color": Color(0.25, 0.5, 0.95)},
-	{"name": "I", "color": Color(0.95, 0.8, 0.2)},
+	{"name": "I", "color": Color(0.95, 0.75, 0.2)},
 ]
-const DEBT_COLOR := Color(1.0, 0.35, 0.3)
-## Свет или вода: кому-то не хватило.
-const SHORTAGE_COLOR := Color(1.0, 0.35, 0.3)
+## Размер карточки инструмента.
+const CARD_SIZE := Vector2(104, 58)
 ## Сколько секунд висит сообщение о сохранении.
 const TOAST_SECONDS: float = 2.5
 
@@ -33,8 +37,13 @@ var _tool_buttons: Dictionary[int, Button] = {}
 var _service_buttons: Dictionary[StringName, Button] = {}
 var _speed_buttons: Dictionary[int, Button] = {}
 var _demand_bars: Array[DemandBar] = []
+## Вкладки: id → кнопка вкладки и ряд её карточек.
+var _tab_buttons: Dictionary[String, Button] = {}
+var _tab_cards: Dictionary[String, HBoxContainer] = {}
+var _active_tab: String = ""
 var _current_tool: int = BuildTool.Mode.NONE
 var _current_type: StringName = &""
+var _overlay_label := Label.new()
 var _save_dialog := SaveDialog.new()
 var _new_city_confirm := ConfirmationDialog.new()
 var _toast := PanelContainer.new()
@@ -46,11 +55,16 @@ var _speed_before_confirm: int = 1
 
 
 func _ready() -> void:
+	var theme: Theme = UiTheme.build()
+	$Root.theme = theme
 	_build_demand_bars()
 	_build_speed_buttons()
-	_build_tool_buttons()
-	_build_service_buttons()
+	_build_tabs()
+	_build_bottom_extras()
 	_build_city_controls()
+	_new_city_confirm.theme = theme
+	for window: Node in _save_dialog.find_children("*", "Window", true, false):
+		(window as Window).theme = theme
 	%TaxDown.pressed.connect(func() -> void: Events.tax_rate_requested.emit(GameState.tax_rate - 1))
 	%TaxUp.pressed.connect(func() -> void: Events.tax_rate_requested.emit(GameState.tax_rate + 1))
 	Events.stats_changed.connect(_refresh_stats)
@@ -58,20 +72,20 @@ func _ready() -> void:
 	Events.speed_changed.connect(_sync_speed_buttons)
 	Events.overlay_changed.connect(_show_overlay)
 	_show_overlay(ZoneVisualizer.Overlay.ZONES)
+	_select_tab("roads")
 	_refresh_stats()
 	_sync_tool_buttons()
 	_sync_speed_buttons(SimClock.speed)
 
+
+# --- Верхняя панель ---
 
 func _refresh_stats() -> void:
 	var balance: int = GameState.income - GameState.expenses
 	%MoneyLabel.text = "$%d (%+d/день)" % [GameState.money, balance]
 	var money_tip: String = "Доход: +$%d/день\nСодержание дорог и служб: −$%d/день"
 	%MoneyLabel.tooltip_text = money_tip % [GameState.income, GameState.expenses]
-	if GameState.money < 0:
-		%MoneyLabel.add_theme_color_override(&"font_color", DEBT_COLOR)
-	else:
-		%MoneyLabel.remove_theme_color_override(&"font_color")
+	_mark_bad(%MoneyLabel, GameState.money < 0)
 	%DayLabel.text = "%s · День %d" % [GameState.city_name, GameState.day]
 	%PopLabel.text = "Жители: %d" % GameState.population
 	%JobsLabel.text = "Работа: C %d · I %d" % [GameState.jobs_commercial, GameState.jobs_industrial]
@@ -94,24 +108,25 @@ func _show_resource(label: Label, title: String, use: int, supply: int, short_co
 	label.text = "%s %d/%d" % [title, use, supply]
 	label.tooltip_text = "%s: потребление %d из %d" % [title, use, supply]
 	if short_count > 0:
-		label.add_theme_color_override(&"font_color", SHORTAGE_COLOR)
-		label.tooltip_text += "
-Не хватило: %d зд." % short_count
-	else:
-		label.remove_theme_color_override(&"font_color")
+		label.tooltip_text += "\nНе хватило: %d зд." % short_count
+	_mark_bad(label, short_count > 0)
 
 
 ## «Пробки 3 · до работы 18»: клетки с пробкой и среднее время до работы; красным при пробках.
 func _show_traffic() -> void:
 	var traffic: Traffic = GameState.traffic
 	%TrafficLabel.text = "Пробки %d · до работы %d" % [traffic.jammed_cells, roundi(traffic.average_commute)]
-	%TrafficLabel.tooltip_text = "Клеток дорог с пробкой: %d\nСреднее время до работы: %.1f (норма до %d)\nДалеко до работы: %d%% работников" \
-			% [traffic.jammed_cells, traffic.average_commute, roundi(Traffic.OK_COMMUTE),
-			roundi(traffic.long_commute_share * 100.0)]
-	if traffic.jammed_cells > 0:
-		%TrafficLabel.add_theme_color_override(&"font_color", SHORTAGE_COLOR)
+	var tip: String = "Клеток дорог с пробкой: %d\nСреднее время до работы: %.1f (норма до %d)\nДалеко до работы: %d%% работников"
+	%TrafficLabel.tooltip_text = tip % [traffic.jammed_cells, traffic.average_commute,
+			roundi(Traffic.OK_COMMUTE), roundi(traffic.long_commute_share * 100.0)]
+	_mark_bad(%TrafficLabel, traffic.jammed_cells > 0)
+
+
+func _mark_bad(label: Label, bad: bool) -> void:
+	if bad:
+		label.add_theme_color_override(&"font_color", UiTheme.BAD)
 	else:
-		%TrafficLabel.remove_theme_color_override(&"font_color")
+		label.remove_theme_color_override(&"font_color")
 
 
 func _show_hints() -> void:
@@ -125,23 +140,219 @@ func _show_hints() -> void:
 	%HintsPanel.visible = not hints.is_empty()
 
 
-func _show_overlay(overlay: int) -> void:
-	%OverlayLabel.text = "Слой: %s [V]" % ZoneVisualizer.OVERLAY_NAMES[overlay]
+func _build_demand_bars() -> void:
+	var caption := Label.new()
+	caption.text = "Спрос"
+	caption.theme_type_variation = &"Caption"
+	%Demand.add_child(caption)
+	for entry: Dictionary in DEMANDS:
+		var label := Label.new()
+		label.text = entry.name
+		%Demand.add_child(label)
+		var bar := DemandBar.new()
+		bar.color = entry.color
+		bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		%Demand.add_child(bar)
+		_demand_bars.append(bar)
 
+
+func _build_speed_buttons() -> void:
+	for entry: Dictionary in SPEEDS:
+		var button := _make_button(entry.name, &"Small")
+		var speed: int = entry.speed
+		button.pressed.connect(func() -> void:
+			SimClock.set_speed(speed)
+			# Повторный клик по активной кнопке не должен её «отжимать».
+			_sync_speed_buttons(SimClock.speed))
+		%Speed.add_child(button)
+		_speed_buttons[speed] = button
+
+
+func _sync_speed_buttons(speed: int) -> void:
+	for value: int in _speed_buttons:
+		_speed_buttons[value].set_pressed_no_signal(value == speed)
+
+
+# --- Нижняя панель: вкладки и карточки ---
+
+func _build_tabs() -> void:
+	for tab: Dictionary in TABS:
+		var id: String = tab.id
+		var cards := HBoxContainer.new()
+		cards.add_theme_constant_override(&"separation", 8)
+		cards.visible = false
+		%Tools.add_child(cards)
+		_tab_cards[id] = cards
+		for tool: Dictionary in tab.get("tools", []):
+			_add_tool_card(cards, id, tool)
+		if tab.has("buildings"):
+			for data: BuildingData in _tab_buildings(tab.buildings):
+				_add_building_card(cards, id, data)
+		var button := _make_button(tab.name, &"Tab")
+		UiTheme.tab_styles(button, id)
+		button.pressed.connect(func() -> void:
+			# Повторный клик по открытой вкладке сворачивает панель.
+			_select_tab("" if _active_tab == id else id))
+		%Tabs.add_child(button)
+		_tab_buttons[id] = button
+
+
+## Служебные здания вкладки: «utilities» — дают свет или воду, «services» — службы по порядку ступеней.
+func _tab_buildings(kind: String) -> Array[BuildingData]:
+	var result: Array[BuildingData] = []
+	for data: BuildingData in BuildingCatalog.buildable_types():
+		var is_utility: bool = data.power_supply > 0 or data.water_supply > 0
+		if (kind == "utilities") == is_utility:
+			result.append(data)
+	result.sort_custom(func(a: BuildingData, b: BuildingData) -> bool:
+		return a.service < b.service or (a.service == b.service and a.id < b.id))
+	return result
+
+
+func _add_tool_card(row: HBoxContainer, category: String, tool: Dictionary) -> void:
+	var mode: int = tool.mode
+	var cost: int = BuildTool.cost_of(mode)
+	var price: String = ("$%d/кл. · " % cost) if cost > 0 else ""
+	var button := _make_card("%s\n%s%s" % [tool.name, price, tool.key], category)
+	button.pressed.connect(func() -> void:
+		Events.tool_requested.emit(mode)
+		_sync_tool_buttons())
+	row.add_child(button)
+	_tool_buttons[mode] = button
+
+
+func _add_building_card(row: HBoxContainer, category: String, data: BuildingData) -> void:
+	var button := _make_card("%s\n$%d" % [data.display_name, data.cost], category)
+	button.tooltip_text = _service_tooltip(data)
+	var type_id: StringName = data.id
+	button.pressed.connect(func() -> void:
+		Events.building_place_requested.emit(type_id)
+		_sync_tool_buttons())
+	row.add_child(button)
+	_service_buttons[type_id] = button
+
+
+## «Снос» и переключатель слоя карты — рядом с вкладками, всегда под рукой.
+func _build_bottom_extras() -> void:
+	%Tabs.add_child(VSeparator.new())
+	var bulldoze := _make_card("Снос\nB", "bulldoze")
+	bulldoze.custom_minimum_size = Vector2(72, 0)
+	bulldoze.pressed.connect(func() -> void:
+		Events.tool_requested.emit(BuildTool.Mode.BULLDOZE)
+		_sync_tool_buttons())
+	%Tabs.add_child(bulldoze)
+	_tool_buttons[BuildTool.Mode.BULLDOZE] = bulldoze
+	var overlay := _make_button("", &"Small")
+	overlay.toggle_mode = false
+	overlay.tooltip_text = "Сменить слой карты: зоны, свет, вода, службы, трафик"
+	overlay.pressed.connect(func() -> void:
+		var event := InputEventAction.new()
+		event.action = &"overlay_next"
+		event.pressed = true
+		Input.parse_input_event(event))
+	_overlay_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_overlay_label.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_overlay_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_overlay_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	overlay.custom_minimum_size = Vector2(150, 0)
+	overlay.add_child(_overlay_label)
+	%Tabs.add_child(overlay)
+	# Уникальное имя — чтобы находить надпись как %OverlayLabel, хоть она и создана кодом.
+	_overlay_label.name = "OverlayLabel"
+	_overlay_label.unique_name_in_owner = true
+	_overlay_label.owner = self
+
+
+func _select_tab(id: String) -> void:
+	_active_tab = id
+	for tab_id: String in _tab_cards:
+		_tab_cards[tab_id].visible = tab_id == id
+		_tab_buttons[tab_id].set_pressed_no_signal(tab_id == id)
+	%ToolPanel.visible = not id.is_empty()
+
+
+## Вкладка, где лежит инструмент или здание (для клавиш R, 1–4 и выбора службы).
+func _tab_of(mode: int, type_id: StringName) -> String:
+	if mode == BuildTool.Mode.PLACE:
+		for tab_id: String in _tab_cards:
+			if _service_buttons.has(type_id) and _service_buttons[type_id].get_parent() == _tab_cards[tab_id]:
+				return tab_id
+		return ""
+	for tab_id: String in _tab_cards:
+		if _tool_buttons.has(mode) and _tool_buttons[mode].get_parent() == _tab_cards[tab_id]:
+			return tab_id
+	return ""
+
+
+func _on_tool_mode_changed(mode: int, type_id: StringName) -> void:
+	_current_tool = mode
+	_current_type = type_id
+	var tab: String = _tab_of(mode, type_id)
+	if not tab.is_empty():
+		_select_tab(tab)
+	_sync_tool_buttons()
+
+
+func _sync_tool_buttons() -> void:
+	for mode: int in _tool_buttons:
+		_tool_buttons[mode].set_pressed_no_signal(mode == _current_tool)
+	var placing: bool = _current_tool == BuildTool.Mode.PLACE
+	for type_id: StringName in _service_buttons:
+		_service_buttons[type_id].set_pressed_no_signal(placing and type_id == _current_type)
+
+
+func _show_overlay(overlay: int) -> void:
+	_overlay_label.text = "Слой: %s [V]" % ZoneVisualizer.OVERLAY_NAMES[overlay]
+
+
+## Цена, содержание, что даёт и потребляет, радиус и с какого населения нужна служба.
+func _service_tooltip(data: BuildingData) -> String:
+	var lines: PackedStringArray = ["Цена: $%d, содержание: $%d/день" % [data.cost, data.upkeep]]
+	if data.power_supply > 0:
+		lines.append("Даёт свет: %d" % data.power_supply)
+	if data.water_supply > 0:
+		lines.append("Даёт воду: %d" % data.water_supply)
+	if data.power_use > 0 or data.water_use > 0:
+		lines.append("Потребляет: свет %d, вода %d" % [data.power_use, data.water_use])
+	if data.service != BuildingData.Service.NONE:
+		var needed_from: int = Services.REQUIRED_FROM.get(data.service, 0)
+		lines.append("Радиус: %d кл.; нужна городу с %d жителей" % [data.service_radius, needed_from])
+	lines.append("Ставится у дороги")
+	return "\n".join(lines)
+
+
+func _make_card(text: String, category: String) -> Button:
+	var button := _make_button(text, &"Card")
+	button.custom_minimum_size = CARD_SIZE
+	UiTheme.card_styles(button, category)
+	return button
+
+
+func _make_button(text: String, variation: StringName = &"") -> Button:
+	var button := Button.new()
+	button.text = text
+	button.toggle_mode = true
+	button.theme_type_variation = variation
+	# Без фокуса: иначе Пробел нажимал бы последнюю кнопку вместо паузы.
+	button.focus_mode = Control.FOCUS_NONE
+	return button
+
+
+# --- Города, новый город, сообщения ---
 
 ## Кнопки «Города» и «Новый город», окно сохранений, подтверждение и сообщения.
 func _build_city_controls() -> void:
-	var row: Node = $Root/TopArea/TopBar/Row
-	var cities := _make_button("Города")
+	var cities := _make_button("Города", &"Small")
 	cities.toggle_mode = false
 	cities.pressed.connect(_save_dialog.open)
-	row.add_child(cities)
-	var new_city := _make_button("Новый город")
+	%Menu.add_child(cities)
+	var new_city := _make_button("Новый город", &"Small")
 	new_city.toggle_mode = false
 	new_city.pressed.connect(_on_new_city_pressed)
-	row.add_child(new_city)
+	%Menu.add_child(new_city)
 	$Root.add_child(_save_dialog)
 
+	_new_city_confirm.title = "Новый город"
 	_new_city_confirm.ok_button_text = "Сохранить и создать"
 	_new_city_confirm.add_button("Не сохранять", true, "discard")
 	_new_city_confirm.confirmed.connect(func() -> void:
@@ -159,10 +370,10 @@ func _build_city_controls() -> void:
 	add_child(_new_city_confirm)
 
 	_toast.add_child(_toast_label)
-	# Под верхней панелью, по центру: нижняя панель бывает в две строки.
+	_toast_label.theme_type_variation = &"Title"
+	# Под верхней панелью, по центру.
 	_toast.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	_toast.offset_top = 90.0
-	_toast.offset_bottom = 120.0
+	_toast.offset_top = 96.0
 	_toast.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	_toast.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_toast.visible = false
@@ -198,105 +409,3 @@ func _show_toast(text: String) -> void:
 	await get_tree().create_timer(TOAST_SECONDS).timeout
 	if serial == _toast_serial:
 		_toast.visible = false
-
-
-func _build_demand_bars() -> void:
-	for entry: Dictionary in DEMANDS:
-		var label := Label.new()
-		label.text = entry.name
-		%Demand.add_child(label)
-		var bar := DemandBar.new()
-		bar.color = entry.color
-		bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		%Demand.add_child(bar)
-		_demand_bars.append(bar)
-
-
-func _build_speed_buttons() -> void:
-	for entry: Dictionary in SPEEDS:
-		var button := _make_button(entry.name)
-		var speed: int = entry.speed
-		button.pressed.connect(func() -> void:
-			SimClock.set_speed(speed)
-			# Повторный клик по активной кнопке не должен её «отжимать».
-			_sync_speed_buttons(SimClock.speed))
-		%Speed.add_child(button)
-		_speed_buttons[speed] = button
-
-
-func _build_tool_buttons() -> void:
-	for entry: Dictionary in TOOLS:
-		var mode: int = entry.mode
-		var text: String = "%s [%s]" % [entry.name, entry.key]
-		var cost: int = BuildTool.cost_of(mode)
-		if cost > 0:
-			text += "\n$%d" % cost
-		var button := _make_button(text)
-		button.pressed.connect(func() -> void:
-			Events.tool_requested.emit(mode)
-			_sync_tool_buttons())
-		%Tools.add_child(button)
-		_tool_buttons[mode] = button
-
-
-## Служебные здания из каталога: название и цена.
-func _build_service_buttons() -> void:
-	%Tools.add_child(VSeparator.new())
-	# Сначала станции (у них service = NONE), потом службы в порядке, в каком они нужны городу.
-	var types: Array[BuildingData] = BuildingCatalog.buildable_types().duplicate()
-	types.sort_custom(func(a: BuildingData, b: BuildingData) -> bool:
-		return a.service < b.service or (a.service == b.service and a.id < b.id))
-	for data: BuildingData in types:
-		var button := _make_button("%s
-$%d" % [data.display_name, data.cost])
-		button.tooltip_text = _service_tooltip(data)
-		var type_id: StringName = data.id
-		button.pressed.connect(func() -> void:
-			Events.building_place_requested.emit(type_id)
-			_sync_tool_buttons())
-		%Tools.add_child(button)
-		_service_buttons[type_id] = button
-
-
-## Цена, содержание, что даёт и потребляет, радиус и с какого населения нужна служба.
-func _service_tooltip(data: BuildingData) -> String:
-	var lines: PackedStringArray = ["Цена: $%d, содержание: $%d/день" % [data.cost, data.upkeep]]
-	if data.power_supply > 0:
-		lines.append("Даёт свет: %d" % data.power_supply)
-	if data.water_supply > 0:
-		lines.append("Даёт воду: %d" % data.water_supply)
-	if data.power_use > 0 or data.water_use > 0:
-		lines.append("Потребляет: свет %d, вода %d" % [data.power_use, data.water_use])
-	if data.service != BuildingData.Service.NONE:
-		var needed_from: int = Services.REQUIRED_FROM.get(data.service, 0)
-		lines.append("Радиус: %d кл.; нужна городу с %d жителей" % [data.service_radius, needed_from])
-	lines.append("Ставится у дороги")
-	return "\n".join(lines)
-
-
-func _make_button(text: String) -> Button:
-	var button := Button.new()
-	button.text = text
-	button.toggle_mode = true
-	# Без фокуса: иначе Пробел нажимал бы последнюю кнопку вместо паузы.
-	button.focus_mode = Control.FOCUS_NONE
-	return button
-
-
-func _on_tool_mode_changed(mode: int, type_id: StringName) -> void:
-	_current_tool = mode
-	_current_type = type_id
-	_sync_tool_buttons()
-
-
-func _sync_tool_buttons() -> void:
-	for mode: int in _tool_buttons:
-		_tool_buttons[mode].set_pressed_no_signal(mode == _current_tool)
-	var placing: bool = _current_tool == BuildTool.Mode.PLACE
-	for type_id: StringName in _service_buttons:
-		_service_buttons[type_id].set_pressed_no_signal(placing and type_id == _current_type)
-
-
-func _sync_speed_buttons(speed: int) -> void:
-	for value: int in _speed_buttons:
-		_speed_buttons[value].set_pressed_no_signal(value == speed)
