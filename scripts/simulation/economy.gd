@@ -37,9 +37,10 @@ static func daily_income(tax_base: float, tax_rate: int) -> int:
 	return roundi(tax_base * tax_rate * TAX_FACTOR)
 
 
-## Поправка налога на стоимость земли 0..100: дешёвая земля — ×0.7, средняя (50) — ×1, дорогая — ×1.3.
+## Поправка налога на стоимость земли 0..100: обычная земля (LandValue.BASE_VALUE = 25) — ×1,
+## пустырь — ×0.8, дорогая — до ×1.6 (ревью Argon 014: средний город платит как до фазы 9).
 static func land_factor(land_value: int) -> float:
-	return 0.7 + 0.6 * land_value / 100.0
+	return 0.8 + 0.8 * clampi(land_value, 0, 100) / 100.0
 
 
 static func daily_expenses(road_cells: int, service_upkeep: int = 0) -> int:

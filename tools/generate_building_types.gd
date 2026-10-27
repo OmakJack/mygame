@@ -46,7 +46,7 @@ const EXISTING: Dictionary = {
 const PARKS: Dictionary = {
 	"park_square": ["Сквер", BuildingData.Park.SQUARE, 60, 1, 35],
 	"park_garden": ["Сад", BuildingData.Park.GARDEN, 120, 2, 50],
-	"park_plaza": ["Площадь", BuildingData.Park.PLAZA, 200, 3, 60],
+	"park_plaza": ["Площадь", BuildingData.Park.PLAZA, 200, 3, 70],
 }
 
 

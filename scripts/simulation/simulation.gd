@@ -23,6 +23,7 @@ var _traffic_buildings_version: int = -1
 var _ticks_since_traffic: int = 0
 # По чему были посчитаны слои земли.
 var _land_traffic: Traffic = null
+var _land_grid: CityGrid = null
 var _land_buildings_version: int = -1
 
 
@@ -143,8 +144,9 @@ func _update_stats(from_tick: bool = false) -> void:
 		_ticks_since_traffic = 0
 
 	# Слои земли — по зданиям, воде и трафику: при любой их смене (и на паузе).
-	if GameState.land.size != grid.size or GameState.traffic != _land_traffic 			or grid.buildings_version != _land_buildings_version:
+	if GameState.land.size != grid.size or grid != _land_grid or GameState.traffic != _land_traffic 			or grid.buildings_version != _land_buildings_version:
 		GameState.land = LandValue.compute(grid, GameState.traffic)
+		_land_grid = grid
 		_land_traffic = GameState.traffic
 		_land_buildings_version = grid.buildings_version
 

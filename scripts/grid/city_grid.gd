@@ -201,17 +201,22 @@ func has_road_access(cell: Vector2i) -> bool:
 	return find_nearest_road(cell) != NO_CELL
 
 
-## Клетка ближайшей дороги не дальше ROAD_ACCESS_RANGE (по Манхэттену) или NO_CELL.
-## Ищет кольцами от расстояния 1.
+## Клетка ближайшей дороги на суше не дальше ROAD_ACCESS_RANGE (по Манхэттену) или NO_CELL.
+## Ищет кольцами от расстояния 1. Мост над водой доступа не даёт: к нему с берега не подъехать
+## (ревью Argon 014).
 func find_nearest_road(cell: Vector2i) -> Vector2i:
 	for dist: int in range(1, ROAD_ACCESS_RANGE + 1):
 		for dy: int in range(-dist, dist + 1):
 			var dx: int = dist - absi(dy)
-			if road_cells.has(cell + Vector2i(-dx, dy)):
+			if _is_land_road(cell + Vector2i(-dx, dy)):
 				return cell + Vector2i(-dx, dy)
-			if dx != 0 and road_cells.has(cell + Vector2i(dx, dy)):
+			if dx != 0 and _is_land_road(cell + Vector2i(dx, dy)):
 				return cell + Vector2i(dx, dy)
 	return NO_CELL
+
+
+func _is_land_road(cell: Vector2i) -> bool:
+	return road_cells.has(cell) and water[index_of(cell)] == 0
 
 
 ## Направление на ближайшую дорогу: 0..3 = N/E/S/W (биты как в get_road_mask), −1 — дороги нет.

@@ -277,10 +277,11 @@ func _value_color(cell: Vector2i) -> Color:
 	var grid: CityGrid = GameState.grid
 	if grid.is_water(cell) or grid.is_road(cell):
 		return CLEAR
-	var value: float = GameState.land.value_at(GameState.land.land_value, grid, cell) / 100.0
-	if value < 0.5:
-		return VALUE_LOW.lerp(VALUE_MID, value * 2.0)
-	return VALUE_MID.lerp(VALUE_HIGH, (value - 0.5) * 2.0)
+	# Жёлтый — обычная земля (LandValue.BASE_VALUE = 25), ниже — краснее, выше — зеленее до 75.
+	var value: float = GameState.land.value_at(GameState.land.land_value, grid, cell)
+	if value < LandValue.BASE_VALUE:
+		return VALUE_LOW.lerp(VALUE_MID, value / LandValue.BASE_VALUE)
+	return VALUE_MID.lerp(VALUE_HIGH, clampf((value - LandValue.BASE_VALUE) / 50.0, 0.0, 1.0))
 
 
 ## Загрязнение или шум: чем больше, тем гуще цвет; слабое (< 5) — не рисуем.

@@ -168,6 +168,7 @@ func _apply(grid: CityGrid, city_name: String, money: int, tax_rate: int, day: i
 	# Сеть сверяется со ссылкой на сетку сама; свет, вода и службы пересчитает Simulation.
 	GameState.utilities = Utilities.new()
 	GameState.service_coverage = {}
+	GameState.land = LandValue.new()
 	Events.grid_reset.emit()
 
 

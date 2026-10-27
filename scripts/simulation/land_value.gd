@@ -65,9 +65,14 @@ static func compute(grid: CityGrid, traffic: Traffic) -> LandValue:
 		if data == null:
 			continue
 		var i: int = grid.index_of(building.cell)
-		dirty[i] += data.pollution
-		loud[i] += data.noise
-		bonus[i] += data.land_value
+		# Дымит и шумит только работающее здание: без света или без дороги (ТЭЦ) — нет.
+		var working: bool = building.powered if data.power_use > 0 else grid.has_road_access(building.cell)
+		if working:
+			dirty[i] += data.pollution
+			loud[i] += data.noise
+		# Цену земли поднимают парки всегда, службы — только работающие (ревью Argon 014).
+		if data.park != BuildingData.Park.NONE or Services.is_active(grid, building, data):
+			bonus[i] += data.land_value
 	for cell: Vector2i in grid.road_cells:
 		var i: int = grid.index_of(cell)
 		loud[i] += ROAD_NOISE + TRAFFIC_NOISE * clampf(traffic.load_ratio(grid, i), 0.0, 1.5)
@@ -93,12 +98,12 @@ static func compute(grid: CityGrid, traffic: Traffic) -> LandValue:
 
 
 ## Двойное скользящее окно радиуса r по строкам и столбцам, нормировано так,
-## что одиночный источник в своей клетке остаётся той же силы.
+## что одиночный источник в своей клетке остаётся той же силы — и у края карты тоже:
+## каждая строка дополняется нулями на 2·r с обеих сторон (как бесконечная плоскость без
+## источников за картой), а не обрезается — иначе у края терялось бы до 40 % силы (ревью Argon 014).
 static func _blur(layer: PackedFloat32Array, side: int, r: int) -> PackedFloat32Array:
-	var out: PackedFloat32Array = layer
-	for pass_index: int in 2:
-		out = _box(out, side, r, true)
-		out = _box(out, side, r, false)
+	var out: PackedFloat32Array = _axis(layer, side, r, true)
+	out = _axis(out, side, r, false)
 	# Пик ядра после двух проходов по каждой оси — (2r+1) на ось, итого (2r+1)².
 	var peak: float = float((2 * r + 1) * (2 * r + 1))
 	for i: int in out.size():
@@ -106,23 +111,37 @@ static func _blur(layer: PackedFloat32Array, side: int, r: int) -> PackedFloat32
 	return out
 
 
-## Сумма в окне [-r, r] вдоль строк (along_x) или столбцов.
-static func _box(layer: PackedFloat32Array, side: int, r: int, along_x: bool) -> PackedFloat32Array:
+## Два прохода скользящей суммы радиуса r вдоль строк (along_x) или столбцов.
+static func _axis(layer: PackedFloat32Array, side: int, r: int, along_x: bool) -> PackedFloat32Array:
 	var out := PackedFloat32Array()
 	out.resize(layer.size())
+	var pad: int = 2 * r
+	var line_values := PackedFloat32Array()
+	line_values.resize(side + 2 * pad)
 	for line: int in side:
-		var sum: float = 0.0
-		# Окно для первой клетки: [0, r].
-		for k: int in mini(r + 1, side):
-			sum += layer[_at(line, k, side, along_x)]
+		line_values.fill(0.0)
 		for t: int in side:
-			out[_at(line, t, side, along_x)] = sum
-			var enter: int = t + r + 1
-			var leave: int = t - r
-			if enter < side:
-				sum += layer[_at(line, enter, side, along_x)]
-			if leave >= 0:
-				sum -= layer[_at(line, leave, side, along_x)]
+			line_values[pad + t] = layer[_at(line, t, side, along_x)]
+		line_values = _box(_box(line_values, r), r)
+		for t: int in side:
+			out[_at(line, t, side, along_x)] = line_values[pad + t]
+	return out
+
+
+## Сумма в окне [t − r, t + r]; за краем массива — нули.
+static func _box(values: PackedFloat32Array, r: int) -> PackedFloat32Array:
+	var out := PackedFloat32Array()
+	out.resize(values.size())
+	var n: int = values.size()
+	var sum: float = 0.0
+	for k: int in mini(r + 1, n):
+		sum += values[k]
+	for t: int in n:
+		out[t] = sum
+		if t + r + 1 < n:
+			sum += values[t + r + 1]
+		if t - r >= 0:
+			sum -= values[t - r]
 	return out
 
 

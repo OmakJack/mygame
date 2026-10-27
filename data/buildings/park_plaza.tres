@@ -10,5 +10,5 @@ zone = 0
 grows = false
 cost = 200
 upkeep = 3
-land_value = 60
+land_value = 70
 park = 3

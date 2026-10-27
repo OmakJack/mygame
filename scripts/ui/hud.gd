@@ -255,7 +255,7 @@ func _build_bottom_extras() -> void:
 	_tool_buttons[BuildTool.Mode.BULLDOZE] = bulldoze
 	var overlay := _make_button("", &"Small")
 	overlay.toggle_mode = false
-	overlay.tooltip_text = "Сменить слой карты: зоны, свет, вода, службы, трафик"
+	overlay.tooltip_text = "Сменить слой карты: зоны, свет, вода, службы, трафик, цена земли, загрязнение, шум"
 	overlay.pressed.connect(func() -> void:
 		var event := InputEventAction.new()
 		event.action = &"overlay_next"
