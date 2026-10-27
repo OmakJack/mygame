@@ -42,6 +42,10 @@ signal save_error(message: String)
 @warning_ignore("unused_signal")
 signal modal_changed(open: bool)
 
+## Кнопка «Меню» в HUD просит открыть главное меню (как Esc).
+@warning_ignore("unused_signal")
+signal menu_requested
+
 ## Сменился слой карты (клавиша V): ZoneVisualizer.Overlay.
 @warning_ignore("unused_signal")
 signal overlay_changed(mode: int)

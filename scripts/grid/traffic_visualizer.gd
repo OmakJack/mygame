@@ -174,6 +174,9 @@ func _sync_car_count() -> void:
 func _assign_path(car: Car) -> bool:
 	var paths: Array[PackedInt32Array] = GameState.traffic.sample_paths
 	var grid: CityGrid = GameState.grid
+	# Пустая выборка (дорогу только что снесли, трафик ещё не пересчитан) — путей нет.
+	if paths.is_empty():
+		return false
 	for attempt: int in 8:
 		var path: PackedInt32Array = paths[_rng.randi_range(0, paths.size() - 1)]
 		# Выборка может отстать от дорог (пересчёт трафика ещё не случился) — сломанный путь не берём.

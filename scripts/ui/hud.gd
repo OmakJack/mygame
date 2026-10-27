@@ -1,3 +1,4 @@
+class_name Hud
 extends CanvasLayer
 ## Интерфейс: верхняя панель с показателями, подсказки, нижняя панель с вкладками инструментов.
 ## Состояние напрямую не меняет: только сигналы Events и публичные SimClock.set_speed() / SaveManager.
@@ -340,7 +341,7 @@ func _make_button(text: String, variation: StringName = &"") -> Button:
 
 # --- Города, новый город, сообщения ---
 
-## Кнопки «Города» и «Новый город», окно сохранений, подтверждение и сообщения.
+## Кнопки «Города», «Новый город» и «Меню», окно сохранений, подтверждение и сообщения.
 func _build_city_controls() -> void:
 	var cities := _make_button("Города", &"Small")
 	cities.toggle_mode = false
@@ -348,8 +349,13 @@ func _build_city_controls() -> void:
 	%Menu.add_child(cities)
 	var new_city := _make_button("Новый город", &"Small")
 	new_city.toggle_mode = false
-	new_city.pressed.connect(_on_new_city_pressed)
+	new_city.pressed.connect(request_new_city)
 	%Menu.add_child(new_city)
+	var menu := _make_button("Меню", &"Small")
+	menu.toggle_mode = false
+	menu.tooltip_text = "Главное меню [Esc]"
+	menu.pressed.connect(func() -> void: Events.menu_requested.emit())
+	%Menu.add_child(menu)
 	$Root.add_child(_save_dialog)
 
 	_new_city_confirm.title = "Новый город"
@@ -390,7 +396,8 @@ func _build_city_controls() -> void:
 	Events.save_error.connect(_show_toast)
 
 
-func _on_new_city_pressed() -> void:
+## «Новый город»: пустой город заменяется сразу, иначе — вопрос «сохранить?». Зовёт и главное меню.
+func request_new_city() -> void:
 	if SaveManager.is_city_empty():
 		SaveManager.new_city()
 		return
