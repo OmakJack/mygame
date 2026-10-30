@@ -27,15 +27,22 @@ static func is_unlocked(zone_type: CityGrid.Zone, rank: int) -> bool:
 	return rank >= UNLOCKS.get(zone_type, 0)
 
 
-## Что открывает звание — для сообщения.
+## Что открывает звание — для сообщения: зоны и типы дорог (RoadTypes.UNLOCK_RANK).
 static func unlocks_of(rank: int) -> PackedStringArray:
 	var names: PackedStringArray = []
+	for road_type: int in ROAD_NAMES:
+		if RoadTypes.UNLOCK_RANK[road_type] == rank:
+			names.append(ROAD_NAMES[road_type])
 	for zone_type: CityGrid.Zone in UNLOCKS:
 		if UNLOCKS[zone_type] == rank:
 			names.append(ZONE_NAMES[zone_type])
 	return names
 
 
+const ROAD_NAMES: Dictionary[int, String] = {
+	RoadTypes.Type.AVENUE: "проспекты",
+	RoadTypes.Type.HIGHWAY: "шоссе",
+}
 const ZONE_NAMES: Dictionary[CityGrid.Zone, String] = {
 	CityGrid.Zone.RESIDENTIAL_HIGH: "многоэтажки",
 	CityGrid.Zone.COMMERCIAL_HIGH: "торговые дома",

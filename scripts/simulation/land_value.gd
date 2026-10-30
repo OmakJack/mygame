@@ -75,7 +75,8 @@ static func compute(grid: CityGrid, traffic: Traffic) -> LandValue:
 			bonus[i] += data.land_value
 	for cell: Vector2i in grid.road_cells:
 		var i: int = grid.index_of(cell)
-		loud[i] += ROAD_NOISE + TRAFFIC_NOISE * clampf(traffic.load_ratio(grid, i), 0.0, 1.5)
+		var factor: float = RoadTypes.NOISE_FACTOR.get(grid.road_type[i], 1.0)
+		loud[i] += (ROAD_NOISE + TRAFFIC_NOISE * clampf(traffic.load_ratio(grid, i), 0.0, 1.5)) * factor
 	for i: int in n:
 		if grid.water[i] == 1:
 			bonus[i] += WATER_BONUS

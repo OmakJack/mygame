@@ -46,6 +46,36 @@ const MODEL_TURNS: Array[int] = [3, 1, 2, 3, 0]
 const BRIDGE_ITEM: int = 5
 const BRIDGE_MODEL: String = "res://assets/models/kenney/roads/road-bridge.glb"
 const BRIDGE_DROP: float = 0.49
+## Типы дорог (фаза 11): куски проспекта и шоссе — после моста, по пять (Piece) на тип.
+## Номер куска = base_item(тип) + Piece.
+const AVENUE_BASE: int = 6
+const HIGHWAY_BASE: int = 11
+## Шоссе — обычный кусок и отбойники Kenney поверх (модели *-barrier — только отбойники, без асфальта).
+const HIGHWAY_MODELS: Array[String] = [
+	"res://assets/models/kenney/roads/road-end-barrier.glb",
+	"res://assets/models/kenney/roads/road-straight-barrier.glb",
+	"res://assets/models/kenney/roads/road-bend-barrier.glb",
+	"res://assets/models/kenney/roads/road-intersection-barrier.glb",
+	"res://assets/models/kenney/roads/road-crossroad-barrier.glb",
+]
+## Повороты отбойников (по снимку сверху): как у кусков дорог, кроме прямого — он уже идёт с N на S.
+const HIGHWAY_TURNS: Array[int] = [3, 0, 2, 3, 0]
+## Проспект: разделительный газон с фонарями посередине прямого участка.
+const MEDIAN_SIZE := Vector3(0.18, 0.05, CityGrid.CELL_SIZE)
+const MEDIAN_COLOR := Color(0.36, 0.56, 0.3)
+const CURB_COLOR := Color(0.7, 0.7, 0.68)
+const LAMP_MODEL: String = "res://assets/models/kenney/roads/light-square-double.glb"
+const LAMP_SCALE: float = 1.6
+
+
+## Первый номер кусков типа дороги в библиотеке.
+static func base_item(road_type: int) -> int:
+	match road_type:
+		RoadTypes.Type.AVENUE:
+			return AVENUE_BASE
+		RoadTypes.Type.HIGHWAY:
+			return HIGHWAY_BASE
+	return 0
 ## Вершина «у середины края» плитки 1×1: на краю (±0.5) и не дальше этого от середины.
 const EDGE_EPSILON: float = 0.02
 const EDGE_MIDDLE: float = 0.12
@@ -70,10 +100,49 @@ static func build_library() -> MeshLibrary:
 		var scale := Vector3(CityGrid.CELL_SIZE, 1.0, CityGrid.CELL_SIZE)
 		bridge = ModelLoader.merge(load(BRIDGE_MODEL), Transform3D(Basis.from_scale(scale), Vector3.DOWN * BRIDGE_DROP))
 	library.set_item_mesh(BRIDGE_ITEM, bridge)
+	for piece: int in BASE_MASKS.size():
+		var street: Mesh = library.get_item_mesh(piece)
+		library.create_item(AVENUE_BASE + piece)
+		library.set_item_name(AVENUE_BASE + piece, "AVENUE_" + Piece.keys()[piece])
+		library.set_item_mesh(AVENUE_BASE + piece, _avenue_piece(piece, street))
+		library.create_item(HIGHWAY_BASE + piece)
+		library.set_item_name(HIGHWAY_BASE + piece, "HIGHWAY_" + Piece.keys()[piece])
+		library.set_item_mesh(HIGHWAY_BASE + piece, _highway_piece(piece, street))
 	return library
 
 
-## Прямой кусок дороги с N на S (для трассы за картой).
+## Проспект: тот же кусок, на прямом участке — газон посередине и фонарь на две стороны.
+static func _avenue_piece(piece: int, street: Mesh) -> Mesh:
+	if piece != Piece.STRAIGHT:
+		return street
+	var mesh: ArrayMesh = (street as ArrayMesh).duplicate()
+	BuildingMeshes._add_box(mesh, MEDIAN_SIZE + Vector3(0.06, -0.02, 0.0), Vector3(0, 0.035, 0), CURB_COLOR)
+	BuildingMeshes._add_box(mesh, MEDIAN_SIZE, Vector3(0, 0.05, 0), MEDIAN_COLOR)
+	if ResourceLoader.exists(LAMP_MODEL):
+		var scene: PackedScene = load(LAMP_MODEL)
+		var placement: Transform3D = ModelLoader.placement(ModelLoader.bounds(scene), LAMP_SCALE, 1)
+		placement.origin.y += 0.07
+		ParkMeshes._append(mesh, ModelLoader.merge(scene, placement))
+	return mesh
+
+
+## Шоссе: кусок улицы и отбойники по краям.
+static func _highway_piece(piece: int, street: Mesh) -> Mesh:
+	if not ResourceLoader.exists(HIGHWAY_MODELS[piece]):
+		return street
+	var mesh: ArrayMesh = (street as ArrayMesh).duplicate()
+	var scale := Vector3(CityGrid.CELL_SIZE, 1.0, CityGrid.CELL_SIZE)
+	var basis := Basis(Vector3.UP, -HIGHWAY_TURNS[piece] * PI * 0.5) * Basis.from_scale(scale)
+	ParkMeshes._append(mesh, ModelLoader.merge(load(HIGHWAY_MODELS[piece]), Transform3D(basis, Vector3.ZERO)))
+	return mesh
+
+
+## Прямой кусок шоссе с N на S (для трассы за картой).
+static func highway_straight_mesh() -> Mesh:
+	return _highway_piece(Piece.STRAIGHT, straight_mesh())
+
+
+## Прямой кусок дороги с N на S.
 static func straight_mesh() -> Mesh:
 	var mesh: Mesh = _model_piece(Piece.STRAIGHT)
 	if mesh == null:

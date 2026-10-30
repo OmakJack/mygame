@@ -177,7 +177,10 @@ func _update_stats(from_tick: bool = false) -> void:
 	GameState.demand_i = Demand.industrial(population, jobs_industrial, tax_rate)
 	# Прогноз денег на день — тоже здесь, чтобы UI видел его сразу (и на паузе).
 	GameState.income = Economy.daily_income(_tax_base(grid), tax_rate)
-	GameState.expenses = Economy.daily_expenses(grid.road_cells.size(), service_upkeep)
+	var road_upkeep: float = 0.0
+	for road: Vector2i in grid.road_cells:
+		road_upkeep += RoadTypes.UPKEEP.get(grid.road_type[grid.index_of(road)], Economy.ROAD_UPKEEP)
+	GameState.expenses = Economy.daily_expenses(road_upkeep, service_upkeep)
 
 
 ## Звание растёт с населением и не падает. Старое сохранение (−1) — по населению, без награды.

@@ -71,4 +71,5 @@ func _update_cell(cell: Vector2i) -> void:
 		if mask & along_z == 0:
 			set_cell_item(map_cell, RoadMeshes.BRIDGE_ITEM, _orientation_for_mask[CityGrid.DIR_E | CityGrid.DIR_W])
 			return
-	set_cell_item(map_cell, _piece_for_mask[mask], _orientation_for_mask[mask])
+	var base: int = RoadMeshes.base_item(grid.get_road_type(cell))
+	set_cell_item(map_cell, base + _piece_for_mask[mask], _orientation_for_mask[mask])

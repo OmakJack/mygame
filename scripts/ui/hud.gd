@@ -7,7 +7,9 @@ extends CanvasLayer
 ## («utilities» — дают свет или воду, «services» — службы).
 const TABS: Array[Dictionary] = [
 	{"id": "roads", "name": "Дороги", "tools": [
-		{"mode": BuildTool.Mode.ROAD, "name": "Дорога", "key": "R"},
+		{"mode": BuildTool.Mode.ROAD, "name": "Улица", "key": "R"},
+		{"mode": BuildTool.Mode.ROAD_AVENUE, "name": "Проспект", "key": "T"},
+		{"mode": BuildTool.Mode.ROAD_HIGHWAY, "name": "Шоссе", "key": "Y"},
 	]},
 	{"id": "zones", "name": "Зоны", "tools": [
 		{"mode": BuildTool.Mode.ZONE_R, "name": "Жилая", "key": "1"},
@@ -154,9 +156,26 @@ func _show_rank() -> void:
 	_mark_bad(%PopLabel, mood >= 0 and mood < Levels.DECLINE_HAPPINESS + 15)
 
 
-## Карточки закрытых зон — серые, с подсказкой, с какого звания откроются.
+## Карточки закрытых зон и дорог — серые, с подсказкой, с какого звания откроются.
 func _sync_locks() -> void:
 	for mode: int in _tool_buttons:
+		if BuildTool.MODE_ROADS.has(mode):
+			var road_type: int = BuildTool.MODE_ROADS[mode]
+			var rank: int = RoadTypes.UNLOCK_RANK[road_type]
+			var road_locked: bool = BuildTool.is_locked(mode)
+			_tool_buttons[mode].disabled = road_locked
+			var about: String = "%s: пропускает %d поездок, скорость ×%.1f, содержание $%.1f/кл. в день" % [
+					RoadTypes.NAMES[road_type], RoadTypes.CAPACITY[road_type], 1.0 / RoadTypes.TRAVEL_COST[road_type],
+					RoadTypes.UPKEEP[road_type]]
+			if road_type == RoadTypes.Type.HIGHWAY:
+				about += "
+Дома к шоссе не подключаются"
+			about += "
+Протяните поверх дороги другого типа — она заменится"
+			_tool_buttons[mode].tooltip_text = ("Откроется на звании «%s» (%d жителей)
+" % [Ranks.NAMES[rank],
+					Ranks.THRESHOLDS[rank]] if road_locked else "") + about
+			continue
 		if not BuildTool.MODE_ZONES.has(mode) or mode == BuildTool.Mode.DEZONE:
 			continue
 		var zone_type: CityGrid.Zone = BuildTool.MODE_ZONES[mode]

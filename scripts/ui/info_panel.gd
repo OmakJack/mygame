@@ -90,9 +90,15 @@ func _refresh() -> void:
 			_add("Стройка", "ещё %d дн." % building.construction_ticks)
 		_add_mood(grid, building, data)
 	elif grid.is_road(cell):
-		_title.text = "Мост" if grid.is_water(cell) else "Дорога"
+		var road_type: int = grid.get_road_type(cell)
+		_title.text = RoadTypes.NAMES.get(road_type, "Дорога") + (" · мост" if grid.is_water(cell) else "")
 		var ratio: float = GameState.traffic.load_ratio(grid, grid.index_of(cell))
-		_subtitle.text = "Загрузка %d%%" % roundi(ratio * 100.0)
+		_subtitle.text = "Трасса за город" if grid.highway_cells.has(cell) else "Загрузка %d%%" % roundi(ratio * 100.0)
+		_add("Пропускает", "%d поездок" % RoadTypes.CAPACITY.get(road_type, 0.0))
+		_add("Загрузка", "%d%%" % roundi(ratio * 100.0), ratio >= 1.0)
+		_add("Содержание", "$%.1f/день" % RoadTypes.UPKEEP.get(road_type, 0.0))
+		if not RoadTypes.gives_access(road_type):
+			_add("Дома", "не подключаются")
 	elif grid.is_water(cell):
 		_title.text = "Вода"
 		_subtitle.text = "Дорога через воду — мост ($%d/кл.)" % Economy.BRIDGE_COST

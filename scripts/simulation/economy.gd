@@ -43,8 +43,9 @@ static func land_factor(land_value: int) -> float:
 	return 0.8 + 0.8 * clampi(land_value, 0, 100) / 100.0
 
 
-static func daily_expenses(road_cells: int, service_upkeep: int = 0) -> int:
-	return roundi(road_cells * ROAD_UPKEEP) + service_upkeep
+## road_upkeep — сумма содержания дорог по типам (RoadTypes.UPKEEP), считает Simulation.
+static func daily_expenses(road_upkeep: float, service_upkeep: int = 0) -> int:
+	return roundi(road_upkeep) + service_upkeep
 
 
 ## Начисляет доход и списывает расходы за день по прогнозу в GameState.

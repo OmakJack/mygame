@@ -5,7 +5,8 @@ extends Node
 ## Платные режимы списывают деньги через Economy и останавливаются, когда денег нет.
 
 ## Новые режимы — только в конец (номера режимов шлёт HUD через Events.tool_requested).
-enum Mode { NONE, ROAD, BULLDOZE, ZONE_R, ZONE_C, ZONE_I, DEZONE, PLACE, ZONE_R_HIGH, ZONE_C_HIGH, ZONE_O }
+enum Mode { NONE, ROAD, BULLDOZE, ZONE_R, ZONE_C, ZONE_I, DEZONE, PLACE, ZONE_R_HIGH, ZONE_C_HIGH, ZONE_O,
+		ROAD_AVENUE, ROAD_HIGHWAY }
 
 const CURSOR_COLORS: Dictionary[Mode, Color] = {
 	Mode.NONE: Color(1.0, 1.0, 1.0, 0.35),
@@ -19,6 +20,15 @@ const CURSOR_COLORS: Dictionary[Mode, Color] = {
 	Mode.ZONE_R_HIGH: Color(0.1, 0.6, 0.25, 0.75),
 	Mode.ZONE_C_HIGH: Color(0.15, 0.3, 0.85, 0.75),
 	Mode.ZONE_O: Color(0.6, 0.35, 0.9, 0.75),
+	Mode.ROAD_AVENUE: Color(1.0, 0.45, 0.15, 0.6),
+	Mode.ROAD_HIGHWAY: Color(0.95, 0.3, 0.1, 0.65),
+}
+
+## Какой тип дороги кладёт режим (фаза 11). Поверх дороги другого типа — замена типа.
+const MODE_ROADS: Dictionary[Mode, int] = {
+	Mode.ROAD: RoadTypes.Type.STREET,
+	Mode.ROAD_AVENUE: RoadTypes.Type.AVENUE,
+	Mode.ROAD_HIGHWAY: RoadTypes.Type.HIGHWAY,
 }
 ## Цвет клетки, куда здание поставить нельзя.
 const INVALID_COLOR := Color(1.0, 0.15, 0.15, 0.6)
@@ -36,7 +46,9 @@ const MODE_ZONES: Dictionary[Mode, CityGrid.Zone] = {
 
 ## Цена за реально изменённую клетку. Чего нет в словаре — бесплатно.
 const MODE_COSTS: Dictionary[Mode, int] = {
-	Mode.ROAD: Economy.ROAD_COST,
+	Mode.ROAD: RoadTypes.BUILD_COST[RoadTypes.Type.STREET],
+	Mode.ROAD_AVENUE: RoadTypes.BUILD_COST[RoadTypes.Type.AVENUE],
+	Mode.ROAD_HIGHWAY: RoadTypes.BUILD_COST[RoadTypes.Type.HIGHWAY],
 	Mode.ZONE_R: Economy.ZONE_COST,
 	Mode.ZONE_C: Economy.ZONE_COST,
 	Mode.ZONE_I: Economy.ZONE_COST,
@@ -48,6 +60,8 @@ const MODE_COSTS: Dictionary[Mode, int] = {
 ## Горячие клавиши режимов (действия из project.godot).
 const MODE_ACTIONS: Dictionary[StringName, Mode] = {
 	&"tool_road": Mode.ROAD,
+	&"tool_road_avenue": Mode.ROAD_AVENUE,
+	&"tool_road_highway": Mode.ROAD_HIGHWAY,
 	&"tool_bulldoze": Mode.BULLDOZE,
 	&"tool_zone_r": Mode.ZONE_R,
 	&"tool_zone_c": Mode.ZONE_C,
@@ -89,10 +103,10 @@ static func cost_of(tool_mode: Mode) -> int:
 	return MODE_COSTS.get(tool_mode, 0)
 
 
-## Цена клетки: дорога по воде — мост.
+## Цена клетки: дорога по воде — мост (дороже на разницу мост − улица).
 func _cell_cost(cell: Vector2i) -> int:
-	if mode == Mode.ROAD and GameState.grid.is_in_bounds(cell) and GameState.grid.is_water(cell):
-		return Economy.BRIDGE_COST
+	if MODE_ROADS.has(mode) and GameState.grid.is_in_bounds(cell) and GameState.grid.is_water(cell):
+		return cost_of(mode) + Economy.BRIDGE_COST - RoadTypes.BUILD_COST[RoadTypes.Type.STREET]
 	return cost_of(mode)
 
 
@@ -144,6 +158,8 @@ func _input(event: InputEvent) -> void:
 
 ## Закрыт ли режим званием города (фаза 10): высокая плотность — с «городка», офисы — с «города».
 static func is_locked(tool_mode: Mode) -> bool:
+	if MODE_ROADS.has(tool_mode):
+		return not RoadTypes.is_unlocked(MODE_ROADS[tool_mode], GameState.rank)
 	return MODE_ZONES.has(tool_mode) and not Ranks.is_unlocked(MODE_ZONES[tool_mode], GameState.rank)
 
 
@@ -163,7 +179,7 @@ func _set_mode(new_mode: Mode, type_id: StringName = &"") -> void:
 func _update_drag(end: Vector2i) -> void:
 	_drag_end = end
 	match mode:
-		Mode.ROAD:
+		Mode.ROAD, Mode.ROAD_AVENUE, Mode.ROAD_HIGHWAY:
 			_drag_cells = _l_path(_drag_start, _drag_end)
 		Mode.BULLDOZE:
 			_drag_cells = _rect_cells(_drag_start, _drag_end)
@@ -213,8 +229,8 @@ func _affordable(cells: Array[Vector2i]) -> Array[Vector2i]:
 func _would_change(cell: Vector2i) -> bool:
 	var grid: CityGrid = GameState.grid
 	match mode:
-		Mode.ROAD:
-			return grid.can_set_road(cell)
+		Mode.ROAD, Mode.ROAD_AVENUE, Mode.ROAD_HIGHWAY:
+			return grid.can_build_road(cell, MODE_ROADS[mode])
 		Mode.ZONE_R, Mode.ZONE_C, Mode.ZONE_I, Mode.DEZONE, Mode.ZONE_R_HIGH, Mode.ZONE_C_HIGH, Mode.ZONE_O:
 			return grid.can_zone(cell, MODE_ZONES[mode])
 	return true
@@ -239,8 +255,8 @@ func _apply() -> void:
 			break
 		var did_change: bool = false
 		match mode:
-			Mode.ROAD:
-				did_change = grid.set_road(cell)
+			Mode.ROAD, Mode.ROAD_AVENUE, Mode.ROAD_HIGHWAY:
+				did_change = grid.set_road(cell, MODE_ROADS[mode])
 			Mode.BULLDOZE:
 				did_change = grid.bulldoze(cell)
 			Mode.ZONE_R, Mode.ZONE_C, Mode.ZONE_I, Mode.DEZONE, Mode.ZONE_R_HIGH, Mode.ZONE_C_HIGH, Mode.ZONE_O:

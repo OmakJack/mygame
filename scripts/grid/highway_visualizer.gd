@@ -34,7 +34,7 @@ var _length: float = 0.0
 func _ready() -> void:
 	_road.multimesh = MultiMesh.new()
 	_road.multimesh.transform_format = MultiMesh.TRANSFORM_3D
-	_road.multimesh.mesh = RoadMeshes.straight_mesh()
+	_road.multimesh.mesh = RoadMeshes.highway_straight_mesh()
 	_road.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(_road)
 	if ResourceLoader.exists(SIGN_MODEL):

@@ -58,7 +58,10 @@ static func build() -> Array[String]:
 
 	var traffic: Traffic = GameState.traffic
 	if traffic.jammed_cells > 0:
-		hints.append("Пробки на %d кл. дорог: постройте объезд" % traffic.jammed_cells)
+		var advice: String = "постройте объезд"
+		if RoadTypes.is_unlocked(RoadTypes.Type.AVENUE, GameState.rank):
+			advice = "проложите проспект [T] поверх улицы или объезд"
+		hints.append("Пробки на %d кл. дорог: %s" % [traffic.jammed_cells, advice])
 	if traffic.total_workers > 0.0 and traffic.long_commute_share >= LONG_COMMUTE_HINT:
 		hints.append("Жителям далеко до работы: %d%%" % roundi(traffic.long_commute_share * 100.0))
 

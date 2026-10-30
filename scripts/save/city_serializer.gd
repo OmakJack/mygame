@@ -28,8 +28,9 @@ static func to_dict(grid: CityGrid, city_name: String, money: int, tax_rate: int
 	var roads := PackedByteArray()
 	roads.resize(grid.size * grid.size)
 	roads.fill(0)
+	# Дороги — их тип (RoadTypes.Type): 1 — улица, как в старых сохранениях.
 	for cell: Vector2i in grid.road_cells:
-		roads[grid.index_of(cell)] = 1
+		roads[grid.index_of(cell)] = grid.road_type[grid.index_of(cell)]
 	var buildings: Array[Dictionary] = []
 	for building: BuildingInstance in grid.buildings.values():
 		buildings.append({
@@ -87,10 +88,11 @@ static func from_dict(data: Variant) -> LoadResult:
 	var grid := CityGrid.new(size)
 	var zones_on_roads: int = 0
 	for i: int in size * size:
-		if roads[i] > 1 or zones[i] >= CityGrid.Zone.size():
+		if roads[i] >= RoadTypes.Type.size() or zones[i] >= CityGrid.Zone.size():
 			return _fail(result, "повреждены слои карты")
-		if roads[i] == 1:
+		if roads[i] > 0:
 			grid.tile_type[i] = CityGrid.Tile.ROAD
+			grid.road_type[i] = roads[i]
 			if zones[i] != CityGrid.Zone.NONE:
 				zones_on_roads += 1
 		else:

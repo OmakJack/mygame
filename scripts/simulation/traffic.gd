@@ -52,13 +52,13 @@ func load_ratio(grid: CityGrid, index: int) -> float:
 	return road_load[index] / _cell_capacity(grid, index)
 
 
-## Ёмкость и базовая цена клетки — отдельно: будущие проспекты и шоссе меняют только их.
-static func _cell_capacity(_grid: CityGrid, _index: int) -> float:
-	return CAPACITY
+## Ёмкость и время проезда клетки — по типу дороги (фаза 11, RoadTypes).
+static func _cell_capacity(grid: CityGrid, index: int) -> float:
+	return RoadTypes.CAPACITY.get(grid.road_type[index], CAPACITY)
 
 
-static func _cell_base_cost(_grid: CityGrid, _index: int) -> float:
-	return BASE_COST
+static func _cell_base_cost(grid: CityGrid, index: int) -> float:
+	return RoadTypes.TRAVEL_COST.get(grid.road_type[index], BASE_COST)
 
 
 static func compute(grid: CityGrid) -> Traffic:

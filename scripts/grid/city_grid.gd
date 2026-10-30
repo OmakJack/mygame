@@ -20,6 +20,8 @@ var zone: PackedByteArray
 var building_at: PackedInt32Array
 ## Вода (фаза 9): 1 — вода, 0 — суша. Отдельный слой: дорога-мост лежит поверх воды, после сноса вода остаётся.
 var water: PackedByteArray
+## Тип дороги на клетке (RoadTypes.Type, фаза 11): 0 — нет дороги, 1 — улица, 2 — проспект, 3 — шоссе.
+var road_type: PackedByteArray
 ## Въезд трассы (как в Cities: Skylines): клетка на краю карты и направление наружу (0..3 = N/E/S/W).
 ## От въезда внутрь карты лежит отрезок трассы (highway_cells) — его нельзя снести. Город растёт
 ## только у дорог, связанных с въездом. NO_CELL — въезда нет (старые сохранения, тесты): рост без условия.
@@ -77,6 +79,8 @@ func _init(p_size: int = GRID_SIZE) -> void:
 	building_at.fill(-1)
 	water.resize(count)
 	water.fill(0)
+	road_type.resize(count)
+	road_type.fill(0)
 
 
 func is_in_bounds(cell: Vector2i) -> bool:
@@ -139,7 +143,8 @@ func set_entry(edge_cell: Vector2i, dir: int, length: int) -> void:
 		if not is_in_bounds(cell):
 			break
 		# При загрузке дорога уже лежит; на новой карте клетка пустая (вода обойдена генератором).
-		if is_road(cell) or set_road(cell):
+		if is_road(cell) or set_road(cell, RoadTypes.Type.HIGHWAY):
+			road_type[index_of(cell)] = RoadTypes.Type.HIGHWAY
 			highway_cells[cell] = true
 
 
@@ -171,12 +176,29 @@ func can_set_road(cell: Vector2i) -> bool:
 	return is_in_bounds(cell) and tile_type[index_of(cell)] == Tile.EMPTY
 
 
-## Ставит дорогу. Единственное место изменения дорог.
+## Тип дороги на клетке (RoadTypes.Type); 0 — дороги нет.
+func get_road_type(cell: Vector2i) -> int:
+	return road_type[index_of(cell)] if is_in_bounds(cell) else 0
+
+
+## Можно ли проложить дорогу типа type: на пустой клетке — новая, на дороге другого типа — замена
+## («улучшить» улицу до проспекта или обратно). Трассу у въезда не перестроить.
+func can_build_road(cell: Vector2i, type: int = RoadTypes.Type.STREET) -> bool:
+	if can_set_road(cell):
+		return true
+	return is_road(cell) and road_type[index_of(cell)] != type and not highway_cells.has(cell)
+
+
+## Ставит дорогу типа type или меняет тип уже лежащей. Единственное место изменения дорог.
 ## Возвращает true, если клетка изменилась. Сигнал шлёт вызывающий (пакетом).
-func set_road(cell: Vector2i) -> bool:
-	if not can_set_road(cell):
+func set_road(cell: Vector2i, type: int = RoadTypes.Type.STREET) -> bool:
+	if not can_build_road(cell, type):
 		return false
 	var i: int = index_of(cell)
+	road_type[i] = type
+	if tile_type[i] == Tile.ROAD:
+		roads_version += 1
+		return true
 	tile_type[i] = Tile.ROAD
 	zone[i] = Zone.NONE
 	road_cells[cell] = true
@@ -190,6 +212,7 @@ func remove_road(cell: Vector2i) -> bool:
 	if not is_road(cell) or highway_cells.has(cell):
 		return false
 	tile_type[index_of(cell)] = Tile.EMPTY
+	road_type[index_of(cell)] = 0
 	road_cells.erase(cell)
 	roads_version += 1
 	return true
@@ -284,8 +307,12 @@ func find_nearest_road(cell: Vector2i) -> Vector2i:
 	return NO_CELL
 
 
+## Дорога, к которой подключается дом: на суше и не шоссе.
 func _is_land_road(cell: Vector2i) -> bool:
-	return road_cells.has(cell) and water[index_of(cell)] == 0
+	if not road_cells.has(cell):
+		return false
+	var i: int = index_of(cell)
+	return water[i] == 0 and RoadTypes.gives_access(road_type[i])
 
 
 ## Направление на ближайшую дорогу: 0..3 = N/E/S/W (биты как в get_road_mask), −1 — дороги нет.
@@ -365,6 +392,8 @@ func rebuild_caches() -> void:
 				zone[i] = Zone.NONE
 			if tile_type[i] == Tile.ROAD:
 				road_cells[Vector2i(x, y)] = true
+				if road_type[i] == 0:
+					road_type[i] = RoadTypes.Type.STREET
 				# Под дорогой зоны не бывает (как в set_road).
 				zone[i] = Zone.NONE
 			elif tile_type[i] == Tile.BUILDING:
