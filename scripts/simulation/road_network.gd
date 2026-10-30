@@ -40,5 +40,13 @@ func update(grid: CityGrid) -> bool:
 
 
 ## Компонент, к которому подключена клетка (через ближайшую дорогу), или −1.
+## Связана ли клетка (через ближайшую дорогу) с въездом трассы. Без въезда — всегда да.
+func reaches_highway(grid: CityGrid, cell: Vector2i) -> bool:
+	if not grid.has_entry():
+		return true
+	var component: int = component_for(grid, cell)
+	return component != -1 and component == component_of.get(grid.entry, -2)
+
+
 func component_for(grid: CityGrid, cell: Vector2i) -> int:
 	return component_of.get(grid.find_nearest_road(cell), -1)

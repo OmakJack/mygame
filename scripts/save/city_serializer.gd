@@ -55,6 +55,7 @@ static func to_dict(grid: CityGrid, city_name: String, money: int, tax_rate: int
 			"roads": Marshalls.raw_to_base64(roads),
 			"zones": Marshalls.raw_to_base64(grid.zone),
 			"water": Marshalls.raw_to_base64(grid.water),
+			"entry": [grid.entry.x, grid.entry.y, grid.entry_dir, grid.highway_cells.size()] if grid.has_entry() else [],
 		},
 		"buildings": buildings,
 	}
@@ -124,6 +125,12 @@ static func from_dict(data: Variant) -> LoadResult:
 		if not problem.is_empty():
 			result.warnings.append(problem)
 	grid.rebuild_caches()
+	# Въезд трассы: [x, y, направление, длина]; нет поля — без въезда (старые сохранения растут как раньше).
+	var entry: Variant = grid_data.get("entry", [])
+	if entry is Array and (entry as Array).size() == 4:
+		var edge := Vector2i(_int(entry[0], -1), _int(entry[1], -1))
+		if grid.is_in_bounds(edge):
+			grid.set_entry(edge, clampi(_int(entry[2], 0), 0, 3), clampi(_int(entry[3], 1), 1, 16))
 
 	var state: Dictionary = _dict(root.get("state"))
 	result.money = _int(state.get("money"), Economy.START_MONEY)

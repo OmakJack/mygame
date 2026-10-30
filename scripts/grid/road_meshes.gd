@@ -73,6 +73,16 @@ static func build_library() -> MeshLibrary:
 	return library
 
 
+## Прямой кусок дороги с N на S (для трассы за картой).
+static func straight_mesh() -> Mesh:
+	var mesh: Mesh = _model_piece(Piece.STRAIGHT)
+	if mesh == null:
+		var material := StandardMaterial3D.new()
+		material.vertex_color_use_as_albedo = true
+		mesh = _build_piece(BASE_MASKS[Piece.STRAIGHT], Piece.STRAIGHT, material)
+	return mesh
+
+
 ## Кусок из модели с поворотом из MODEL_TURNS. null — модели нет (тогда — заглушка из кода).
 static func _model_piece(piece: int) -> ArrayMesh:
 	if not ResourceLoader.exists(MODELS[piece]):

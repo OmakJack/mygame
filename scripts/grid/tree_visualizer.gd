@@ -62,10 +62,17 @@ func _rebuild() -> void:
 		transforms.append([])
 	var total: int = 0
 	var rng := RandomNumberGenerator.new()
+	# Полоса трассы за картой (и по клетке с боков) — без деревьев.
+	var highway: Dictionary[Vector2i, bool] = {}
+	for cell: Vector2i in grid.outside_highway(MARGIN_CELLS):
+		for offset: Vector2i in [Vector2i.ZERO, Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+			highway[cell + offset] = true
 	for y: int in range(-MARGIN_CELLS, grid.size + MARGIN_CELLS):
 		for x: int in range(-MARGIN_CELLS, grid.size + MARGIN_CELLS):
 			var cell := Vector2i(x, y)
 			var inside: bool = grid.is_in_bounds(cell)
+			if highway.has(cell):
+				continue
 			if inside:
 				var free: bool = _is_free(grid, cell)
 				_free[grid.index_of(cell)] = 1 if free else 0

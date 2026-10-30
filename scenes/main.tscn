@@ -1,4 +1,4 @@
-[gd_scene load_steps=22 format=3]
+[gd_scene load_steps=23 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/camera/rts_camera.tscn" id="1_cam"]
 [ext_resource type="Script" path="res://scripts/grid/grid_visualizer.gd" id="2_grid"]
@@ -15,6 +15,7 @@
 [ext_resource type="Script" path="res://scripts/grid/tree_visualizer.gd" id="13_trees"]
 [ext_resource type="Script" path="res://scripts/ui/main_menu.gd" id="14_menu"]
 [ext_resource type="Script" path="res://scripts/grid/water_visualizer.gd" id="15_water"]
+[ext_resource type="Script" path="res://scripts/grid/highway_visualizer.gd" id="16_highway"]
 
 [sub_resource type="ProceduralSkyMaterial" id="sky_mat"]
 sky_top_color = Color(0.42, 0.62, 0.88, 1)
@@ -92,6 +93,9 @@ script = ExtResource("9_buildings")
 
 [node name="TreeVisualizer" type="Node3D" parent="."]
 script = ExtResource("13_trees")
+
+[node name="HighwayVisualizer" type="Node3D" parent="."]
+script = ExtResource("16_highway")
 
 [node name="TrafficVisualizer" type="MultiMeshInstance3D" parent="."]
 script = ExtResource("12_traffic")

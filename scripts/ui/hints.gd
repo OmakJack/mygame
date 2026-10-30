@@ -35,6 +35,13 @@ static func build() -> Array[String]:
 		if not step.is_empty():
 			hints.append(step)
 			return hints
+	var cut_off: int = 0
+	for cells: Dictionary in grid.zoned_empty_cells.values():
+		for cell: Vector2i in cells:
+			if grid.has_road_access(cell) and not GameState.network.reaches_highway(grid, cell):
+				cut_off += 1
+	if cut_off > 0:
+		hints.append("%d кл. зон не связаны с трассой — дома там не строятся" % cut_off)
 	if zoned > 0 and (utilities.power_supply == 0 or utilities.water_supply == 0):
 		hints.append("Без света и воды город не растёт: поставьте у дороги ТЭЦ и водокачку")
 	if utilities.unpowered_count > 0:
@@ -99,6 +106,8 @@ static func _has_parks(grid: CityGrid) -> bool:
 
 
 static func _first_step(grid: CityGrid, utilities: Utilities, zoned: int) -> String:
+	if grid.has_entry() and grid.road_cells.size() <= grid.highway_cells.size():
+		return "Шаг 1: проведите дорогу [R] от трассы у края карты — по ней в город приедут жители"
 	if grid.road_cells.is_empty():
 		return "Шаг 1: проведите дорогу [R]"
 	if utilities.power_supply == 0 or utilities.water_supply == 0:

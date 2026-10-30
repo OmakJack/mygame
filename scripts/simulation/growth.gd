@@ -29,6 +29,9 @@ static func grow_one(grid: CityGrid, zone_type: CityGrid.Zone, rng: RandomNumber
 		var component: int = network.component_for(grid, cell)
 		if component == -1:
 			continue
+		# Новые жители и фирмы приезжают по трассе: участок должен быть связан с въездом.
+		if grid.has_entry() and component != network.component_of.get(grid.entry, -2):
+			continue
 		if utilities.spare_power.get(component, 0) >= data.power_use \
 				and utilities.spare_water.get(component, 0) >= data.water_use:
 			candidates.append(cell)

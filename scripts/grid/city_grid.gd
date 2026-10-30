@@ -20,6 +20,12 @@ var zone: PackedByteArray
 var building_at: PackedInt32Array
 ## Вода (фаза 9): 1 — вода, 0 — суша. Отдельный слой: дорога-мост лежит поверх воды, после сноса вода остаётся.
 var water: PackedByteArray
+## Въезд трассы (как в Cities: Skylines): клетка на краю карты и направление наружу (0..3 = N/E/S/W).
+## От въезда внутрь карты лежит отрезок трассы (highway_cells) — его нельзя снести. Город растёт
+## только у дорог, связанных с въездом. NO_CELL — въезда нет (старые сохранения, тесты): рост без условия.
+var entry: Vector2i = Vector2i(-1, -1)
+var entry_dir: int = 0
+var highway_cells: Dictionary[Vector2i, bool] = {}
 
 # Кэши, чтобы не сканировать всю карту.
 var buildings: Dictionary[int, BuildingInstance] = {}
@@ -117,6 +123,36 @@ func is_road(cell: Vector2i) -> bool:
 	return road_cells.has(cell)
 
 
+## Есть ли въезд трассы.
+func has_entry() -> bool:
+	return entry != NO_CELL
+
+
+## Ставит въезд: трасса length клеток от края внутрь (по направлению dir наружу). Клетки трассы — дороги.
+func set_entry(edge_cell: Vector2i, dir: int, length: int) -> void:
+	entry = edge_cell
+	entry_dir = dir
+	highway_cells.clear()
+	var inward: Vector2i = -NEIGHBORS[dir]
+	for k: int in length:
+		var cell: Vector2i = edge_cell + inward * k
+		if not is_in_bounds(cell):
+			break
+		# При загрузке дорога уже лежит; на новой карте клетка пустая (вода обойдена генератором).
+		if is_road(cell) or set_road(cell):
+			highway_cells[cell] = true
+
+
+## Клетки трассы за картой: от края наружу на count клеток (только для вида — их нет в слоях).
+func outside_highway(count: int) -> Array[Vector2i]:
+	var cells: Array[Vector2i] = []
+	if not has_entry():
+		return cells
+	for k: int in range(1, count + 1):
+		cells.append(entry + NEIGHBORS[entry_dir] * k)
+	return cells
+
+
 ## Вода на клетке. Клетка должна быть в границах.
 func is_water(cell: Vector2i) -> bool:
 	return water[index_of(cell)] == 1
@@ -149,9 +185,9 @@ func set_road(cell: Vector2i) -> bool:
 	return true
 
 
-## Убирает дорогу. Возвращает true, если клетка изменилась.
+## Убирает дорогу. Возвращает true, если клетка изменилась. Трассу у въезда не убрать.
 func remove_road(cell: Vector2i) -> bool:
-	if not is_road(cell):
+	if not is_road(cell) or highway_cells.has(cell):
 		return false
 	tile_type[index_of(cell)] = Tile.EMPTY
 	road_cells.erase(cell)

@@ -23,6 +23,8 @@ const MAX_COMMUTE: float = 60.0
 ## Поправка жилого спроса за долю тяжёлых поездок.
 const WEIGHT: float = 0.3
 const MAX_SAMPLE_PATHS: int = 120
+## Доля рабочих мест, которую занимают приезжие с трассы (въезжают через въезд, как в C:S).
+const COMMUTER_SHARE: float = 0.15
 const INFINITE: float = 1.0e20
 
 ## Нагрузка по индексу клетки (поездок за день).
@@ -89,11 +91,19 @@ static func compute(grid: CityGrid) -> Traffic:
 				and data.zone != CityGrid.Zone.NONE:
 			jobs_at[grid.index_of(road)] += data.jobs
 	var sources := PackedInt32Array()
+	var total_jobs: float = 0.0
 	for index: int in cell_count:
 		if jobs_at[index] > 0.0:
 			sources.append(index)
+			total_jobs += jobs_at[index]
 	for workers: float in home_workers:
 		traffic.total_workers += workers
+	# Приезжие с трассы: «дом» на клетке въезда (номер −1: не дом города, в счастье и итоги не идёт).
+	if grid.has_entry() and grid.is_road(grid.entry) and total_jobs > 0.0:
+		home_ids.append(-1)
+		home_road.append(grid.index_of(grid.entry))
+		home_access.append(0.0)
+		home_workers.append(total_jobs * COMMUTER_SHARE)
 
 	var home_count: int = home_ids.size()
 	var commute_sum := PackedFloat32Array()
@@ -284,6 +294,8 @@ static func _summarize(traffic: Traffic, grid: CityGrid, home_ids: PackedInt32Ar
 	var commute_weighted: float = 0.0
 	var reached_workers: float = 0.0
 	for home: int in home_ids.size():
+		if home_ids[home] < 0:
+			continue
 		var badness: float = 1.0
 		if reached[home] > 0:
 			var commute: float = commute_sum[home] / reached[home]
