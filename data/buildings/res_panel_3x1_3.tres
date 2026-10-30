@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/blender/panel-3x1-l3.glb" id="1_yn070"]
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="1_yycqe"]
+
+[resource]
+script = ExtResource("1_yycqe")
+id = &"res_panel_3x1_3"
+display_name = "Панельный корпус · ур. 3"
+zone = 4
+size = Vector2i(3, 1)
+population = 360
+level = 3
+power_use = 36
+water_use = 36
+noise = 6
+model = ExtResource("1_yn070")

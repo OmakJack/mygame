@@ -120,13 +120,15 @@ static func compute(grid: CityGrid) -> Traffic:
 		var data: BuildingData = BuildingCatalog.get_type(building.type_id)
 		if data == null:
 			continue
-		var road: Vector2i = grid.find_nearest_road(building.cell)
+		var road: Vector2i = grid.find_building_road(building)
 		if road == CityGrid.NO_CELL:
 			continue
 		if CityGrid.is_residential(data.zone) and data.population > 0:
 			home_ids.append(building.id)
 			home_road.append(grid.index_of(road))
-			home_access.append(absi(road.x - building.cell.x) + absi(road.y - building.cell.y))
+			var nx: int = clampi(road.x, building.cell.x, building.cell.x + building.size.x - 1)
+			var ny: int = clampi(road.y, building.cell.y, building.cell.y + building.size.y - 1)
+			home_access.append(absi(road.x - nx) + absi(road.y - ny))
 			home_workers.append(data.population * WORK_SHARE)
 		elif data.jobs > 0 and building.powered and building.has_water \
 				and data.zone != CityGrid.Zone.NONE:

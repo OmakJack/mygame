@@ -34,6 +34,21 @@ func value_at(layer: PackedByteArray, grid: CityGrid, cell: Vector2i) -> int:
 	return layer[grid.index_of(cell)]
 
 
+## Среднее значение слоя по всем клеткам здания (для 1×1 совпадает с value_at).
+func building_value(layer: PackedByteArray, grid: CityGrid, building: BuildingInstance) -> int:
+	if layer.size() != grid.size * grid.size:
+		return 0
+	var sum: int = 0
+	var count: int = 0
+	for dy: int in building.size.y:
+		for dx: int in building.size.x:
+			var c := Vector2i(building.cell.x + dx, building.cell.y + dy)
+			if grid.is_in_bounds(c):
+				sum += layer[grid.index_of(c)]
+				count += 1
+	return 0 if count == 0 else roundi(float(sum) / count)
+
+
 ## Средняя стоимость земли под зданиями с жителями или работой (для HUD); −1 — зданий нет.
 func average_value(grid: CityGrid) -> int:
 	var total: int = 0
@@ -41,8 +56,9 @@ func average_value(grid: CityGrid) -> int:
 	for building: BuildingInstance in grid.buildings.values():
 		var data: BuildingData = BuildingCatalog.get_type(building.type_id)
 		if data != null and (data.population > 0 or data.jobs > 0):
-			total += land_value[grid.index_of(building.cell)]
-			count += 1
+			var area: int = building.size.x * building.size.y
+			total += building_value(land_value, grid, building) * area
+			count += area
 	return -1 if count == 0 else roundi(float(total) / count)
 
 
@@ -64,15 +80,23 @@ static func compute(grid: CityGrid, traffic: Traffic) -> LandValue:
 		var data: BuildingData = BuildingCatalog.get_type(building.type_id)
 		if data == null:
 			continue
-		var i: int = grid.index_of(building.cell)
 		# Дымит и шумит только работающее здание: без света или без дороги (ТЭЦ) — нет.
-		var working: bool = building.powered if data.power_use > 0 else grid.has_road_access(building.cell)
-		if working:
-			dirty[i] += data.pollution
-			loud[i] += data.noise
+		var working: bool = building.powered if data.power_use > 0 else grid.has_building_road_access(building)
 		# Цену земли поднимают парки всегда, службы — только работающие (ревью Argon 014).
-		if data.park != BuildingData.Park.NONE or Services.is_active(grid, building, data):
-			bonus[i] += data.land_value
+		var gives_bonus: bool = data.park != BuildingData.Park.NONE or Services.is_active(grid, building, data)
+		if not working and not gives_bonus:
+			continue
+		for dy: int in building.size.y:
+			for dx: int in building.size.x:
+				var c := Vector2i(building.cell.x + dx, building.cell.y + dy)
+				if not grid.is_in_bounds(c):
+					continue
+				var i: int = grid.index_of(c)
+				if working:
+					dirty[i] += data.pollution
+					loud[i] += data.noise
+				if gives_bonus:
+					bonus[i] += data.land_value
 	for cell: Vector2i in grid.road_cells:
 		var i: int = grid.index_of(cell)
 		var factor: float = RoadTypes.NOISE_FACTOR.get(grid.road_type[i], 1.0)

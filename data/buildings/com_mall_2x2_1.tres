@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/blender/mall-2x2-l1.glb" id="1_5kdx8"]
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="1_4608f"]
+
+[resource]
+script = ExtResource("1_4608f")
+id = &"com_mall_2x2_1"
+display_name = "Универмаг · ур. 1"
+zone = 2
+size = Vector2i(2, 2)
+jobs = 20
+power_use = 8
+water_use = 4
+noise = 12
+model = ExtResource("1_5kdx8")

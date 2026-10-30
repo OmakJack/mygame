@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="1_0l7np"]
+[ext_resource type="PackedScene" path="res://assets/models/blender/ind-5x1-l2.glb" id="1_1ak7i"]
+
+[resource]
+script = ExtResource("1_0l7np")
+id = &"ind_line_5x1_2"
+display_name = "Складской ряд · ур. 2"
+zone = 3
+size = Vector2i(5, 1)
+jobs = 80
+level = 2
+power_use = 30
+water_use = 20
+pollution = 35
+noise = 16
+model = ExtResource("1_1ak7i")

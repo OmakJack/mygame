@@ -24,12 +24,20 @@ static func merge(scene: PackedScene, transform: Transform3D = Transform3D.IDENT
 ## Модель основанием в центр клетки, с поворотом; масштаб — scale, но основание не шире footprint
 ## (0 — без предела). Сцена загружается один раз.
 static func fitted(scene: PackedScene, scale: float, turns: int, footprint: float = 0.0) -> ArrayMesh:
+	return fitted_rect(scene, scale, turns, Vector2(footprint, footprint))
+
+
+## Модель основанием в центр участка, с поворотом; масштаб ужимается под прямоугольник max_size (X, Z).
+static func fitted_rect(scene: PackedScene, scale: float, turns: int, max_size: Vector2) -> ArrayMesh:
 	var root: Node = scene.instantiate()
 	var parts: Array[Array] = _mesh_nodes(root, Transform3D.IDENTITY)
 	var box: AABB = _bounds_of(parts)
-	var widest: float = maxf(box.size.x, box.size.z)
-	if footprint > 0.0 and widest > 0.0:
-		scale = minf(scale, footprint / widest)
+	var span_x: float = box.size.z if posmod(turns, 2) == 1 else box.size.x
+	var span_z: float = box.size.x if posmod(turns, 2) == 1 else box.size.z
+	if max_size.x > 0.0 and span_x > 0.0:
+		scale = minf(scale, max_size.x / span_x)
+	if max_size.y > 0.0 and span_z > 0.0:
+		scale = minf(scale, max_size.y / span_z)
 	var mesh: ArrayMesh = _merge_parts(parts, placement(box, scale, turns))
 	root.free()
 	return mesh

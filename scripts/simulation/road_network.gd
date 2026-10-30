@@ -50,3 +50,8 @@ func reaches_highway(grid: CityGrid, cell: Vector2i) -> bool:
 
 func component_for(grid: CityGrid, cell: Vector2i) -> int:
 	return component_of.get(grid.find_nearest_road(cell), -1)
+
+
+## Компонент, к которому подключено здание (через ближайшую к нему дорогу), или −1.
+func component_for_building(grid: CityGrid, building: BuildingInstance) -> int:
+	return component_of.get(grid.find_building_road(building), -1)

@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="1_ewtt8"]
+[ext_resource type="PackedScene" path="res://assets/models/blender/panel-3x2-l2.glb" id="1_ua0ok"]
+
+[resource]
+script = ExtResource("1_ewtt8")
+id = &"res_panel_3x2_2"
+display_name = "Жилой квартал · ур. 2"
+zone = 4
+size = Vector2i(3, 2)
+population = 540
+level = 2
+power_use = 54
+water_use = 54
+noise = 5
+model = ExtResource("1_ua0ok")

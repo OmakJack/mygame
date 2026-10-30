@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/blender/com-3x1-l3.glb" id="1_dswj8"]
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="1_vsblp"]
+
+[resource]
+script = ExtResource("1_vsblp")
+id = &"com_strip_3x1_3"
+display_name = "Торговый ряд · ур. 3"
+zone = 2
+size = Vector2i(3, 1)
+jobs = 45
+level = 3
+power_use = 18
+water_use = 9
+noise = 16
+model = ExtResource("1_dswj8")

@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/blender/ind-3x2-l1.glb" id="1_7xma2"]
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="1_ax7j8"]
+
+[resource]
+script = ExtResource("1_ax7j8")
+id = &"ind_comb_3x2_1"
+display_name = "Комбинат · ур. 1"
+zone = 3
+size = Vector2i(3, 2)
+jobs = 48
+power_use = 18
+water_use = 12
+pollution = 30
+noise = 15
+model = ExtResource("1_7xma2")

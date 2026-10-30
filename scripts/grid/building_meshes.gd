@@ -53,17 +53,22 @@ static func mesh_for(data: BuildingData) -> Mesh:
 
 
 static func _from_model(data: BuildingData) -> ArrayMesh:
-	# Масштаб типа, но основание не шире клетки; модель загружается один раз.
-	var mesh: ArrayMesh = ModelLoader.fitted(data.model, data.model_scale, data.model_turns, FOOTPRINT)
+	# Масштаб типа, но основание не шире участка (size клеток с отступом 0.2 м); модель загружается один раз.
+	var margin: float = CityGrid.CELL_SIZE - FOOTPRINT
+	var max_size := Vector2(
+		data.size.x * CityGrid.CELL_SIZE - margin,
+		data.size.y * CityGrid.CELL_SIZE - margin
+	)
+	var mesh: ArrayMesh = ModelLoader.fitted_rect(data.model, data.model_scale, data.model_turns, max_size)
 	if data.sign_color.a > 0.0:
-		_add_sign(mesh, data.sign_color, data.sign_cross)
+		_add_sign(mesh, data.sign_color, data.sign_cross, max_size.y)
 	return mesh
 
 
 ## Вывеска цвета службы над крышей у фасада — чтобы службы отличались от обычных домов.
 ## Столбик стоит на реальной крыше в точке крепления, а не на верхушке трубы или шпиля.
-static func _add_sign(mesh: ArrayMesh, color: Color, cross: bool) -> void:
-	var front: float = -FOOTPRINT * 0.25
+static func _add_sign(mesh: ArrayMesh, color: Color, cross: bool, depth: float = FOOTPRINT) -> void:
+	var front: float = -depth * 0.25
 	var roof: float = _roof_height(mesh, Vector2(0.0, front))
 	var center := Vector3(0.0, roof + SIGN_POST.y + SIGN_SIZE.y * 0.5, front)
 	_add_box(mesh, SIGN_POST, Vector3(0.0, roof + SIGN_POST.y * 0.5, front), SIGN_POST_COLOR)
@@ -96,9 +101,12 @@ static func _roof_height(mesh: ArrayMesh, at: Vector2) -> float:
 static func _placeholder(data: BuildingData) -> ArrayMesh:
 	var mesh := ArrayMesh.new()
 	var height: float = data.placeholder_height
-	_add_box(mesh, Vector3(BODY_WIDTH, height, BODY_WIDTH), Vector3(0.0, height * 0.5, 0.0), data.placeholder_color)
+	var margin: float = CityGrid.CELL_SIZE - BODY_WIDTH
+	var body_x: float = data.size.x * CityGrid.CELL_SIZE - margin
+	var body_z: float = data.size.y * CityGrid.CELL_SIZE - margin
+	_add_box(mesh, Vector3(body_x, height, body_z), Vector3(0.0, height * 0.5, 0.0), data.placeholder_color)
 	# Дверь чуть выступает из фасада, чтобы было видно, куда смотрит дом.
-	var door_z: float = -(BODY_WIDTH + DOOR_SIZE.z) * 0.5
+	var door_z: float = -(body_z + DOOR_SIZE.z) * 0.5
 	_add_box(mesh, DOOR_SIZE, Vector3(0.0, DOOR_SIZE.y * 0.5, door_z), DOOR_COLOR)
 	return mesh
 

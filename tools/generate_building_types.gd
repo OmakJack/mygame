@@ -40,6 +40,38 @@ const SETS: Array[Dictionary] = [
 		"models": {}, "kit": "commercial/building-skyscraper-", "letters": "acebd", "prefix": "off_tower_"},
 ]
 
+## Многоклеточные модели из Blender (tools/blender/make_large_buildings.py), уровни 1..3.
+const LARGE_SETS: Array[Dictionary] = [
+	{"zone": CityGrid.Zone.RESIDENTIAL_HIGH, "size": Vector2i(3, 1), "name": "Панельный корпус",
+		"prefix": "res_panel_3x1_", "kit": "blender/panel-3x1-l"},
+	{"zone": CityGrid.Zone.RESIDENTIAL_HIGH, "size": Vector2i(5, 1), "name": "Дом с аркой",
+		"prefix": "res_panel_5x1_", "kit": "blender/panel-5x1-l"},
+	{"zone": CityGrid.Zone.RESIDENTIAL_HIGH, "size": Vector2i(3, 2), "name": "Жилой квартал",
+		"prefix": "res_panel_3x2_", "kit": "blender/panel-3x2-l"},
+	{"zone": CityGrid.Zone.RESIDENTIAL_HIGH, "size": Vector2i(7, 1), "name": "Проспектный дом",
+		"prefix": "res_panel_7x1_", "kit": "blender/panel-7x1-l"},
+	{"zone": CityGrid.Zone.COMMERCIAL, "size": Vector2i(3, 1), "name": "Торговый ряд",
+		"prefix": "com_strip_3x1_", "kit": "blender/com-3x1-l"},
+	{"zone": CityGrid.Zone.COMMERCIAL, "size": Vector2i(5, 1), "name": "Торговая галерея",
+		"prefix": "com_gal_5x1_", "kit": "blender/com-5x1-l"},
+	{"zone": CityGrid.Zone.COMMERCIAL, "size": Vector2i(2, 2), "name": "Универмаг",
+		"prefix": "com_mall_2x2_", "kit": "blender/mall-2x2-l"},
+	{"zone": CityGrid.Zone.COMMERCIAL_HIGH, "size": Vector2i(2, 2), "name": "Торговый центр",
+		"prefix": "com_center_2x2_", "kit": "blender/mall-2x2-l"},
+	{"zone": CityGrid.Zone.COMMERCIAL_HIGH, "size": Vector2i(5, 1), "name": "Большой пассаж",
+		"prefix": "com_center_5x1_", "kit": "blender/com-5x1-l"},
+	{"zone": CityGrid.Zone.COMMERCIAL_HIGH, "size": Vector2i(3, 2), "name": "Молл",
+		"prefix": "com_mall_3x2_", "kit": "blender/mall-3x2-l"},
+	{"zone": CityGrid.Zone.INDUSTRIAL, "size": Vector2i(2, 1), "name": "Ангар",
+		"prefix": "ind_hall_2x1_", "kit": "blender/ind-2x1-l"},
+	{"zone": CityGrid.Zone.INDUSTRIAL, "size": Vector2i(2, 2), "name": "Завод",
+		"prefix": "ind_plant_2x2_", "kit": "blender/ind-2x2-l"},
+	{"zone": CityGrid.Zone.INDUSTRIAL, "size": Vector2i(5, 1), "name": "Складской ряд",
+		"prefix": "ind_line_5x1_", "kit": "blender/ind-5x1-l"},
+	{"zone": CityGrid.Zone.INDUSTRIAL, "size": Vector2i(3, 2), "name": "Комбинат",
+		"prefix": "ind_comb_3x2_", "kit": "blender/ind-3x2-l"},
+]
+
 ## Старые типы, которые больше не растут (модели служб — школа c, полиция h — и прежние «многоэтажки»):
 ## остаются ради сохранений (решение 011: дом не должен выглядеть как служба).
 const RETIRED: Dictionary = {
@@ -82,6 +114,18 @@ func _initialize() -> void:
 			LevelStats.apply(data, set.zone, level)
 			data.model = load(_model_path(models[id]))
 			data.model_scale = set.scale
+			_save(data)
+			created += 1
+	for large: Dictionary in LARGE_SETS:
+		var plot_size: Vector2i = large.size
+		for level: int in [1, 2, 3]:
+			var id: String = "%s%d" % [large.prefix, level]
+			var data := _load_or_new(id)
+			data.display_name = "%s · ур. %d" % [large.name, level]
+			data.grows = true
+			LevelStats.apply(data, large.zone, level, plot_size)
+			data.model = load(_model_path("%s%d" % [large.kit, level]))
+			data.model_scale = 1.0
 			_save(data)
 			created += 1
 	for id: String in RETIRED:

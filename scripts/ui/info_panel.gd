@@ -22,8 +22,10 @@ func _init() -> void:
 	grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	grow_vertical = Control.GROW_DIRECTION_BOTH
 	offset_right = -12.0
+	offset_top = 28.0
+	offset_bottom = 28.0
 	var column := VBoxContainer.new()
-	column.add_theme_constant_override(&"separation", 8)
+	column.add_theme_constant_override(&"separation", 6)
 	add_child(column)
 	var head := HBoxContainer.new()
 	head.add_theme_constant_override(&"separation", 10)
@@ -53,8 +55,8 @@ func _init() -> void:
 	head.add_child(close)
 	column.add_child(HSeparator.new())
 	_rows.columns = 2
-	_rows.add_theme_constant_override(&"h_separation", 16)
-	_rows.add_theme_constant_override(&"v_separation", 4)
+	_rows.add_theme_constant_override(&"h_separation", 14)
+	_rows.add_theme_constant_override(&"v_separation", 2)
 	column.add_child(_rows)
 
 
@@ -86,6 +88,8 @@ func _refresh() -> void:
 		_title.text = data.display_name
 		_subtitle.text = _kind(data)
 		_icon.texture = UiTheme.icon(_building_icon(data))
+		if data.area() > 1:
+			_add("Участок", "%d×%d (%d кл.)" % [data.size.x, data.size.y, data.area()])
 		if data.population > 0:
 			_add("Жители", str(data.population))
 		if data.jobs > 0:
@@ -124,9 +128,12 @@ func _refresh() -> void:
 		_subtitle.text = _zone_name(zone)
 		_icon.texture = UiTheme.icon(_zone_icon(zone))
 	if not grid.is_water(cell) or grid.is_road(cell):
-		var value: int = land.value_at(land.land_value, grid, cell)
-		var pollution: int = land.value_at(land.pollution, grid, cell)
-		var noise: int = land.value_at(land.noise, grid, cell)
+		var value: int = land.building_value(land.land_value, grid, building) if building != null \
+				else land.value_at(land.land_value, grid, cell)
+		var pollution: int = land.building_value(land.pollution, grid, building) if building != null \
+				else land.value_at(land.pollution, grid, cell)
+		var noise: int = land.building_value(land.noise, grid, building) if building != null \
+				else land.value_at(land.noise, grid, cell)
 		_add("Цена земли", "%d / 100" % value, value < 25)
 		_add("Загрязнение", str(pollution), pollution >= BAD_LEVEL)
 		_add("Шум", str(noise), noise >= BAD_LEVEL)

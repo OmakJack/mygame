@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="1_23npn"]
+[ext_resource type="PackedScene" path="res://assets/models/blender/mall-3x2-l1.glb" id="1_cp2lw"]
+
+[resource]
+script = ExtResource("1_23npn")
+id = &"com_mall_3x2_1"
+display_name = "Молл · ур. 1"
+zone = 5
+size = Vector2i(3, 2)
+jobs = 180
+power_use = 48
+water_use = 24
+noise = 18
+model = ExtResource("1_cp2lw")

@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="1_sh6se"]
+[ext_resource type="PackedScene" path="res://assets/models/blender/com-5x1-l3.glb" id="1_yhgps"]
+
+[resource]
+script = ExtResource("1_sh6se")
+id = &"com_gal_5x1_3"
+display_name = "Торговая галерея · ур. 3"
+zone = 2
+size = Vector2i(5, 1)
+jobs = 75
+level = 3
+power_use = 30
+water_use = 15
+noise = 16
+model = ExtResource("1_yhgps")

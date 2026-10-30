@@ -7,10 +7,16 @@ extends Node3D
 var _construction_item: int = 0
 var _item_for_type: Dictionary[StringName, int] = {}
 var _layers: Array[MultiMeshInstance3D] = []
-## Клетка → номер куска, который там нарисован.
+## Клетка → номер куска, который там нарисован (все клетки многоклеточного здания).
 var _item_at: Dictionary[Vector2i, int] = {}
-## Номер куска → клетки с ним (порядок = номера экземпляров мультимеша).
-var _cells_of: Array[Array] = []
+## Клетка → id здания, которое там нарисовано.
+var _building_at_vis: Dictionary[Vector2i, int] = {}
+## id здания → номер куска, которым оно сейчас нарисовано.
+var _drawn_item: Dictionary[int, int] = {}
+## id здания → массив его клеток на момент отрисовки.
+var _drawn_cells: Dictionary[int, Array] = {}
+## Номер куска → список id зданий в этом слое.
+var _ids_of: Array[Array] = []
 
 
 func _ready() -> void:
@@ -33,7 +39,7 @@ func _add_layer(mesh: Mesh) -> void:
 	layer.multimesh.mesh = mesh
 	add_child(layer)
 	_layers.append(layer)
-	_cells_of.append([])
+	_ids_of.append([])
 
 
 ## Номер куска в клетке (как GridMap.get_cell_item); −1 — пусто.
@@ -51,40 +57,68 @@ func get_used_cells() -> Array[Vector3i]:
 
 func _rebuild() -> void:
 	_item_at.clear()
-	for cells: Array in _cells_of:
-		cells.clear()
+	_building_at_vis.clear()
+	_drawn_item.clear()
+	_drawn_cells.clear()
+	for ids: Array in _ids_of:
+		ids.clear()
 	for building: BuildingInstance in GameState.grid.buildings.values():
-		var item: int = _item_for(building)
-		if item >= 0:
-			_item_at[building.cell] = item
-			_cells_of[item].append(building.cell)
+		_register_building(building)
 	for item: int in _layers.size():
 		_write_layer(item)
 
 
 func _on_cells_changed(cells: Array[Vector2i]) -> void:
 	var dirty: Dictionary[int, bool] = {}
+	var affected: Dictionary[int, bool] = {}
 	var grid: CityGrid = GameState.grid
 	for cell: Vector2i in cells:
 		if not grid.is_in_bounds(cell):
 			continue
-		var old: int = _item_at.get(cell, -1)
-		var building: BuildingInstance = grid.get_building_at(cell)
-		var item: int = _item_for(building) if building != null else -1
-		if old == item and item != -1:
-			# Тот же кусок, но здание могло смениться (снос и рост за один тик) — цвет обновим.
-			dirty[item] = true
-			continue
-		if old >= 0:
-			_cells_of[old].erase(cell)
-			_item_at.erase(cell)
-			dirty[old] = true
-		if item >= 0:
-			_cells_of[item].append(cell)
-			_item_at[cell] = item
-			dirty[item] = true
+		if _building_at_vis.has(cell):
+			affected[_building_at_vis[cell]] = true
+		var current: BuildingInstance = grid.get_building_at(cell)
+		if current != null:
+			affected[current.id] = true
+	for id: int in affected:
+		var building: BuildingInstance = grid.buildings.get(id)
+		var new_item: int = _item_for(building) if building != null else -1
+		if _drawn_item.has(id):
+			var old_item: int = _drawn_item[id]
+			if building != null and new_item == old_item and building.cells() == _drawn_cells[id]:
+				dirty[old_item] = true
+				continue
+			_unregister_building(id)
+			dirty[old_item] = true
+		if building != null and new_item >= 0:
+			_register_building(building)
+			dirty[new_item] = true
 	for item: int in dirty:
 		_write_layer(item)
+
+
+func _register_building(building: BuildingInstance) -> void:
+	var item: int = _item_for(building)
+	if item < 0:
+		return
+	var occupied: Array[Vector2i] = building.cells()
+	_drawn_item[building.id] = item
+	_drawn_cells[building.id] = occupied
+	_ids_of[item].append(building.id)
+	for c: Vector2i in occupied:
+		_building_at_vis[c] = building.id
+		_item_at[c] = item
+
+
+func _unregister_building(id: int) -> void:
+	var old_item: int = _drawn_item[id]
+	_ids_of[old_item].erase(id)
+	for c: Vector2i in _drawn_cells[id]:
+		if _building_at_vis.get(c, -1) == id:
+			_building_at_vis.erase(c)
+			_item_at.erase(c)
+	_drawn_item.erase(id)
+	_drawn_cells.erase(id)
 
 
 func _item_for(building: BuildingInstance) -> int:
@@ -96,15 +130,36 @@ func _item_for(building: BuildingInstance) -> int:
 	return _item_for_type[building.type_id]
 
 
-## Переписывает все экземпляры куска: позиция, поворот и цвет каждого здания.
+## Переписывает все экземпляры куска: позиция (по центру участка), поворот и цвет каждого здания.
 func _write_layer(item: int) -> void:
 	var grid: CityGrid = GameState.grid
-	var cells: Array = _cells_of[item]
+	var ids: Array = _ids_of[item]
 	var multimesh: MultiMesh = _layers[item].multimesh
-	multimesh.instance_count = cells.size()
-	for i: int in cells.size():
-		var building: BuildingInstance = grid.get_building_at(cells[i])
+	if item == _construction_item:
+		var total_cells: int = 0
+		for id: int in ids:
+			var b: BuildingInstance = grid.buildings.get(id)
+			if b != null:
+				total_cells += b.size.x * b.size.y
+		multimesh.instance_count = total_cells
+		var idx: int = 0
+		for id: int in ids:
+			var b: BuildingInstance = grid.buildings.get(id)
+			if b == null:
+				continue
+			var basis := Basis(Vector3.UP, -b.orientation * PI * 0.5)
+			for c: Vector2i in b.cells():
+				multimesh.set_instance_transform(idx, Transform3D(basis, grid.grid_to_world(c)))
+				multimesh.set_instance_custom_data(idx, Color())
+				idx += 1
+		return
+	multimesh.instance_count = ids.size()
+	for i: int in ids.size():
+		var building: BuildingInstance = grid.buildings.get(ids[i])
+		if building == null:
+			continue
 		var basis := Basis(Vector3.UP, -building.orientation * PI * 0.5)
-		multimesh.set_instance_transform(i, Transform3D(basis, grid.grid_to_world(cells[i])))
+		var center: Vector3 = grid.footprint_center(building.cell, building.size)
+		multimesh.set_instance_transform(i, Transform3D(basis, center))
 		var data: BuildingData = BuildingCatalog.get_type(building.type_id)
 		multimesh.set_instance_custom_data(i, BuildingPalette.custom_for(building, data) if data != null else Color())

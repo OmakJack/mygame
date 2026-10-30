@@ -38,10 +38,12 @@ static func growable_types(zone_type: CityGrid.Zone) -> Array[BuildingData]:
 
 
 ## Растущие типы зоны данного уровня — для роста (ур.1) и повышения (фаза 10).
-static func level_types(zone_type: CityGrid.Zone, level: int) -> Array[BuildingData]:
+## plot_size != Vector2i.ZERO — только типы указанного размера участка.
+static func level_types(zone_type: CityGrid.Zone, level: int,
+		plot_size: Vector2i = Vector2i.ZERO) -> Array[BuildingData]:
 	var result: Array[BuildingData] = []
 	for data: BuildingData in types_for_zone(zone_type):
-		if data.grows and data.level == level:
+		if data.grows and data.level == level and (plot_size == Vector2i.ZERO or data.size == plot_size):
 			result.append(data)
 	return result
 
@@ -70,8 +72,10 @@ static func _ensure_loaded() -> void:
 			push_error("BuildingCatalog: повтор id %s в %s" % [data.id, file_name])
 			continue
 		_types[data.id] = data
-	# Многоэтажки и офисы, которые строит код (их нет в data/buildings).
+	# Многоэтажки, офисы и составные участки 2..7 клеток, которые строит код (их нет в data/buildings).
 	for data: BuildingData in ProceduralBuildings.types():
+		_types[data.id] = data
+	for data: BuildingData in CompoundBuildings.types():
 		_types[data.id] = data
 	_sorted.assign(_types.values())
 	_sorted.sort_custom(func(a: BuildingData, b: BuildingData) -> bool: return a.id < b.id)

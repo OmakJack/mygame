@@ -70,7 +70,7 @@ static func build() -> Array[String]:
 	var dirty_homes: int = 0
 	for building: BuildingInstance in grid.buildings.values():
 		var data: BuildingData = BuildingCatalog.get_type(building.type_id)
-		if data != null and data.population > 0 and land.value_at(land.pollution, grid, building.cell) >= DIRTY_HOME:
+		if data != null and data.population > 0 and land.building_value(land.pollution, grid, building) >= DIRTY_HOME:
 			dirty_homes += 1
 	var dirty_zone: int = 0
 	for cell: Vector2i in grid.zoned_empty_cells[CityGrid.Zone.RESIDENTIAL]:

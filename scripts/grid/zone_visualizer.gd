@@ -209,7 +209,7 @@ func _utility_color(cell: Vector2i, power: bool) -> Color:
 		return CLEAR
 	if (data.power_supply if power else data.water_supply) > 0:
 		# Станция работает, если есть дорога; водокачке ещё нужен свет.
-		var working: bool = grid.has_road_access(cell) and (power or building.powered)
+		var working: bool = grid.has_building_road_access(building) and (power or building.powered)
 		if not working:
 			return UNSERVED
 		return POWER_SOURCE if power else WATER_SOURCE
@@ -267,12 +267,13 @@ func _build_service_mask(grid: CityGrid) -> void:
 		if data == null or not Services.is_active(grid, building, data):
 			continue
 		var r: int = data.service_radius
-		for dy: int in range(-r, r + 1):
-			var reach: int = r - absi(dy)
-			for dx: int in range(-reach, reach + 1):
-				var cell: Vector2i = building.cell + Vector2i(dx, dy)
-				if grid.is_in_bounds(cell):
-					_service_mask[grid.index_of(cell)] |= 1 << data.service
+		for sc: Vector2i in building.cells():
+			for dy: int in range(-r, r + 1):
+				var reach: int = r - absi(dy)
+				for dx: int in range(-reach, reach + 1):
+					var cell: Vector2i = sc + Vector2i(dx, dy)
+					if grid.is_in_bounds(cell):
+						_service_mask[grid.index_of(cell)] |= 1 << data.service
 
 
 ## Цена земли на суше; на воде и дорогах — пусто.

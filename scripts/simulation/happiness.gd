@@ -47,15 +47,19 @@ static func factors(grid: CityGrid, building: BuildingInstance, data: BuildingDa
 		services = _active_services(grid)
 	var result: Array[Array] = []
 	var covered: int = 0
+	var max_x: int = building.cell.x + building.size.x - 1
+	var max_y: int = building.cell.y + building.size.y - 1
 	for source: Array in services:
 		var cell: Vector2i = source[0]
-		if absi(cell.x - building.cell.x) + absi(cell.y - building.cell.y) <= source[1]:
+		var nx: int = clampi(cell.x, building.cell.x, max_x)
+		var ny: int = clampi(cell.y, building.cell.y, max_y)
+		if absi(cell.x - nx) + absi(cell.y - ny) <= source[1]:
 			covered += 1
 	result.append(["Службы рядом", covered * PER_SERVICE])
-	var value: int = land.value_at(land.land_value, grid, building.cell)
+	var value: int = land.building_value(land.land_value, grid, building)
 	result.append(["Цена земли", (value - LandValue.BASE_VALUE) * LAND_WEIGHT])
-	result.append(["Загрязнение", -land.value_at(land.pollution, grid, building.cell) * POLLUTION_WEIGHT])
-	result.append(["Шум", -land.value_at(land.noise, grid, building.cell) * NOISE_WEIGHT])
+	result.append(["Загрязнение", -land.building_value(land.pollution, grid, building) * POLLUTION_WEIGHT])
+	result.append(["Шум", -land.building_value(land.noise, grid, building) * NOISE_WEIGHT])
 	result.append(["Дорога до работы", -traffic.home_badness.get(building.id, 0.0) * COMMUTE_WEIGHT])
 	result.append(["Налог", -(tax_rate - Economy.DEFAULT_TAX_RATE) * TAX_WEIGHT])
 	if not building.powered or not building.has_water:

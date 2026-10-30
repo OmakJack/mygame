@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="1_ly7el"]
+[ext_resource type="PackedScene" path="res://assets/models/blender/com-5x1-l1.glb" id="1_scfr8"]
+
+[resource]
+script = ExtResource("1_ly7el")
+id = &"com_center_5x1_1"
+display_name = "Большой пассаж · ур. 1"
+zone = 5
+size = Vector2i(5, 1)
+jobs = 150
+power_use = 40
+water_use = 20
+noise = 18
+model = ExtResource("1_scfr8")

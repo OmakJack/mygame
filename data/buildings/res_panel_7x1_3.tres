@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/blender/panel-7x1-l3.glb" id="1_5dq5d"]
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="1_f13lf"]
+
+[resource]
+script = ExtResource("1_f13lf")
+id = &"res_panel_7x1_3"
+display_name = "Проспектный дом · ур. 3"
+zone = 4
+size = Vector2i(7, 1)
+population = 840
+level = 3
+power_use = 84
+water_use = 84
+noise = 6
+model = ExtResource("1_5dq5d")

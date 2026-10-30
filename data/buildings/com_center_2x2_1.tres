@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/blender/mall-2x2-l1.glb" id="1_8bv71"]
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="1_bkdhe"]
+
+[resource]
+script = ExtResource("1_bkdhe")
+id = &"com_center_2x2_1"
+display_name = "Торговый центр · ур. 1"
+zone = 5
+size = Vector2i(2, 2)
+jobs = 120
+power_use = 32
+water_use = 16
+noise = 18
+model = ExtResource("1_8bv71")

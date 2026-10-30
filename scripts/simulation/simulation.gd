@@ -83,7 +83,7 @@ func _abandon_buildings(grid: CityGrid, changed: Array[Vector2i]) -> void:
 		var data: BuildingData = BuildingCatalog.get_type(building.type_id)
 		if data == null or data.zone == CityGrid.Zone.NONE:
 			continue
-		building.no_road_ticks = 0 if grid.has_road_access(building.cell) else building.no_road_ticks + 1
+		building.no_road_ticks = 0 if grid.has_building_road_access(building) else building.no_road_ticks + 1
 		building.no_power_ticks = 0 if building.powered else building.no_power_ticks + 1
 		building.no_water_ticks = 0 if building.has_water else building.no_water_ticks + 1
 		if building.no_road_ticks >= ABANDON_TICKS \
@@ -92,7 +92,7 @@ func _abandon_buildings(grid: CityGrid, changed: Array[Vector2i]) -> void:
 			abandoned.append(building.id)
 	# Удаляем после обхода, чтобы не менять словарь во время итерации.
 	for id: int in abandoned:
-		changed.append(grid.buildings[id].cell)
+		changed.append_array(grid.buildings[id].cells())
 		grid.remove_building(id)
 
 
@@ -111,8 +111,9 @@ func _grow(grid: CityGrid, changed: Array[Vector2i]) -> void:
 		var cell: Vector2i = Growth.grow_one(grid, zone_type, _rng, GameState.network, GameState.utilities,
 				GameState.land)
 		if cell != CityGrid.NO_CELL:
-			grid.get_building_at(cell).construction_ticks = Levels.CONSTRUCTION_TICKS
-			changed.append(cell)
+			var building: BuildingInstance = grid.get_building_at(cell)
+			building.construction_ticks = Levels.CONSTRUCTION_TICKS
+			changed.append_array(building.cells())
 
 
 ## Спрос по категориям зон.
@@ -202,7 +203,7 @@ func _tax_base(grid: CityGrid) -> float:
 		var data: BuildingData = BuildingCatalog.get_type(building.type_id)
 		if data == null or data.population + data.jobs == 0:
 			continue
-		var value: int = GameState.land.value_at(GameState.land.land_value, grid, building.cell)
+		var value: int = GameState.land.building_value(GameState.land.land_value, grid, building)
 		base += (data.population + data.jobs) * Economy.land_factor(value)
 	return base
 

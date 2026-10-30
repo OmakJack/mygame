@@ -1,7 +1,7 @@
 class_name Levels
 extends RefCounted
 ## Уровни зданий (фаза 10): повышение, перестройка под новую плотность зоны и упадок домов.
-## Повышение и перестройка — замена type_id (формат сохранений не меняется) и 2 дня стройплощадки.
+## Повышение и перестройка — замена type_id того же размера участка и 2 дня стройплощадки.
 
 ## Цена земли и счастье для уровня 2 и 3 (индекс — уровень).
 const LAND_FOR_LEVEL: Array[int] = [0, 0, 30, 50]
@@ -23,7 +23,7 @@ static func blockers(grid: CityGrid, building: BuildingInstance, data: BuildingD
 	if data.level >= 3:
 		return result
 	var next: int = data.level + 1
-	var value: int = land.value_at(land.land_value, grid, building.cell)
+	var value: int = land.building_value(land.land_value, grid, building)
 	if value < LAND_FOR_LEVEL[next]:
 		result.append("цена земли %d из %d" % [value, LAND_FOR_LEVEL[next]])
 	if data.population > 0:
@@ -44,16 +44,23 @@ static func step(grid: CityGrid, rng: RandomNumberGenerator, network: RoadNetwor
 			continue
 		if demands.get(CityGrid.zone_category(data.zone), 0.0) <= 0.0:
 			continue
-		var target: BuildingData = _target(grid, building, data, land, happiness, rng)
-		if target != null:
-			candidates.append([building, data, target])
+		var action: Variant = _plan_change(grid, building, data, land, happiness, rng)
+		if action != null:
+			candidates.append([building, data, action])
 	for attempt: int in CHANGES_PER_TICK:
 		if candidates.is_empty() or rng.randf() >= CHANGE_CHANCE:
 			continue
 		var pick: Array = candidates.pop_at(rng.randi_range(0, candidates.size() - 1))
 		var building: BuildingInstance = pick[0]
-		if _apply(grid, building, pick[1], pick[2], network, utilities):
-			changed.append(building.cell)
+		if not grid.buildings.has(building.id):
+			continue
+		var occupied: Array[Vector2i] = building.cells()
+		if pick[2] is StringName and pick[2] == &"redevelop":
+			# Участок разделили разными зонами или под новую плотность нет такого размера — освобождаем клетки под новый рост.
+			grid.remove_building(building.id)
+			changed.append_array(occupied)
+		elif pick[2] is BuildingData and _apply(grid, building, pick[1], pick[2], network, utilities):
+			changed.append_array(occupied)
 	return changed
 
 
@@ -71,7 +78,7 @@ static func decline(grid: CityGrid, happiness: Happiness) -> Array[Vector2i]:
 			building.unhappy_ticks = 0
 	var cells: Array[Vector2i] = []
 	for id: int in gone:
-		cells.append(grid.buildings[id].cell)
+		cells.append_array(grid.buildings[id].cells())
 		grid.remove_building(id)
 	return cells
 
@@ -83,28 +90,41 @@ static func tick_construction(grid: CityGrid) -> Array[Vector2i]:
 		if building.construction_ticks > 0:
 			building.construction_ticks -= 1
 			if building.construction_ticks == 0:
-				done.append(building.cell)
+				done.append_array(building.cells())
 	return done
 
 
-## Во что превратить здание: тип зоны клетки ур.1, если плотность сменили; иначе следующий уровень.
-static func _target(grid: CityGrid, building: BuildingInstance, data: BuildingData, land: LandValue,
-		happiness: Happiness, rng: RandomNumberGenerator) -> BuildingData:
-	var cell_zone: CityGrid.Zone = grid.get_zone(building.cell)
-	var options: Array[BuildingData]
-	if cell_zone != data.zone and cell_zone != CityGrid.Zone.NONE:
-		options = BuildingCatalog.level_types(cell_zone, 1)
-	elif data.level < 3 and blockers(grid, building, data, land, happiness).is_empty():
-		options = BuildingCatalog.level_types(data.zone, data.level + 1)
-	if options.is_empty():
-		return null
-	return options[rng.randi_range(0, options.size() - 1)]
+## План изменения здания: BuildingData (новый тип того же размера), &"redevelop" (разбор под новый рост) или null.
+static func _plan_change(grid: CityGrid, building: BuildingInstance, data: BuildingData, land: LandValue,
+		happiness: Happiness, rng: RandomNumberGenerator) -> Variant:
+	var occupied: Array[Vector2i] = building.cells()
+	var first_zone: CityGrid.Zone = grid.get_zone(occupied[0])
+	var same_across_lot: bool = true
+	var any_rezoned: bool = false
+	for c: Vector2i in occupied:
+		var z: CityGrid.Zone = grid.get_zone(c)
+		if z != first_zone:
+			same_across_lot = false
+		if z != data.zone and z != CityGrid.Zone.NONE:
+			any_rezoned = true
+	if any_rezoned:
+		if not same_across_lot or first_zone == CityGrid.Zone.NONE:
+			return &"redevelop"
+		var rezoned_options: Array[BuildingData] = BuildingCatalog.level_types(first_zone, 1, data.size)
+		if rezoned_options.is_empty():
+			return &"redevelop"
+		return rezoned_options[rng.randi_range(0, rezoned_options.size() - 1)]
+	if data.level < 3 and blockers(grid, building, data, land, happiness).is_empty():
+		var options: Array[BuildingData] = BuildingCatalog.level_types(data.zone, data.level + 1, data.size)
+		if not options.is_empty():
+			return options[rng.randi_range(0, options.size() - 1)]
+	return null
 
 
 ## Замена типа, если в компоненте дорог хватает запаса света и воды на прибавку.
 static func _apply(grid: CityGrid, building: BuildingInstance, data: BuildingData, target: BuildingData,
 		network: RoadNetwork, utilities: Utilities) -> bool:
-	var component: int = network.component_for(grid, building.cell)
+	var component: int = network.component_for_building(grid, building)
 	if component == -1:
 		return false
 	var more_power: int = target.power_use - data.power_use

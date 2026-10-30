@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="1_4jvgt"]
+[ext_resource type="PackedScene" path="res://assets/models/blender/panel-5x1-l1.glb" id="1_s6458"]
+
+[resource]
+script = ExtResource("1_4jvgt")
+id = &"res_panel_5x1_1"
+display_name = "Дом с аркой · ур. 1"
+zone = 4
+size = Vector2i(5, 1)
+population = 300
+power_use = 30
+water_use = 30
+noise = 4
+model = ExtResource("1_s6458")

@@ -102,6 +102,11 @@ func grid_to_world(cell: Vector2i) -> Vector3:
 	return Vector3((cell.x + 0.5) * CELL_SIZE, 0.0, (cell.y + 0.5) * CELL_SIZE)
 
 
+## Центр прямоугольника клеток (левый верхний угол cell, габариты span) в мире (высота 0).
+func footprint_center(cell: Vector2i, span: Vector2i = Vector2i.ONE) -> Vector3:
+	return Vector3((cell.x + span.x * 0.5) * CELL_SIZE, 0.0, (cell.y + span.y * 0.5) * CELL_SIZE)
+
+
 ## Клетка, в которую попадает точка мира. Может быть за границей — проверяй is_in_bounds.
 func world_to_grid(pos: Vector3) -> Vector2i:
 	return Vector2i(floori(pos.x / CELL_SIZE), floori(pos.z / CELL_SIZE))
@@ -163,12 +168,17 @@ func is_water(cell: Vector2i) -> bool:
 	return water[index_of(cell)] == 1
 
 
-## Можно ли поставить здание: пустая клетка суши.
-func can_place_building(cell: Vector2i) -> bool:
-	if not is_in_bounds(cell):
-		return false
-	var i: int = index_of(cell)
-	return tile_type[i] == Tile.EMPTY and water[i] == 0
+## Можно ли поставить здание размера span (левый верхний угол — cell): все клетки пустые и на суше.
+func can_place_building(cell: Vector2i, span: Vector2i = Vector2i.ONE) -> bool:
+	for dy: int in span.y:
+		for dx: int in span.x:
+			var c := Vector2i(cell.x + dx, cell.y + dy)
+			if not is_in_bounds(c):
+				return false
+			var i: int = index_of(c)
+			if tile_type[i] != Tile.EMPTY or water[i] != 0:
+				return false
+	return true
 
 
 ## Можно ли поставить дорогу (те же правила, что в set_road).
@@ -308,11 +318,46 @@ func find_nearest_road(cell: Vector2i) -> Vector2i:
 
 
 ## Дорога, к которой подключается дом: на суше и не шоссе.
+func is_access_road(cell: Vector2i) -> bool:
+	return _is_land_road(cell)
+
+
 func _is_land_road(cell: Vector2i) -> bool:
 	if not road_cells.has(cell):
 		return false
 	var i: int = index_of(cell)
 	return water[i] == 0 and RoadTypes.gives_access(road_type[i])
+
+
+## Есть ли дорога рядом с построенным зданием (по фасадному краю или любой клетке участка).
+func has_building_road_access(building: BuildingInstance) -> bool:
+	return find_building_road(building) != NO_CELL
+
+
+## Ближайшая к зданию дорога: сначала у фасадного края (вход), иначе у любой клетки участка.
+func find_building_road(building: BuildingInstance) -> Vector2i:
+	var best: Vector2i = _closest_road_to_cells(building.front_cells())
+	if best != NO_CELL:
+		return best
+	if building.size == Vector2i.ONE:
+		return NO_CELL
+	return _closest_road_to_cells(building.cells())
+
+
+func _closest_road_to_cells(cells: Array[Vector2i]) -> Vector2i:
+	var best: Vector2i = NO_CELL
+	var best_dist: int = ROAD_ACCESS_RANGE + 1
+	for c: Vector2i in cells:
+		var road: Vector2i = find_nearest_road(c)
+		if road == NO_CELL:
+			continue
+		var d: int = absi(road.x - c.x) + absi(road.y - c.y)
+		if d < best_dist:
+			best_dist = d
+			best = road
+			if d == 1:
+				return best
+	return best
 
 
 ## Направление на ближайшую дорогу: 0..3 = N/E/S/W (биты как в get_road_mask), −1 — дороги нет.
@@ -338,36 +383,42 @@ func _update_zoned_cache(cell: Vector2i) -> void:
 
 # --- Здания ---
 
-## Ставит здание на пустую клетку. Какой тип на какой зоне — решает вызывающий.
-## clear_zone — стереть зону клетки (служебные здания: после их сноса дом не вырастет).
+## Ставит здание на пустой участок (левая верхняя клетка — cell, габариты — из типа и orientation).
+## clear_zone — стереть зону клеток (служебные здания: после их сноса дом не вырастет).
 ## Возвращает номер экземпляра или −1. Сигнал шлёт вызывающий (пакетом).
 func place_building(type_id: StringName, cell: Vector2i, orientation: int, clear_zone: bool = false) -> int:
-	if not can_place_building(cell):
+	var data: BuildingData = BuildingCatalog.get_type(type_id)
+	var span: Vector2i = data.footprint(orientation) if data != null else Vector2i.ONE
+	if not can_place_building(cell, span):
 		return -1
-	var i: int = index_of(cell)
-	if clear_zone:
-		zone[i] = Zone.NONE
 	var id: int = next_building_id
 	next_building_id += 1
-	buildings[id] = BuildingInstance.new(id, type_id, cell, orientation)
+	var building := BuildingInstance.new(id, type_id, cell, orientation, span)
+	buildings[id] = building
 	buildings_version += 1
-	tile_type[i] = Tile.BUILDING
-	building_at[i] = id
-	_update_zoned_cache(cell)
+	for c: Vector2i in building.cells():
+		var i: int = index_of(c)
+		if clear_zone:
+			zone[i] = Zone.NONE
+		tile_type[i] = Tile.BUILDING
+		building_at[i] = id
+		_update_zoned_cache(c)
 	return id
 
 
-## Убирает здание. Клетка снова пустая, зона остаётся. Возвращает true, если здание было.
+## Убирает здание. Все его клетки снова пустые, зона остаётся. Возвращает true, если здание было.
 func remove_building(instance_id: int) -> bool:
 	var building: BuildingInstance = buildings.get(instance_id)
 	if building == null:
 		return false
-	var i: int = index_of(building.cell)
-	tile_type[i] = Tile.EMPTY
-	building_at[i] = -1
+	var occupied: Array[Vector2i] = building.cells()
 	buildings.erase(instance_id)
 	buildings_version += 1
-	_update_zoned_cache(building.cell)
+	for c: Vector2i in occupied:
+		var i: int = index_of(c)
+		tile_type[i] = Tile.EMPTY
+		building_at[i] = -1
+		_update_zoned_cache(c)
 	return true
 
 
@@ -400,9 +451,14 @@ func rebuild_caches() -> void:
 				tile_type[i] = Tile.EMPTY
 	var max_id: int = -1
 	for building: BuildingInstance in buildings.values():
-		var i: int = index_of(building.cell)
-		tile_type[i] = Tile.BUILDING
-		building_at[i] = building.id
+		var data: BuildingData = BuildingCatalog.get_type(building.type_id)
+		if data != null:
+			building.size = data.footprint(building.orientation)
+		for c: Vector2i in building.cells():
+			if is_in_bounds(c):
+				var i: int = index_of(c)
+				tile_type[i] = Tile.BUILDING
+				building_at[i] = building.id
 		max_id = maxi(max_id, building.id)
 	next_building_id = maxi(next_building_id, max_id + 1)
 	buildings_version += 1

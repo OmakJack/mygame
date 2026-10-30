@@ -27,7 +27,7 @@ static func distribute(grid: CityGrid, network: RoadNetwork) -> Utilities:
 	var home_queue: Dictionary[int, Array] = {}
 	for building: BuildingInstance in grid.buildings.values():
 		var data: BuildingData = BuildingCatalog.get_type(building.type_id)
-		var component: int = network.component_for(grid, building.cell)
+		var component: int = network.component_for_building(grid, building)
 		if data == null or component == -1:
 			# Без дороги — без света и воды.
 			building.powered = false

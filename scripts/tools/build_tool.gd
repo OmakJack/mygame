@@ -190,23 +190,47 @@ func _update_drag(end: Vector2i) -> void:
 			_drag_cells = _rect_cells(_drag_start, _drag_end).filter(
 				func(cell: Vector2i) -> bool: return grid.can_zone(cell, zone_type))
 		Mode.PLACE:
-			# Здание ставится на клетку, где отпустили мышь.
+			# Здание ставится на участок с углом в клетке, где отпустили мышь.
 			var valid: bool = _can_place(_drag_end)
+			var target: Array[Vector2i] = _place_cells(_drag_end)
 			_drag_cells.clear()
 			if valid:
 				_drag_cells.append(_drag_end)
-			var target: Array[Vector2i] = [_drag_end]
 			preview.show_cells(target, CURSOR_COLORS[mode] if valid else INVALID_COLOR)
 			return
 	_drag_cells = _affordable(_drag_cells)
 	preview.show_cells(_drag_cells, CURSOR_COLORS[mode])
 
 
-## Можно ли поставить выбранное служебное здание: пустая клетка, дорога рядом, хватает денег.
+## Можно ли поставить выбранное служебное здание: пустой участок, дорога рядом, хватает денег.
 func _can_place(cell: Vector2i) -> bool:
 	var data: BuildingData = BuildingCatalog.get_type(place_type)
+	if data == null or not Economy.can_afford(data.cost):
+		return false
 	var grid: CityGrid = GameState.grid
-	return data != null and grid.can_place_building(cell) and grid.has_road_access(cell) 			and Economy.can_afford(data.cost)
+	var dir: int = maxi(0, grid.find_nearest_road_dir(cell))
+	var span: Vector2i = data.footprint(dir)
+	if not grid.can_place_building(cell, span):
+		return false
+	for dy: int in span.y:
+		for dx: int in span.x:
+			if grid.has_road_access(Vector2i(cell.x + dx, cell.y + dy)):
+				return true
+	return false
+
+
+func _place_cells(cell: Vector2i) -> Array[Vector2i]:
+	var data: BuildingData = BuildingCatalog.get_type(place_type)
+	var grid: CityGrid = GameState.grid
+	var dir: int = maxi(0, grid.find_nearest_road_dir(cell))
+	var span: Vector2i = data.footprint(dir) if data != null else Vector2i.ONE
+	var result: Array[Vector2i] = []
+	for dy: int in span.y:
+		for dx: int in span.x:
+			var c := Vector2i(cell.x + dx, cell.y + dy)
+			if grid.is_in_bounds(c):
+				result.append(c)
+	return result
 
 
 ## Обрезает клетки операции там, где кончаются деньги. Клетки, которые не изменятся
@@ -254,31 +278,39 @@ func _apply() -> void:
 		if cost > 0 and _would_change(cell) and not Economy.can_afford(cost):
 			break
 		var did_change: bool = false
+		var freed_cells: Array[Vector2i] = []
 		match mode:
 			Mode.ROAD, Mode.ROAD_AVENUE, Mode.ROAD_HIGHWAY:
 				did_change = grid.set_road(cell, MODE_ROADS[mode])
 			Mode.BULLDOZE:
+				var existing: BuildingInstance = grid.get_building_at(cell)
+				if existing != null:
+					freed_cells = existing.cells()
 				did_change = grid.bulldoze(cell)
 			Mode.ZONE_R, Mode.ZONE_C, Mode.ZONE_I, Mode.DEZONE, Mode.ZONE_R_HIGH, Mode.ZONE_C_HIGH, Mode.ZONE_O:
 				did_change = grid.set_zone(cell, MODE_ZONES[mode])
 		if did_change:
 			Economy.spend(cost)
-			changed.append(cell)
+			if not freed_cells.is_empty():
+				changed.append_array(freed_cells)
+			else:
+				changed.append(cell)
 	if not changed.is_empty():
 		Events.cells_changed.emit(changed)
 
 
-## Ставит служебное здание: стирает зону клетки, фасад к дороге, списывает цену.
+## Ставит служебное здание: стирает зону участка, фасад к дороге, списывает цену.
 func _apply_place(grid: CityGrid) -> void:
 	# Одно здание ставим только туда, где виден курсор: отпускание над панелью UI — отмена.
 	if not cursor.has_cell or _drag_cells.is_empty() or not _can_place(_drag_cells[0]):
 		return
 	var cell: Vector2i = _drag_cells[0]
 	var data: BuildingData = BuildingCatalog.get_type(place_type)
+	var dir: int = maxi(0, grid.find_nearest_road_dir(cell))
 	Economy.spend(data.cost)
-	grid.place_building(data.id, cell, grid.find_nearest_road_dir(cell), true)
-	var changed: Array[Vector2i] = [cell]
-	Events.cells_changed.emit(changed)
+	var id: int = grid.place_building(data.id, cell, dir, true)
+	if id != -1:
+		Events.cells_changed.emit(grid.buildings[id].cells())
 
 
 ## Путь буквой «Г»: сначала по длинной оси, потом по короткой.

@@ -159,22 +159,26 @@ static func _load_building(grid: CityGrid, entry: Dictionary, occupied: Dictiona
 	var data: BuildingData = BuildingCatalog.get_type(type_id)
 	if data == null:
 		return "пропущено здание неизвестного типа «%s»" % type_id
-	if not grid.is_in_bounds(cell):
-		return "пропущено здание за картой"
-	if grid.tile_type[grid.index_of(cell)] == CityGrid.Tile.ROAD or grid.is_water(cell) or occupied.has(cell):
-		return "пропущено здание на занятой клетке %s" % cell
 	if orientation < 0 or orientation > 3:
 		return "пропущено здание с неверным поворотом"
-	var building := BuildingInstance.new(id, type_id, cell, orientation)
+	var span: Vector2i = data.footprint(orientation)
+	var building := BuildingInstance.new(id, type_id, cell, orientation, span)
+	var cells: Array[Vector2i] = building.cells()
+	for c: Vector2i in cells:
+		if not grid.is_in_bounds(c):
+			return "пропущено здание за картой"
+		if grid.tile_type[grid.index_of(c)] == CityGrid.Tile.ROAD or grid.is_water(c) or occupied.has(c):
+			return "пропущено здание на занятой клетке %s" % c
 	building.no_road_ticks = maxi(0, _int(entry.get("nr"), 0))
 	building.no_power_ticks = maxi(0, _int(entry.get("np"), 0))
 	building.no_water_ticks = maxi(0, _int(entry.get("nw"), 0))
 	building.unhappy_ticks = maxi(0, _int(entry.get("nh"), 0))
 	grid.buildings[id] = building
-	occupied[cell] = true
-	# Под служебным зданием зоны нет (как при постройке): после сноса там не вырастет дом.
-	if data.zone == CityGrid.Zone.NONE:
-		grid.zone[grid.index_of(cell)] = CityGrid.Zone.NONE
+	for c: Vector2i in cells:
+		occupied[c] = true
+		# Под служебным зданием зоны нет (как при постройке): после сноса там не вырастет дом.
+		if data.zone == CityGrid.Zone.NONE:
+			grid.zone[grid.index_of(c)] = CityGrid.Zone.NONE
 	return ""
 
 

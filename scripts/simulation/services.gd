@@ -29,13 +29,14 @@ static func coverage(grid: CityGrid, population: int) -> Dictionary[BuildingData
 		if is_active(grid, building, data):
 			if not active.has(data.service):
 				active[data.service] = []
-			active[data.service].append([building.cell, data.service_radius])
+			for c: Vector2i in building.cells():
+				active[data.service].append([c, data.service_radius])
 
 	var result: Dictionary[BuildingData.Service, float] = {}
 	for service: BuildingData.Service in REQUIRED_FROM:
 		var covered: int = 0
 		for home: BuildingInstance in homes:
-			if _is_covered(home.cell, active.get(service, [])):
+			if _is_building_covered(home, active.get(service, [])):
 				covered += BuildingCatalog.get_type(home.type_id).population
 		result[service] = float(covered) / population if population > 0 else 0.0
 	return result
@@ -44,7 +45,7 @@ static func coverage(grid: CityGrid, population: int) -> Dictionary[BuildingData
 ## Здание службы работает: есть дорога, свет и вода.
 static func is_active(grid: CityGrid, building: BuildingInstance, data: BuildingData) -> bool:
 	return data.service != BuildingData.Service.NONE and building.powered and building.has_water \
-			and grid.has_road_access(building.cell)
+			and grid.has_building_road_access(building)
 
 
 ## Поправка жилого спроса от служб, которые уже нужны при таком населении.
@@ -56,10 +57,14 @@ static func demand_offset(coverage_by_service: Dictionary[BuildingData.Service, 
 	return offset
 
 
-static func _is_covered(cell: Vector2i, sources: Array) -> bool:
+static func _is_building_covered(building: BuildingInstance, sources: Array) -> bool:
+	var max_x: int = building.cell.x + building.size.x - 1
+	var max_y: int = building.cell.y + building.size.y - 1
 	for source: Array in sources:
-		var source_cell: Vector2i = source[0]
+		var sc: Vector2i = source[0]
 		var radius: int = source[1]
-		if absi(cell.x - source_cell.x) + absi(cell.y - source_cell.y) <= radius:
+		var nx: int = clampi(sc.x, building.cell.x, max_x)
+		var ny: int = clampi(sc.y, building.cell.y, max_y)
+		if absi(sc.x - nx) + absi(sc.y - ny) <= radius:
 			return true
 	return false

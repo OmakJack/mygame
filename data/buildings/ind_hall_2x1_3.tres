@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/blender/ind-2x1-l3.glb" id="1_buidu"]
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="1_yfue7"]
+
+[resource]
+script = ExtResource("1_yfue7")
+id = &"ind_hall_2x1_3"
+display_name = "Ангар · ур. 3"
+zone = 3
+size = Vector2i(2, 1)
+jobs = 48
+level = 3
+power_use = 18
+water_use = 12
+pollution = 40
+noise = 18
+model = ExtResource("1_buidu")

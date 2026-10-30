@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/blender/panel-3x1-l1.glb" id="1_3odij"]
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="1_ttrci"]
+
+[resource]
+script = ExtResource("1_ttrci")
+id = &"res_panel_3x1_1"
+display_name = "Панельный корпус · ур. 1"
+zone = 4
+size = Vector2i(3, 1)
+population = 180
+power_use = 18
+water_use = 18
+noise = 4
+model = ExtResource("1_3odij")

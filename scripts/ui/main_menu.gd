@@ -162,7 +162,7 @@ func _aim_camera() -> void:
 	var grid: CityGrid = GameState.grid
 	var cells: Array[Vector2i] = grid.road_cells.keys()
 	for building: BuildingInstance in grid.buildings.values():
-		cells.append(building.cell)
+		cells.append_array(building.cells())
 	if camera == null or cells.is_empty():
 		return
 	var sum := Vector2.ZERO

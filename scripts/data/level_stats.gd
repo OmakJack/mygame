@@ -15,14 +15,17 @@ const STATS: Dictionary = {
 }
 
 
-## Записывает цифры зоны и уровня в тип.
-static func apply(data: BuildingData, zone_type: CityGrid.Zone, level: int) -> void:
+## Записывает цифры зоны и уровня в тип с учётом размера участка (площади в клетках).
+static func apply(data: BuildingData, zone_type: CityGrid.Zone, level: int,
+		plot_size: Vector2i = Vector2i.ONE) -> void:
 	var stats: Array = STATS[zone_type][level - 1]
+	var cells: int = maxi(1, plot_size.x * plot_size.y)
 	data.zone = zone_type
 	data.level = level
-	data.population = stats[0]
-	data.jobs = stats[1]
-	data.power_use = stats[2]
-	data.water_use = stats[3]
+	data.size = plot_size
+	data.population = stats[0] * cells
+	data.jobs = stats[1] * cells
+	data.power_use = stats[2] * cells
+	data.water_use = stats[3] * cells
 	data.pollution = stats[4]
 	data.noise = stats[5]

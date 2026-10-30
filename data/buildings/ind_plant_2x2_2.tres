@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="1_0qvyd"]
+[ext_resource type="PackedScene" path="res://assets/models/blender/ind-2x2-l2.glb" id="1_b8sog"]
+
+[resource]
+script = ExtResource("1_0qvyd")
+id = &"ind_plant_2x2_2"
+display_name = "Завод · ур. 2"
+zone = 3
+size = Vector2i(2, 2)
+jobs = 64
+level = 2
+power_use = 24
+water_use = 16
+pollution = 35
+noise = 16
+model = ExtResource("1_b8sog")

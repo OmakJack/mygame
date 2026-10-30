@@ -1,6 +1,7 @@
 class_name BuildingData
 extends Resource
-## Описание типа здания (файл .tres в data/buildings/). Пока все здания 1×1.
+## Описание типа здания (файл .tres в data/buildings/ или генератор кода).
+## Размер участка в клетках — size (ширина вдоль фасада −Z × глубина от дороги +Z).
 ## zone = NONE — служебное здание: ставит игрок за cost, каждый день списывается upkeep.
 
 enum Service { NONE, SCHOOL, HEALTH, FIRE, POLICE }
@@ -12,6 +13,8 @@ enum Park { NONE, SQUARE, GARDEN, PLAZA }
 @export var display_name: String
 ## На какой зоне растёт. NONE — служебное здание.
 @export var zone: CityGrid.Zone = CityGrid.Zone.RESIDENTIAL
+## Размер участка в клетках при повороте 0 (N): x — вдоль улицы, y — вглубь квартала.
+@export var size: Vector2i = Vector2i.ONE
 ## Жители (для зданий R).
 @export var population: int = 0
 ## Рабочие места (для зданий C и I).
@@ -63,3 +66,13 @@ enum Park { NONE, SQUARE, GARDEN, PLAZA }
 @export var placeholder_color: Color = Color.WHITE
 ## Высота заглушки, метры.
 @export var placeholder_height: float = 1.5
+
+
+## Площадь участка в клетках.
+func area() -> int:
+	return maxi(1, size.x * size.y)
+
+
+## Габариты участка на сетке (X, Y) с учётом поворота 0..3 (N/E/S/W).
+func footprint(orientation: int) -> Vector2i:
+	return Vector2i(size.y, size.x) if posmod(orientation, 2) == 1 else size
