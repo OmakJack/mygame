@@ -4,6 +4,8 @@ extends MultiMeshInstance3D
 ## Каждая едет по пути из выборки GameState.traffic.sample_paths: дом → работа → дом,
 ## потом берёт новый путь. Правая полоса; внутри клетки — квадратичная кривая Безье
 ## от середины входного ребра к середине выходного (на прямой — прямая, на повороте — дуга).
+## Пешеходы и велосипедисты (PeopleVisualizer) — тот же код: переопределяют _paths, _target_count,
+## _speed, _lane_offset, _slowdown, _load_layers и _bob.
 
 const MAX_CARS: int = 300
 ## Сколько работников «изображает» одна машинка.
@@ -52,6 +54,8 @@ class Car extends RefCounted:
 	## Номер слоя (модели) в _layers.
 	var model: int = 0
 	var color := Color.WHITE
+	## Свой цвет одежды или рамы (INSTANCE_CUSTOM, BuildingPalette) — у пешеходов и велосипедистов.
+	var custom := Color(0, 0, 0, 0)
 
 
 var _cars: Array[Car] = []
@@ -66,6 +70,11 @@ var _seen_roads_version: int = -1
 
 func _ready() -> void:
 	_rng.randomize()
+	_load_layers()
+
+
+## Слои моделей: по MultiMesh на модель машины (пешеходы — свои модели).
+func _load_layers() -> void:
 	for path: String in CAR_MODELS:
 		if not ResourceLoader.exists(path):
 			continue
@@ -88,7 +97,7 @@ func _process(delta: float) -> void:
 	_check_roads()
 	_sync_car_count()
 	var grid: CityGrid = GameState.grid
-	var step: float = SPEED * SimClock.speed * delta
+	var step: float = _speed() * SimClock.speed * delta
 	var counts := PackedInt32Array()
 	counts.resize(_layers.size())
 	counts.fill(0)
@@ -101,6 +110,8 @@ func _process(delta: float) -> void:
 		layer.set_instance_transform(index, _car_transform(car, grid))
 		if layer.use_colors:
 			layer.set_instance_color(index, car.color)
+		if layer.use_custom_data:
+			layer.set_instance_custom_data(index, car.custom)
 	for i: int in _layers.size():
 		_layers[i].multimesh.visible_instance_count = counts[i]
 
@@ -146,12 +157,43 @@ static func _placeholder_mesh() -> ArrayMesh:
 	return mesh
 
 
-## Сколько машинок нужно: по числу работников, не больше MAX_CARS; без путей — ни одной.
+## Сколько машинок нужно: по числу работников на машинах, не больше MAX_CARS; без путей — ни одной.
 func _target_count() -> int:
 	var traffic: Traffic = GameState.traffic
-	if traffic.sample_paths.is_empty():
+	if _paths().is_empty():
 		return 0
-	return mini(MAX_CARS, roundi(traffic.total_workers / WORKERS_PER_CAR))
+	var drivers: float = maxf(0.0, traffic.total_workers - traffic.walkers - traffic.cyclists)
+	return mini(MAX_CARS, roundi(drivers / WORKERS_PER_CAR))
+
+
+## Откуда брать пути (машины — sample_paths).
+func _paths() -> Array[PackedInt32Array]:
+	return GameState.traffic.sample_paths
+
+
+## Скорость, клеток в секунду на ×1.
+func _speed() -> float:
+	return SPEED
+
+
+## Сдвиг от оси дороги вправо, метры.
+func _lane_offset() -> float:
+	return LANE_OFFSET
+
+
+## Во сколько раз медленнее на клетке с загрузкой ratio.
+func _slowdown(ratio: float) -> float:
+	return 1.0 + JAM_SLOWDOWN * minf(ratio, 2.0)
+
+
+## Подпрыгивание при ходьбе, метры (у машин нет).
+func _bob(_car: Car) -> float:
+	return 0.0
+
+
+## Новому агенту — свой вид (пешеходам — цвет одежды).
+func _dress(_car: Car) -> void:
+	pass
 
 
 func _sync_car_count() -> void:
@@ -162,6 +204,7 @@ func _sync_car_count() -> void:
 		var car := Car.new()
 		car.color = CAR_COLORS[_rng.randi_range(0, CAR_COLORS.size() - 1)]
 		car.model = _rng.rand_weighted(_weights)
+		_dress(car)
 		if not _assign_path(car):
 			break
 		# Новые машинки — в случайном месте пути и в случайную сторону, чтобы не ехали стаей.
@@ -172,7 +215,7 @@ func _sync_car_count() -> void:
 
 ## Новый путь из выборки (не короче двух клеток). false — подходящих путей нет.
 func _assign_path(car: Car) -> bool:
-	var paths: Array[PackedInt32Array] = GameState.traffic.sample_paths
+	var paths: Array[PackedInt32Array] = _paths()
 	var grid: CityGrid = GameState.grid
 	# Пустая выборка (дорогу только что снесли, трафик ещё не пересчитан) — путей нет.
 	if paths.is_empty():
@@ -212,7 +255,7 @@ static func _path_is_intact(path: PackedInt32Array, grid: CityGrid) -> bool:
 func _advance(car: Car, grid: CityGrid, step: float) -> void:
 	var index: int = _path_index(car, mini(int(car.progress), car.path.size() - 1))
 	var ratio: float = GameState.traffic.load_ratio(grid, index)
-	car.progress += step / (1.0 + JAM_SLOWDOWN * minf(ratio, 2.0))
+	car.progress += step / _slowdown(ratio)
 	if car.progress < car.path.size():
 		return
 	if car.forward:
@@ -234,7 +277,8 @@ func _car_transform(car: Car, grid: CityGrid) -> Transform3D:
 	var k: int = mini(int(car.progress), count - 1)
 	var t: float = clampf(car.progress - k, 0.0, 1.0)
 	var cell: Vector2i = _cell_of(_path_index(car, k), grid)
-	var center: Vector3 = grid.grid_to_world(cell) + Vector3.UP * ROAD_TOP
+	var center: Vector3 = grid.grid_to_world(cell) + Vector3.UP * (ROAD_TOP + _bob(car))
+	var lane: float = _lane_offset()
 	var half: float = CityGrid.CELL_SIZE * 0.5
 	var has_prev: bool = k > 0
 	var has_next: bool = k < count - 1
@@ -245,9 +289,9 @@ func _car_transform(car: Car, grid: CityGrid) -> Transform3D:
 	var right_in := Vector3(-dir_in.z, 0.0, dir_in.x)
 	var right_out := Vector3(-dir_out.z, 0.0, dir_out.x)
 	# Середина входного и выходного рёбер клетки (на концах пути — центр), на правой полосе.
-	var p0: Vector3 = (center - dir_in * half if has_prev else center) + right_in * LANE_OFFSET
-	var p2: Vector3 = (center + dir_out * half if has_next else center) + right_out * LANE_OFFSET
-	var p1: Vector3 = center + (right_in + right_out) * 0.5 * LANE_OFFSET
+	var p0: Vector3 = (center - dir_in * half if has_prev else center) + right_in * lane
+	var p2: Vector3 = (center + dir_out * half if has_next else center) + right_out * lane
+	var p1: Vector3 = center + (right_in + right_out) * 0.5 * lane
 	var point: Vector3 = p0 * (1.0 - t) * (1.0 - t) + p1 * 2.0 * (1.0 - t) * t + p2 * t * t
 	var tangent: Vector3 = (p1 - p0) * 2.0 * (1.0 - t) + (p2 - p1) * 2.0 * t
 	if tangent.length_squared() < 0.0001:

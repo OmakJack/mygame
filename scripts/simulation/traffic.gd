@@ -27,6 +27,22 @@ const MAX_SAMPLE_PATHS: int = 120
 const COMMUTER_SHARE: float = 0.15
 const INFINITE: float = 1.0e20
 
+## Как добираться (пешеходы и велосипеды): время пешком и на велосипеде — на клетку пути;
+## машина — время по дорогам с пробками. Доли — по логиту: exp(−время / MODE_SPREAD).
+## Пешком — не дальше WALK_MAX клеток, на велосипеде — BIKE_MAX; по шоссе никто не идёт и не едет.
+## В пробке машина медленнее — часть людей пересаживается на велосипед или идёт пешком,
+## и пробка рассасывается: на дороги идёт только доля машин.
+const WALK_COST: float = 2.5
+const BIKE_COST: float = 2.2
+## Велосипед ещё достать и поставить.
+const BIKE_EXTRA: float = 4.0
+const WALK_MAX: int = 12
+const BIKE_MAX: int = 30
+const MODE_SPREAD: float = 4.0
+const MAX_PEOPLE_PATHS: int = 80
+## С какой доли пеших (велосипедистов) путь дома попадает в выборку для фигурок.
+const PEOPLE_PATH_SHARE: float = 0.12
+
 ## Нагрузка по индексу клетки (поездок за день).
 var road_load := PackedFloat32Array()
 ## id дома → тяжесть поездки в [0, 1] (1 — работы не достать).
@@ -38,6 +54,31 @@ var long_commute_share: float = 0.0
 var total_workers: float = 0.0
 ## Выборка путей (индексы клеток от дороги дома до дороги работы) — для машинок.
 var sample_paths: Array[PackedInt32Array] = []
+## Выборки путей пешеходов и велосипедистов — для фигурок на тротуарах.
+var walk_paths: Array[PackedInt32Array] = []
+var bike_paths: Array[PackedInt32Array] = []
+## Сколько работников (жителей города) идут пешком и едут на велосипеде.
+var walkers: float = 0.0
+var cyclists: float = 0.0
+
+
+## Доли способов добраться до работы: Vector3(машина, велосипед, пешком).
+## car_time — время на машине с пробками; length — длина пути в клетках; highway — путь идёт по шоссе.
+static func mode_shares(car_time: float, length: float, highway: bool) -> Vector3:
+	if highway:
+		return Vector3(1.0, 0.0, 0.0)
+	var car: float = exp(-car_time / MODE_SPREAD)
+	var bike: float = exp(-(length * BIKE_COST + BIKE_EXTRA) / MODE_SPREAD) if length <= BIKE_MAX else 0.0
+	var walk: float = exp(-length * WALK_COST / MODE_SPREAD) if length <= WALK_MAX else 0.0
+	var sum: float = car + bike + walk
+	if sum <= 0.0:
+		return Vector3(1.0, 0.0, 0.0)
+	return Vector3(car, bike, walk) / sum
+
+
+## Время поездки по способу: машина — car_time, велосипед и пешком — по длине пути.
+static func mode_times(car_time: float, length: float) -> Vector3:
+	return Vector3(car_time, length * BIKE_COST + BIKE_EXTRA, length * WALK_COST)
 
 
 ## Поправка жилого спроса.
@@ -129,6 +170,11 @@ static func compute(grid: CityGrid) -> Traffic:
 	source_of.resize(cell_count)
 	var flow_at := PackedFloat32Array()
 	flow_at.resize(cell_count)
+	# Длина пути до работы в клетках и есть ли на нём шоссе — для пешеходов и велосипедов.
+	var hops := PackedInt32Array()
+	hops.resize(cell_count)
+	var via_highway := PackedByteArray()
+	via_highway.resize(cell_count)
 	var sample_stride: int = maxi(1, ceili(float(home_count * SUB_PASSES) / MAX_SAMPLE_PATHS))
 
 	for pass_index: int in SUB_PASSES:
@@ -142,18 +188,41 @@ static func compute(grid: CityGrid) -> Traffic:
 		# Клетки в порядке Дейкстры: «следующая» клетка всегда раньше — источник протягиваем вперёд.
 		for cell: int in order:
 			source_of[cell] = cell if next[cell] == -1 else source_of[next[cell]]
+			var on_highway: int = 1 if grid.road_type[cell] == RoadTypes.Type.HIGHWAY else 0
+			if next[cell] == -1:
+				hops[cell] = 0
+				via_highway[cell] = on_highway
+			else:
+				hops[cell] = hops[next[cell]] + 1
+				via_highway[cell] = on_highway | via_highway[next[cell]]
 
 		flow_at.fill(0.0)
 		for home: int in home_count:
 			var start: int = home_road[home]
 			if dist[start] >= INFINITE:
 				continue
-			flow_at[start] += home_workers[home] / SUB_PASSES
+			var flow: float = home_workers[home] / SUB_PASSES
 			# Штраф переполненной работы — только для выбора пути, во время дороги не входит.
-			commute_sum[home] += dist[start] - penalty[source_of[start]] + home_access[home]
+			var car_time: float = dist[start] - penalty[source_of[start]] + home_access[home]
+			var length: float = hops[start] + home_access[home]
+			# Приезжие с трассы — только на машинах.
+			var shares := Vector3(1.0, 0.0, 0.0)
+			if home_ids[home] >= 0:
+				shares = mode_shares(car_time, length, via_highway[start] == 1)
+				traffic.cyclists += flow * shares.y
+				traffic.walkers += flow * shares.z
+			# На дороги идут только машины; пешие и велосипедисты сразу «доходят» до работы.
+			flow_at[start] += flow * shares.x
+			arrivals[source_of[start]] += flow * (shares.y + shares.z)
+			commute_sum[home] += shares.dot(mode_times(car_time, length))
 			reached[home] += 1
-			if (home + pass_index) % sample_stride == 0 and traffic.sample_paths.size() < MAX_SAMPLE_PATHS:
-				traffic.sample_paths.append(_walk(start, next))
+			if (home + pass_index) % sample_stride == 0:
+				if traffic.sample_paths.size() < MAX_SAMPLE_PATHS and shares.x >= PEOPLE_PATH_SHARE:
+					traffic.sample_paths.append(_walk(start, next))
+				if traffic.bike_paths.size() < MAX_PEOPLE_PATHS and shares.y >= PEOPLE_PATH_SHARE:
+					traffic.bike_paths.append(_walk(start, next))
+				if traffic.walk_paths.size() < MAX_PEOPLE_PATHS and shares.z >= PEOPLE_PATH_SHARE:
+					traffic.walk_paths.append(_walk(start, next))
 		# Пути образуют дерево к местам работы: поток собираем одним проходом с конца порядка Дейкстры
 		# (O(дороги) вместо O(дома · длина пути)).
 		for i: int in range(order.size() - 1, -1, -1):

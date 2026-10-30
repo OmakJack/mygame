@@ -167,6 +167,12 @@ func _show_traffic() -> void:
 	var tip: String = "Клеток дорог с пробкой: %d\nСреднее время до работы: %.1f (норма до %d)\nДалеко до работы: %d%% работников"
 	%TrafficLabel.tooltip_text = tip % [traffic.jammed_cells, traffic.average_commute,
 			roundi(Traffic.OK_COMMUTE), roundi(traffic.long_commute_share * 100.0)]
+	if traffic.total_workers > 0.0:
+		var walk: float = traffic.walkers / traffic.total_workers
+		var bike: float = traffic.cyclists / traffic.total_workers
+		%TrafficLabel.tooltip_text += "\nНа работу: на машине %d%%, на велосипеде %d%%, пешком %d%%" % [
+				roundi((1.0 - walk - bike) * 100.0), roundi(bike * 100.0), roundi(walk * 100.0)]
+		%TrafficLabel.tooltip_text += "\nВ пробках люди пересаживаются на велосипед или идут пешком"
 	_mark_bad(%TrafficLabel, traffic.jammed_cells > 0)
 
 

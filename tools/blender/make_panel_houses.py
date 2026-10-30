@@ -10,81 +10,14 @@ BuildingPalette: стены (белый образец) получают отт�
 Размеры — в единицах Kenney (дом ~1 ед.), масштаб в игре задаёт генератор типов.
 """
 
-import math
 import os
+import sys
 
-import bpy
-
-ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-PALETTE = os.path.join(ROOT, "assets", "models", "kenney", "suburban", "Textures", "colormap.png")
-OUT_DIR = os.path.join(ROOT, "assets", "models", "blender")
-
-# Образцы палитры: (столбец, строка) в сетке 8×4 (строка 0 — чёрная полоса сверху).
-WALL = (3, 2)       # белый — стены (перекрашивается в оттенок района)
-ROOF = (0, 1)       # зелёный акцент — крыша и козырьки (перекрашивается в цвет крыши)
-GLASS = (5, 1)      # голубой — окна (не трогается)
-FRAME = (1, 2)      # серый — рамы, балконы
-DARK = (2, 2)       # тёмно-серый — цоколь, двери
-TRIM = (0, 2)       # светло-серый — пояса между этажами
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+from palette_builder import DARK, FRAME, GLASS, ROOF, TRIM, WALL, Builder, clear_scene, export_glb, palette_material  # noqa: E402
 
 FLOOR_H = 0.3
 WINDOW_STEP = 0.24
-
-
-def swatch_uv(swatch):
-    """Центр образца в UV Blender (v снизу вверх; glTF перевернёт обратно)."""
-    col, row = swatch
-    return ((col + 0.5) / 8.0, 1.0 - (row + 0.5) / 4.0)
-
-
-def palette_material():
-    material = bpy.data.materials.new("colormap")
-    material.use_nodes = True
-    nodes = material.node_tree.nodes
-    bsdf = nodes.get("Principled BSDF")
-    image = nodes.new("ShaderNodeTexImage")
-    image.image = bpy.data.images.load(PALETTE)
-    image.interpolation = "Closest"
-    material.node_tree.links.new(image.outputs["Color"], bsdf.inputs["Base Color"])
-    bsdf.inputs["Roughness"].default_value = 0.8
-    return material
-
-
-class Builder:
-    """Собирает одну модель из ящиков; каждый ящик — своего образца палитры."""
-
-    def __init__(self, name, material):
-        self.name = name
-        self.material = material
-        self.verts = []
-        self.faces = []
-        self.uvs = []
-
-    def box(self, center, size, swatch):
-        cx, cy, cz = center
-        sx, sy, sz = (s * 0.5 for s in size)
-        base = len(self.verts)
-        for dz in (-sz, sz):
-            for dy in (-sy, sy):
-                for dx in (-sx, sx):
-                    self.verts.append((cx + dx, cy + dy, cz + dz))
-        uv = swatch_uv(swatch)
-        for quad in ((0, 2, 3, 1), (4, 5, 7, 6), (0, 1, 5, 4), (2, 6, 7, 3), (0, 4, 6, 2), (1, 3, 7, 5)):
-            self.faces.append(tuple(base + i for i in quad))
-            self.uvs.append(uv)
-
-    def build(self):
-        mesh = bpy.data.meshes.new(self.name)
-        mesh.from_pydata(self.verts, [], self.faces)
-        layer = mesh.uv_layers.new(name="UVMap")
-        for poly, uv in zip(mesh.polygons, self.uvs):
-            for loop in poly.loop_indices:
-                layer.data[loop].uv = uv
-        mesh.materials.append(self.material)
-        mesh.validate()
-        obj = bpy.data.objects.new(self.name, mesh)
-        bpy.context.collection.objects.link(obj)
-        return obj
 
 
 def facade_windows(b, width, depth, floors, balconies, base_z):
@@ -117,8 +50,7 @@ def facade_windows(b, width, depth, floors, balconies, base_z):
 
 
 def panel_house(name, width, depth, floors, balconies, tower_roof):
-    for obj in list(bpy.data.objects):
-        bpy.data.objects.remove(obj, do_unlink=True)
+    clear_scene()
     material = palette_material()
     b = Builder(name, material)
     height = floors * FLOOR_H
@@ -139,13 +71,7 @@ def panel_house(name, width, depth, floors, balconies, tower_roof):
         b.box((-width * 0.2, depth * 0.1, height + 0.14), (0.25, 0.25, 0.24), WALL)
         b.box((-width * 0.2, depth * 0.1, height + 0.27), (0.29, 0.29, 0.03), ROOF)
         b.box((width * 0.3, -depth * 0.2, height + 0.3), (0.015, 0.015, 0.5), FRAME)
-    obj = b.build()
-    os.makedirs(OUT_DIR, exist_ok=True)
-    path = os.path.join(OUT_DIR, name + ".glb")
-    bpy.ops.object.select_all(action="DESELECT")
-    obj.select_set(True)
-    bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", use_selection=True, export_yup=True)
-    print("MODEL", path, "verts", len(obj.data.vertices))
+    export_glb(b.build(), name)
 
 
 # Три дома: «хрущёвка» (ур.1), девятиэтажка с балконами (ур.2), башня с надстройкой (ур.3).
