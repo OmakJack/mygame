@@ -7,6 +7,8 @@ extends SceneTree
 ## на них держатся сохранения. Новые наборы — новые id.
 
 const KENNEY := "res://assets/models/kenney/"
+## Свои модели из Blender (tools/blender) — в models/blender, путь в наборах начинается с «blender/».
+const MODELS := "res://assets/models/"
 const OUT := "res://data/buildings/"
 
 ## Наборы: зона, модели (id → модель), название, масштаб, уровни.
@@ -26,6 +28,10 @@ const SETS: Array[Dictionary] = [
 	{"zone": CityGrid.Zone.RESIDENTIAL_HIGH, "name": "Многоэтажка", "scale": 1.4,
 		"levels": {"res_block_f": 1, "res_block_g": 1, "res_block_l": 2, "res_block_m": 2, "res_block_n": 3},
 		"models": {}, "kit": "commercial/building-", "letters": "fglmn", "prefix": "res_block_"},
+	# Панельные дома из Blender (tools/blender/make_panel_houses.py), палитра Kenney.
+	{"zone": CityGrid.Zone.RESIDENTIAL_HIGH, "name": "Панельный дом", "scale": 1.4,
+		"levels": {"res_panel_a": 1, "res_panel_b": 2, "res_panel_c": 3},
+		"models": {}, "kit": "blender/panel-", "letters": "abc", "prefix": "res_panel_"},
 	{"zone": CityGrid.Zone.COMMERCIAL_HIGH, "name": "Торговый дом", "scale": 1.4,
 		"levels": {"com_tower_i": 1, "com_tower_k": 2, "com_tower_j": 3},
 		"models": {}, "kit": "commercial/building-", "letters": "ikj", "prefix": "com_tower_"},
@@ -74,7 +80,7 @@ func _initialize() -> void:
 			data.display_name = "%s %s · ур. %d" % [set.name, _letter(id), level]
 			data.grows = true
 			LevelStats.apply(data, set.zone, level)
-			data.model = load(KENNEY + models[id] + ".glb")
+			data.model = load(_model_path(models[id]))
 			data.model_scale = set.scale
 			_save(data)
 			created += 1
@@ -114,13 +120,17 @@ static func _rank(models: Dictionary) -> Dictionary:
 	var ids: Array = models.keys()
 	var volume: Dictionary = {}
 	for id: String in ids:
-		var box: AABB = ModelLoader.bounds(load(KENNEY + models[id] + ".glb"))
+		var box: AABB = ModelLoader.bounds(load(_model_path(models[id])))
 		volume[id] = box.size.x * box.size.y * box.size.z
 	ids.sort_custom(func(a: String, b: String) -> bool: return volume[a] < volume[b])
 	var levels: Dictionary = {}
 	for i: int in ids.size():
 		levels[ids[i]] = 1 + mini(2, i * 3 / ids.size())
 	return levels
+
+
+static func _model_path(relative: String) -> String:
+	return (MODELS if relative.begins_with("blender/") else KENNEY) + relative + ".glb"
 
 
 static func _letter(id: String) -> String:

@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/blender/panel-a.glb" id="1_yd2r3"]
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="2_b5j71"]
+
+[resource]
+script = ExtResource("2_b5j71")
+id = &"res_panel_a"
+display_name = "Панельный дом A · ур. 1"
+zone = 4
+population = 60
+power_use = 6
+water_use = 6
+noise = 4
+model = ExtResource("1_yd2r3")
+model_scale = 1.4

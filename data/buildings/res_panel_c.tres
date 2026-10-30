@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/blender/panel-c.glb" id="1_skfal"]
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="2_ysohj"]
+
+[resource]
+script = ExtResource("2_ysohj")
+id = &"res_panel_c"
+display_name = "Панельный дом C · ур. 3"
+zone = 4
+population = 120
+level = 3
+power_use = 12
+water_use = 12
+noise = 6
+model = ExtResource("1_skfal")
+model_scale = 1.4
