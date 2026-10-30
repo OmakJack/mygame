@@ -126,6 +126,10 @@ func _refresh() -> void:
 		_title.text = "Пустой участок"
 		var zone: CityGrid.Zone = grid.get_zone(cell)
 		_subtitle.text = _zone_name(zone)
+		var lot: CityGrid.Lot = grid.get_lot(cell)
+		if lot != null:
+			var lot_size: Vector2i = lot.building_size()
+			_add("Участок", "%d×%d — здание на %d кл." % [lot_size.x, lot_size.y, lot_size.x * lot_size.y])
 		_icon.texture = UiTheme.icon(_zone_icon(zone))
 	if not grid.is_water(cell) or grid.is_road(cell):
 		var value: int = land.building_value(land.land_value, grid, building) if building != null \

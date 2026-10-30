@@ -57,6 +57,7 @@ static func to_dict(grid: CityGrid, city_name: String, money: int, tax_rate: int
 			"zones": Marshalls.raw_to_base64(grid.zone),
 			"water": Marshalls.raw_to_base64(grid.water),
 			"entry": [grid.entry.x, grid.entry.y, grid.entry_dir, grid.highway_cells.size()] if grid.has_entry() else [],
+			"lots": _lots_to_list(grid),
 		},
 		"buildings": buildings,
 	}
@@ -127,6 +128,15 @@ static func from_dict(data: Variant) -> LoadResult:
 		if not problem.is_empty():
 			result.warnings.append(problem)
 	grid.rebuild_caches()
+	# Участки: [x, y, ширина, глубина по сетке, сторона фасада]; нет поля — клетки растут по одной.
+	var raw_lots: Variant = grid_data.get("lots", [])
+	if raw_lots is Array:
+		var skipped: int = 0
+		for entry_lot: Variant in raw_lots:
+			if not _load_lot(grid, entry_lot):
+				skipped += 1
+		if skipped > 0:
+			result.warnings.append("пропущено участков: %d" % skipped)
 	# Въезд трассы: [x, y, направление, длина]; нет поля — без въезда (старые сохранения растут как раньше).
 	var entry: Variant = grid_data.get("entry", [])
 	if entry is Array and (entry as Array).size() == 4:
@@ -146,6 +156,30 @@ static func from_dict(data: Variant) -> LoadResult:
 	result.grid = grid
 	result.ok = true
 	return result
+
+
+static func _lots_to_list(grid: CityGrid) -> Array:
+	var list: Array = []
+	for lot: CityGrid.Lot in grid.lots.values():
+		list.append([lot.rect.position.x, lot.rect.position.y, lot.rect.size.x, lot.rect.size.y, lot.dir])
+	return list
+
+
+## Участок из сохранения: все клетки на карте и с зоной, размер до 7 клеток. false — пропущен.
+static func _load_lot(grid: CityGrid, entry: Variant) -> bool:
+	if not entry is Array or (entry as Array).size() != 5:
+		return false
+	var rect := Rect2i(_int(entry[0], -1), _int(entry[1], -1), _int(entry[2], 0), _int(entry[3], 0))
+	var dir: int = _int(entry[4], -1)
+	if rect.size.x < 1 or rect.size.y < 1 or rect.size.x * rect.size.y > 14 or dir < 0 or dir > 3:
+		return false
+	for y: int in range(rect.position.y, rect.end.y):
+		for x: int in range(rect.position.x, rect.end.x):
+			var cell := Vector2i(x, y)
+			if not grid.is_in_bounds(cell) or grid.get_zone(cell) == CityGrid.Zone.NONE or grid.get_lot(cell) != null:
+				return false
+	grid.add_lot(rect, dir)
+	return true
 
 
 ## Добавляет здание в grid.buildings. Возвращает причину пропуска или "".

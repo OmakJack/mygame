@@ -18,6 +18,11 @@ var size: int
 var tile_type: PackedByteArray
 var zone: PackedByteArray
 var building_at: PackedInt32Array
+## Участок клетки (как в Cities: Skylines): номер в lots или −1. Участок задаёт игрок разметкой зоны:
+## на нём вырастает ровно одно здание его размера (LotPlanner делит большое выделение на участки).
+var lot_at: PackedInt32Array
+var lots: Dictionary[int, Lot] = {}
+var next_lot_id: int = 0
 ## Вода (фаза 9): 1 — вода, 0 — суша. Отдельный слой: дорога-мост лежит поверх воды, после сноса вода остаётся.
 var water: PackedByteArray
 ## Тип дороги на клетке (RoadTypes.Type, фаза 11): 0 — нет дороги, 1 — улица, 2 — проспект, 3 — шоссе.
@@ -77,6 +82,8 @@ func _init(p_size: int = GRID_SIZE) -> void:
 	zone.fill(Zone.NONE)
 	building_at.resize(count)
 	building_at.fill(-1)
+	lot_at.resize(count)
+	lot_at.fill(-1)
 	water.resize(count)
 	water.fill(0)
 	road_type.resize(count)
@@ -210,6 +217,7 @@ func set_road(cell: Vector2i, type: int = RoadTypes.Type.STREET) -> bool:
 		roads_version += 1
 		return true
 	tile_type[i] = Tile.ROAD
+	_dissolve_lot_at(cell)
 	zone[i] = Zone.NONE
 	road_cells[cell] = true
 	roads_version += 1
@@ -289,9 +297,76 @@ static func _same_density_family(a: Zone, b: Zone) -> bool:
 func set_zone(cell: Vector2i, zone_type: Zone) -> bool:
 	if not can_zone(cell, zone_type):
 		return false
+	if zone_type == Zone.NONE:
+		_dissolve_lot_at(cell)
 	zone[index_of(cell)] = zone_type
 	_update_zoned_cache(cell)
 	return true
+
+
+# --- Участки ---
+
+## Участок под одно здание: прямоугольник клеток и сторона фасада (к дороге, 0..3 = N/E/S/W).
+class Lot extends RefCounted:
+	var id: int
+	var rect: Rect2i
+	var dir: int
+
+	func _init(p_id: int, p_rect: Rect2i, p_dir: int) -> void:
+		id = p_id
+		rect = p_rect
+		dir = p_dir
+
+	## Размер типа здания для участка: x — вдоль фасада, y — вглубь (как BuildingData.size).
+	func building_size() -> Vector2i:
+		return rect.size if posmod(dir, 2) == 0 else Vector2i(rect.size.y, rect.size.x)
+
+	func cells() -> Array[Vector2i]:
+		var result: Array[Vector2i] = []
+		for y: int in range(rect.position.y, rect.end.y):
+			for x: int in range(rect.position.x, rect.end.x):
+				result.append(Vector2i(x, y))
+		return result
+
+
+## Участок клетки или null.
+func get_lot(cell: Vector2i) -> Lot:
+	if not is_in_bounds(cell):
+		return null
+	return lots.get(lot_at[index_of(cell)])
+
+
+## Новый участок (клетки, что были в других участках, сначала освобождаются от них). Номер участка.
+func add_lot(rect: Rect2i, dir: int) -> int:
+	for y: int in range(rect.position.y, rect.end.y):
+		for x: int in range(rect.position.x, rect.end.x):
+			var old: int = lot_at[index_of(Vector2i(x, y))]
+			if old != -1:
+				dissolve_lot(old)
+	var id: int = next_lot_id
+	next_lot_id += 1
+	lots[id] = Lot.new(id, rect, dir)
+	for y: int in range(rect.position.y, rect.end.y):
+		for x: int in range(rect.position.x, rect.end.x):
+			lot_at[index_of(Vector2i(x, y))] = id
+	return id
+
+
+## Убирает участок: клетки остаются с зоной, но без участка (растут одиночными домами).
+func dissolve_lot(id: int) -> void:
+	var lot: Lot = lots.get(id)
+	if lot == null:
+		return
+	for cell: Vector2i in lot.cells():
+		if is_in_bounds(cell) and lot_at[index_of(cell)] == id:
+			lot_at[index_of(cell)] = -1
+	lots.erase(id)
+
+
+func _dissolve_lot_at(cell: Vector2i) -> void:
+	var id: int = lot_at[index_of(cell)]
+	if id != -1:
+		dissolve_lot(id)
 
 
 ## «Клетки нет» — для find_nearest_road.
@@ -467,4 +542,12 @@ func rebuild_caches() -> void:
 	for y: int in size:
 		for x: int in size:
 			_update_zoned_cache(Vector2i(x, y))
+	lot_at.fill(-1)
+	var max_lot: int = -1
+	for lot: Lot in lots.values():
+		for cell: Vector2i in lot.cells():
+			if is_in_bounds(cell):
+				lot_at[index_of(cell)] = lot.id
+		max_lot = maxi(max_lot, lot.id)
+	next_lot_id = maxi(next_lot_id, max_lot + 1)
 	roads_version += 1

@@ -35,6 +35,8 @@ const BUILT_ALPHA: float = 0.08
 ## Зона без доступа к дороге: тот же цвет, но тусклее и прозрачнее.
 const NO_ACCESS_DIM: float = 0.45
 const NO_ACCESS_ALPHA: float = 0.25
+## Через участок — чуть темнее: видно, на какие здания поделена разметка.
+const LOT_SHADE: float = 0.22
 
 const CLEAR := Color(0, 0, 0, 0)
 const SERVED := Color(0.2, 0.85, 0.3, 0.75)
@@ -188,6 +190,11 @@ func _zone_color(cell: Vector2i) -> Color:
 		color.a = NO_ACCESS_ALPHA
 	elif zone_type != CityGrid.Zone.NONE and grid.get_building_at(cell) != null:
 		color.a = BUILT_ALPHA
+	elif zone_type != CityGrid.Zone.NONE:
+		# Участки (размер будущего здания) — чередующимися оттенками, чтобы было видно, где какой.
+		var lot: CityGrid.Lot = grid.get_lot(cell)
+		if lot != null and lot.id % 2 == 1:
+			color = color.darkened(LOT_SHADE)
 	return color
 
 

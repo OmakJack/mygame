@@ -1,18 +1,15 @@
 class_name Growth
 extends RefCounted
-## Рост зданий: выбирает пустой участок с зоной, у компонента дорог которого хватает
-## свободного света и воды, и ставит на него здание от 1 до 7 клеток (если позволяет место).
+## Рост зданий (как в Cities: Skylines): размер здания задаёт игрок разметкой зоны.
+## Каждый участок (CityGrid.Lot, его нарезает LotPlanner) — одно здание ровно его размера, фасадом
+## к дороге. Клетки зоны без участка (старые сохранения, остатки после снятия зоны) растут по одной.
+## Выбирается свободный участок, у компонента дорог которого хватает света и воды; запас сразу уменьшается.
 ## Фаза 9: жильё не растёт в грязи; жильё и магазины выбирают землю подороже.
 
 ## С такого загрязнения жильё на клетке не растёт.
 const MAX_HOME_POLLUTION: int = 40
-## Из скольких случайных подходящих клеток выбирается самая дорогая.
+## Из скольких случайных подходящих участков выбирается самый дорогой.
 const VALUE_SAMPLES: int = 6
-## Веса корзин размеров [1 кл., 2..4 кл., 5..7 кл.], когда на участке хватает места.
-const BUCKET_WEIGHTS: Array[float] = [0.3, 0.35, 0.35]
-## Сколько клеток зоны осматривать в поисках крупного участка: у одной случайной клетки длинный
-## участок вдоль улицы (5–7 клеток) находится редко — мелкие дома успевают разбить ряд.
-const LOT_SEEDS: int = 8
 
 
 ## Ставит одно здание на зону zone_type. Возвращает левую верхнюю клетку или NO_CELL, если места нет.
@@ -21,176 +18,124 @@ static func grow_one(grid: CityGrid, zone_type: CityGrid.Zone, rng: RandomNumber
 	var types: Array[BuildingData] = BuildingCatalog.growable_types(zone_type)
 	if types.is_empty():
 		return CityGrid.NO_CELL
-
 	var by_size: Dictionary[Vector2i, Array] = {}
-	var min_power: int = 1 << 20
-	var min_water: int = 1 << 20
 	for data: BuildingData in types:
 		if not by_size.has(data.size):
 			by_size[data.size] = []
 		by_size[data.size].append(data)
-		min_power = mini(min_power, data.power_use)
-		min_water = mini(min_water, data.water_use)
-
-	# Нет запаса даже на самый маленький дом ни в одном компоненте — не перебираем клетки.
-	if not _has_any_capacity(utilities, min_power, min_water):
-		return CityGrid.NO_CELL
 
 	var empty_set: Dictionary = grid.zoned_empty_cells[zone_type]
 	var residential: bool = CityGrid.is_residential(zone_type)
 	var entry_comp: int = network.component_of.get(grid.entry, -2) if grid.has_entry() else -1
-	var candidates: Array[Vector2i] = []
+	# Кандидаты: [прямоугольник, сторона фасада, компонент дорог, размер типа].
+	var candidates: Array[Array] = []
+	var seen: Dictionary[int, bool] = {}
+	var unbuildable: Array[int] = []
 	for cell: Vector2i in empty_set:
-		if residential and land != null and land.value_at(land.pollution, grid, cell) >= MAX_HOME_POLLUTION:
+		var lot: CityGrid.Lot = grid.get_lot(cell)
+		var rect := Rect2i(cell, Vector2i.ONE)
+		var dir: int
+		var size := Vector2i.ONE
+		if lot != null:
+			if seen.has(lot.id):
+				continue
+			seen[lot.id] = true
+			rect = lot.rect
+			dir = lot.dir
+			size = lot.building_size()
+			if not by_size.has(size):
+				# Зону перекрасили, а у новой зоны нет зданий такого размера — участок распадается.
+				unbuildable.append(lot.id)
+				continue
+			if not _all_free(rect, empty_set):
+				continue
+		else:
+			dir = _best_1x1_dir(grid, cell)
+		if residential and land != null and _max_pollution(grid, land, rect) >= MAX_HOME_POLLUTION:
 			continue
-		var component: int = network.component_for(grid, cell)
-		if component == -1:
+		var component: int = _component_of(grid, network, rect, dir)
+		if component == -1 or (grid.has_entry() and component != entry_comp):
 			continue
-		# Новые жители и фирмы приезжают по трассе: участок должен быть связан с въездом.
-		if grid.has_entry() and component != entry_comp:
+		if not _component_fits(utilities, component, by_size[size][0]):
 			continue
-		if utilities.spare_power.get(component, 0) >= min_power \
-				and utilities.spare_water.get(component, 0) >= min_water:
-			candidates.append(cell)
+		candidates.append([rect, dir, component, size])
+	for id: int in unbuildable:
+		grid.dissolve_lot(id)
 	if candidates.is_empty():
 		return CityGrid.NO_CELL
 
 	var pick: int = rng.randi_range(0, candidates.size() - 1)
 	# Промзоне всё равно, где расти; жильё и магазины — на земле подороже.
 	if land != null and zone_type != CityGrid.Zone.INDUSTRIAL:
-		var best: int = land.value_at(land.land_value, grid, candidates[pick])
+		var best: int = _value(grid, land, candidates[pick][0])
 		for sample: int in VALUE_SAMPLES - 1:
 			var other: int = rng.randi_range(0, candidates.size() - 1)
-			var value: int = land.value_at(land.land_value, grid, candidates[other])
+			var value: int = _value(grid, land, candidates[other][0])
 			if value > best:
 				best = value
 				pick = other
-	var seed_cell: Vector2i = candidates[pick]
-
-	# Собираем все подходящие варианты участков по корзинам площади: 1, 2..4, 5..7+.
-	# Одиночный дом — только у выбранной (самой дорогой) клетки; крупные — ещё у нескольких случайных.
-	var seeds: Array[Vector2i] = [seed_cell]
-	for i: int in mini(LOT_SEEDS - 1, candidates.size() - 1):
-		seeds.append(candidates[rng.randi_range(0, candidates.size() - 1)])
-	var buckets: Array[Array] = [[], [], []]
-	var seen_lots: Dictionary = {}
-	for plot_size: Vector2i in by_size:
-		var sample_data: BuildingData = by_size[plot_size][0]
-		var area: int = plot_size.x * plot_size.y
-		if area == 1:
-			var comp_1x1: int = network.component_for(grid, seed_cell)
-			if comp_1x1 != -1 and _component_fits(utilities, comp_1x1, sample_data):
-				var dir_1x1: int = _best_1x1_dir(grid, seed_cell)
-				if dir_1x1 != -1:
-					buckets[0].append([plot_size, seed_cell, dir_1x1, comp_1x1])
-			continue
-		var bucket_idx: int = 2 if area >= 5 else 1
-		for seed: Vector2i in seeds:
-			for dir: int in 4:
-				var span: Vector2i = sample_data.footprint(dir)
-				for dy: int in span.y:
-					for dx: int in span.x:
-						var top_left := Vector2i(seed.x - dx, seed.y - dy)
-						var lot_key := [plot_size, top_left, dir]
-						if seen_lots.has(lot_key):
-							continue
-						seen_lots[lot_key] = true
-						var comp: int = _fit_lot(grid, empty_set, residential, land, network, utilities,
-								sample_data, top_left, span, dir, entry_comp)
-						if comp != -1:
-							buckets[bucket_idx].append([plot_size, top_left, dir, comp])
-
-	var chosen_bucket: Array = _pick_bucket(buckets, rng)
-	if chosen_bucket.is_empty():
-		return CityGrid.NO_CELL
-	var placement: Array = chosen_bucket[rng.randi_range(0, chosen_bucket.size() - 1)]
-	var chosen_size: Vector2i = placement[0]
-	var top_left: Vector2i = placement[1]
-	var orientation: int = placement[2]
-	var component: int = placement[3]
-	var options: Array = by_size[chosen_size]
+	var chosen: Array = candidates[pick]
+	var rect: Rect2i = chosen[0]
+	var options: Array = by_size[chosen[3]]
 	var data: BuildingData = options[rng.randi_range(0, options.size() - 1)]
-
-	var id: int = grid.place_building(data.id, top_left, orientation)
+	var id: int = grid.place_building(data.id, rect.position, chosen[1])
 	if id == -1:
 		return CityGrid.NO_CELL
 	# Новый дом сразу со светом и водой: запас под него мы только что проверили.
 	var building: BuildingInstance = grid.buildings[id]
 	building.powered = true
 	building.has_water = true
-	utilities.spare_power[component] -= data.power_use
-	utilities.spare_water[component] -= data.water_use
-	return top_left
+	utilities.spare_power[chosen[2]] -= data.power_use
+	utilities.spare_water[chosen[2]] -= data.water_use
+	return rect.position
 
 
-## Проверяет многоклеточный участок (top_left, span) фасадом dir к улице; возвращает компонент или −1.
-static func _fit_lot(grid: CityGrid, empty_set: Dictionary, residential: bool, land: LandValue,
-		network: RoadNetwork, utilities: Utilities, sample_data: BuildingData,
-		top_left: Vector2i, span: Vector2i, dir: int, entry_comp: int) -> int:
-	# Крупное здание ставится фасадом прямо вдоль улицы (первая линия), чтобы арки и витрины выходили на дорогу.
-	var step: Vector2i = CityGrid.NEIGHBORS[dir]
-	var front: Array[Vector2i] = BuildingInstance.edge_cells(top_left, span, dir)
-	var road_hits: int = 0
-	var first_road := CityGrid.NO_CELL
-	for fc: Vector2i in front:
-		var road_cell: Vector2i = fc + step
-		if grid.is_access_road(road_cell):
-			road_hits += 1
-			if first_road == CityGrid.NO_CELL:
-				first_road = road_cell
-	if road_hits * 2 < front.size() or first_road == CityGrid.NO_CELL:
-		return -1
-	var component: int = network.component_of.get(first_road, -1)
-	if component == -1 or (grid.has_entry() and component != entry_comp):
-		return -1
-	if not _component_fits(utilities, component, sample_data):
-		return -1
-	for dy: int in span.y:
-		for dx: int in span.x:
-			var c := Vector2i(top_left.x + dx, top_left.y + dy)
-			if not empty_set.has(c):
-				return -1
-			if residential and land != null and land.value_at(land.pollution, grid, c) >= MAX_HOME_POLLUTION:
-				return -1
-	return component
+static func _all_free(rect: Rect2i, empty_set: Dictionary) -> bool:
+	for y: int in range(rect.position.y, rect.end.y):
+		for x: int in range(rect.position.x, rect.end.x):
+			if not empty_set.has(Vector2i(x, y)):
+				return false
+	return true
+
+
+static func _max_pollution(grid: CityGrid, land: LandValue, rect: Rect2i) -> int:
+	var worst: int = 0
+	for y: int in range(rect.position.y, rect.end.y):
+		for x: int in range(rect.position.x, rect.end.x):
+			worst = maxi(worst, land.value_at(land.pollution, grid, Vector2i(x, y)))
+	return worst
+
+
+## Средняя цена земли участка.
+static func _value(grid: CityGrid, land: LandValue, rect: Rect2i) -> int:
+	var sum: int = 0
+	for y: int in range(rect.position.y, rect.end.y):
+		for x: int in range(rect.position.x, rect.end.x):
+			sum += land.value_at(land.land_value, grid, Vector2i(x, y))
+	return roundi(float(sum) / (rect.size.x * rect.size.y))
+
+
+## Компонент дорог участка: по дороге у фасада, иначе — ближайшей к любой его клетке.
+static func _component_of(grid: CityGrid, network: RoadNetwork, rect: Rect2i, dir: int) -> int:
+	for cell: Vector2i in BuildingInstance.edge_cells(rect.position, rect.size, dir):
+		var road: Vector2i = cell + CityGrid.NEIGHBORS[dir]
+		if grid.is_access_road(road):
+			return network.component_of.get(road, -1)
+	for y: int in range(rect.position.y, rect.end.y):
+		for x: int in range(rect.position.x, rect.end.x):
+			var component: int = network.component_for(grid, Vector2i(x, y))
+			if component != -1:
+				return component
+	return -1
 
 
 static func _best_1x1_dir(grid: CityGrid, cell: Vector2i) -> int:
 	for dir: int in 4:
 		if grid.is_access_road(cell + CityGrid.NEIGHBORS[dir]):
 			return dir
-	return grid.find_nearest_road_dir(cell)
-
-
-static func _pick_bucket(buckets: Array[Array], rng: RandomNumberGenerator) -> Array:
-	var total_weight: float = 0.0
-	for i: int in buckets.size():
-		if not buckets[i].is_empty():
-			total_weight += BUCKET_WEIGHTS[i]
-	if total_weight <= 0.0:
-		return []
-	var roll: float = rng.randf() * total_weight
-	var acc: float = 0.0
-	for i: int in buckets.size():
-		if buckets[i].is_empty():
-			continue
-		acc += BUCKET_WEIGHTS[i]
-		if roll <= acc:
-			return buckets[i]
-	for i: int in range(buckets.size() - 1, -1, -1):
-		if not buckets[i].is_empty():
-			return buckets[i]
-	return []
+	return maxi(0, grid.find_nearest_road_dir(cell))
 
 
 static func _component_fits(utilities: Utilities, component: int, data: BuildingData) -> bool:
 	return utilities.spare_power.get(component, 0) >= data.power_use \
 			and utilities.spare_water.get(component, 0) >= data.water_use
-
-
-static func _has_any_capacity(utilities: Utilities, need_power: int, need_water: int) -> bool:
-	for component: int in utilities.spare_power:
-		if utilities.spare_power[component] >= need_power \
-				and utilities.spare_water.get(component, 0) >= need_water:
-			return true
-	return false
