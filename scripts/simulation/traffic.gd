@@ -177,13 +177,21 @@ static func compute(grid: CityGrid) -> Traffic:
 	via_highway.resize(cell_count)
 	var sample_stride: int = maxi(1, ceili(float(home_count * SUB_PASSES) / MAX_SAMPLE_PATHS))
 
+	# Время проезда клетки без пробки: по типу дороги и ожиданию светофора на перекрёстке
+	# (поэтому пути выбирают проспекты и шоссе с меньшим числом остановок).
+	var base_cost := PackedFloat32Array()
+	base_cost.resize(cell_count)
+	for road: Vector2i in grid.road_cells:
+		var index: int = grid.index_of(road)
+		base_cost[index] = _cell_base_cost(grid, index) + TrafficLights.delay_at(grid, road)
+
 	for pass_index: int in SUB_PASSES:
 		# Набранная загрузка — в пересчёте на весь поток (прошло pass_index проходов из SUB_PASSES).
 		var scale: float = float(SUB_PASSES) / pass_index if pass_index > 0 else 0.0
 		for road: Vector2i in grid.road_cells:
 			var index: int = grid.index_of(road)
 			var ratio: float = traffic.road_load[index] * scale / _cell_capacity(grid, index)
-			cost[index] = _cell_base_cost(grid, index) + JAM_PENALTY * maxf(0.0, ratio - 1.0)
+			cost[index] = base_cost[index] + JAM_PENALTY * maxf(0.0, ratio - 1.0)
 		var order: PackedInt32Array = _dijkstra(grid, sources, jobs_at, arrivals, scale, cost, penalty, dist, next)
 		# Клетки в порядке Дейкстры: «следующая» клетка всегда раньше — источник протягиваем вперёд.
 		for cell: int in order:

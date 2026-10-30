@@ -14,7 +14,10 @@ const MARGIN_CELLS: int = 30
 const INSIDE_THRESHOLD: float = 0.2
 const OUTSIDE_THRESHOLD: float = 0.0
 const MAX_PER_CELL: int = 4
-const MAX_TREES: int = 7000
+## Предел деревьев. Деревья на карте не прореживаются; лес вокруг прореживается равномерно
+## по всей площади, чтобы уложиться в предел (раньше предел обрывал проход по строкам —
+## и нижняя половина поля оставалась голой).
+const MAX_TREES: int = 9000
 const SCALE_MIN: float = 1.6
 const SCALE_MAX: float = 2.4
 ## Насколько дерево может сдвинуться от центра клетки, метры.
@@ -60,13 +63,17 @@ func _rebuild() -> void:
 	var transforms: Array[Array] = []
 	for layer: MultiMeshInstance3D in _layers:
 		transforms.append([])
-	var total: int = 0
 	var rng := RandomNumberGenerator.new()
 	# Полоса трассы за картой (и по клетке с боков) — без деревьев.
 	var highway: Dictionary[Vector2i, bool] = {}
 	for cell: Vector2i in grid.outside_highway(MARGIN_CELLS):
 		for offset: Vector2i in [Vector2i.ZERO, Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
 			highway[cell + offset] = true
+	# Первый проход — сколько деревьев хочется на карте и вокруг; из этого — доля леса вокруг.
+	# Деревья карты считаются так, будто все клетки свободны: доля леса вокруг не зависит
+	# от стройки, и лес не перетасовывается при каждой новой зоне.
+	var wanted_inside: int = 0
+	var wanted_outside: int = 0
 	for y: int in range(-MARGIN_CELLS, grid.size + MARGIN_CELLS):
 		for x: int in range(-MARGIN_CELLS, grid.size + MARGIN_CELLS):
 			var cell := Vector2i(x, y)
@@ -74,28 +81,49 @@ func _rebuild() -> void:
 			if highway.has(cell):
 				continue
 			if inside:
-				var free: bool = _is_free(grid, cell)
-				_free[grid.index_of(cell)] = 1 if free else 0
-				if not free:
-					continue
-			var threshold: float = INSIDE_THRESHOLD if inside else OUTSIDE_THRESHOLD
-			var density: float = _noise.get_noise_2d(x, y)
-			if density < threshold or total >= MAX_TREES:
+				_free[grid.index_of(cell)] = 1 if _is_free(grid, cell) else 0
+			var count: int = _count_at(cell, inside)
+			if inside:
+				wanted_inside += count
+			else:
+				wanted_outside += count
+	var keep_outside: float = 1.0
+	if wanted_outside > 0:
+		keep_outside = clampf(float(MAX_TREES - wanted_inside) / wanted_outside, 0.0, 1.0)
+	for y: int in range(-MARGIN_CELLS, grid.size + MARGIN_CELLS):
+		for x: int in range(-MARGIN_CELLS, grid.size + MARGIN_CELLS):
+			var cell := Vector2i(x, y)
+			var inside: bool = grid.is_in_bounds(cell)
+			if highway.has(cell) or (inside and _free[grid.index_of(cell)] == 0):
+				continue
+			var count: int = _count_at(cell, inside)
+			if count == 0:
 				continue
 			rng.seed = hash(cell)
-			var count: int = clampi(1 + int((density - threshold) * 8.0), 1, MAX_PER_CELL)
 			for i: int in count:
 				var offset := Vector3(rng.randf_range(-JITTER, JITTER), 0.0, rng.randf_range(-JITTER, JITTER))
 				var basis := Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * rng.randf_range(SCALE_MIN, SCALE_MAX))
+				var layer: int = rng.randi_range(0, _layers.size() - 1)
+				# Лес вокруг — равномерно прореженный (решение по своему зерну клетки — стабильно).
+				if not inside and rng.randf() >= keep_outside:
+					continue
 				var center := Vector3((x + 0.5) * CityGrid.CELL_SIZE, 0.0, (y + 0.5) * CityGrid.CELL_SIZE)
-				transforms[rng.randi_range(0, _layers.size() - 1)].append(Transform3D(basis, center + offset))
-				total += 1
+				transforms[layer].append(Transform3D(basis, center + offset))
 	for i: int in _layers.size():
 		var multimesh: MultiMesh = _layers[i].multimesh
 		var list: Array = transforms[i]
 		multimesh.instance_count = list.size()
 		for k: int in list.size():
 			multimesh.set_instance_transform(k, list[k])
+
+
+## Сколько деревьев хочет клетка: по шуму; на карте порог выше (рощи реже), вокруг — лес.
+func _count_at(cell: Vector2i, inside: bool) -> int:
+	var threshold: float = INSIDE_THRESHOLD if inside else OUTSIDE_THRESHOLD
+	var density: float = _noise.get_noise_2d(cell.x, cell.y)
+	if density < threshold:
+		return 0
+	return clampi(1 + int((density - threshold) * 8.0), 1, MAX_PER_CELL)
 
 
 ## Сколько деревьев сейчас (для проверок).

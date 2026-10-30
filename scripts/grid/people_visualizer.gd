@@ -69,6 +69,11 @@ func _lane_offset() -> float:
 	return BIKE_LANE_OFFSET if cyclists else SIDEWALK_OFFSET
 
 
+## Пешеходы и велосипедисты не стоят в очереди и на светофорах (пока нет переходов).
+func _obeys_rules() -> bool:
+	return false
+
+
 ## Пробки пешеходов и велосипедистов не держат.
 func _slowdown(_ratio: float) -> float:
 	return 1.0
