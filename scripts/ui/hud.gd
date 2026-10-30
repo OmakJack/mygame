@@ -1,24 +1,25 @@
 class_name Hud
 extends CanvasLayer
-## Интерфейс: верхняя панель с показателями, подсказки, нижняя панель с вкладками инструментов.
+## Интерфейс: двухрядная верхняя панель с 3D-иконками показателей, подсказки,
+## нижняя док-панель с вкладками и 3D-карточками инструментов.
 ## Состояние напрямую не меняет: только сигналы Events и публичные SimClock.set_speed() / SaveManager.
 
 ## Вкладки инструментов. Инструменты — режимы BuildTool; здания — служебные из каталога
-## («utilities» — дают свет или воду, «services» — службы).
+## («utilities» — дают свет или воду, «services» — службы, «parks» — парки).
 const TABS: Array[Dictionary] = [
 	{"id": "roads", "name": "Дороги", "tools": [
-		{"mode": BuildTool.Mode.ROAD, "name": "Улица", "key": "R"},
-		{"mode": BuildTool.Mode.ROAD_AVENUE, "name": "Проспект", "key": "T"},
-		{"mode": BuildTool.Mode.ROAD_HIGHWAY, "name": "Шоссе", "key": "Y"},
+		{"mode": BuildTool.Mode.ROAD, "name": "Улица", "key": "R", "icon": "tool_road"},
+		{"mode": BuildTool.Mode.ROAD_AVENUE, "name": "Проспект", "key": "T", "icon": "tool_avenue"},
+		{"mode": BuildTool.Mode.ROAD_HIGHWAY, "name": "Шоссе", "key": "Y", "icon": "tool_highway"},
 	]},
 	{"id": "zones", "name": "Зоны", "tools": [
-		{"mode": BuildTool.Mode.ZONE_R, "name": "Жилая", "key": "1"},
-		{"mode": BuildTool.Mode.ZONE_C, "name": "Коммерция", "key": "2"},
-		{"mode": BuildTool.Mode.ZONE_I, "name": "Промзона", "key": "3"},
-		{"mode": BuildTool.Mode.DEZONE, "name": "Снять зону", "key": "4"},
-		{"mode": BuildTool.Mode.ZONE_R_HIGH, "name": "Многоэтажки", "key": "5"},
-		{"mode": BuildTool.Mode.ZONE_C_HIGH, "name": "Торговые дома", "key": "6"},
-		{"mode": BuildTool.Mode.ZONE_O, "name": "Офисы", "key": "7"},
+		{"mode": BuildTool.Mode.ZONE_R, "name": "Жилая", "key": "1", "icon": "tool_zone_r"},
+		{"mode": BuildTool.Mode.ZONE_C, "name": "Коммерция", "key": "2", "icon": "tool_zone_c"},
+		{"mode": BuildTool.Mode.ZONE_I, "name": "Промзона", "key": "3", "icon": "tool_zone_i"},
+		{"mode": BuildTool.Mode.DEZONE, "name": "Снять зону", "key": "4", "icon": "tool_dezone"},
+		{"mode": BuildTool.Mode.ZONE_R_HIGH, "name": "Многоэтажки", "key": "5", "icon": "tool_zone_r_high"},
+		{"mode": BuildTool.Mode.ZONE_C_HIGH, "name": "Торговые дома", "key": "6", "icon": "tool_zone_c_high"},
+		{"mode": BuildTool.Mode.ZONE_O, "name": "Офисы", "key": "7", "icon": "tool_zone_o"},
 	]},
 	{"id": "utilities", "name": "Свет и вода", "buildings": "utilities"},
 	{"id": "services", "name": "Службы", "buildings": "services"},
@@ -35,8 +36,8 @@ const DEMANDS: Array[Dictionary] = [
 	{"name": "C", "color": Color(0.25, 0.5, 0.95)},
 	{"name": "I", "color": Color(0.95, 0.75, 0.2)},
 ]
-## Размер карточки инструмента.
-const CARD_SIZE := Vector2(104, 58)
+## Размер карточки инструмента (с 3D-иконкой сверху).
+const CARD_SIZE := Vector2(106, 78)
 ## Сколько секунд висит сообщение о сохранении.
 const TOAST_SECONDS: float = 2.5
 
@@ -67,13 +68,14 @@ var _speed_before_confirm: int = 1
 func _ready() -> void:
 	var theme: Theme = UiTheme.build()
 	$Root.theme = theme
+	_build_rank_chips()
+	_decorate_top_bar()
 	_build_demand_bars()
 	_build_speed_buttons()
 	_build_tabs()
 	_build_bottom_extras()
 	_build_city_controls()
 	$Root.add_child(_info)
-	_build_rank_chips()
 	Events.rank_changed.connect(_on_rank_changed)
 	_new_city_confirm.theme = theme
 	for window: Node in _save_dialog.find_children("*", "Window", true, false):
@@ -92,6 +94,37 @@ func _ready() -> void:
 
 
 # --- Верхняя панель ---
+
+func _decorate_top_bar() -> void:
+	var top_row: Node = %DayLabel.get_parent()
+	var city_icon := UiTheme.make_chip_icon("menu_crest", 24)
+	top_row.add_child(city_icon)
+	top_row.move_child(city_icon, %DayLabel.get_index())
+	_attach_chip_icon(%MoneyLabel, "stat_money")
+	_attach_chip_icon(%PopLabel, "stat_pop")
+	_attach_chip_icon(_rank_label, "stat_rank")
+	_attach_chip_icon(%JobsLabel, "stat_jobs")
+	_attach_chip_icon(%PowerLabel, "stat_power")
+	_attach_chip_icon(%WaterLabel, "stat_water")
+	_attach_chip_icon(%TrafficLabel, "stat_traffic")
+
+
+func _attach_chip_icon(label: Label, icon_name: String) -> void:
+	var chip: Node = label.get_parent()
+	if chip == null:
+		return
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override(&"separation", 5)
+	row.mouse_filter = Control.MOUSE_FILTER_PASS
+	chip.remove_child(label)
+	row.add_child(UiTheme.make_chip_icon(icon_name, 19))
+	row.add_child(label)
+	chip.add_child(row)
+	# После переноса Godot сбрасывает owner — без него %MoneyLabel и другие уникальные имена
+	# не находятся, и верхняя панель перестаёт обновляться. Надписи из кода (звание) owner не нужен.
+	if label.unique_name_in_owner:
+		label.owner = self
+
 
 func _refresh_stats() -> void:
 	var balance: int = GameState.income - GameState.expenses
@@ -147,8 +180,7 @@ func _show_rank() -> void:
 		_rank_label.tooltip_text = "Следующее звание: %s (%d жителей), награда $%d" % [
 				Ranks.NAMES[rank + 1], Ranks.THRESHOLDS[rank + 1], Ranks.REWARDS[rank + 1]]
 		if not next_unlocks.is_empty():
-			_rank_label.tooltip_text += "
-Откроет: " + ", ".join(next_unlocks)
+			_rank_label.tooltip_text += "\nОткроет: " + ", ".join(next_unlocks)
 	var mood: int = GameState.happiness.average
 	if mood >= 0:
 		%PopLabel.text += " · счастье %d%%" % mood
@@ -168,12 +200,9 @@ func _sync_locks() -> void:
 					RoadTypes.NAMES[road_type], RoadTypes.CAPACITY[road_type], 1.0 / RoadTypes.TRAVEL_COST[road_type],
 					RoadTypes.UPKEEP[road_type]]
 			if road_type == RoadTypes.Type.HIGHWAY:
-				about += "
-Дома к шоссе не подключаются"
-			about += "
-Протяните поверх дороги другого типа — она заменится"
-			_tool_buttons[mode].tooltip_text = ("Откроется на звании «%s» (%d жителей)
-" % [Ranks.NAMES[rank],
+				about += "\nДома к шоссе не подключаются"
+			about += "\nПротяните поверх дороги другого типа — она заменится"
+			_tool_buttons[mode].tooltip_text = ("Откроется на звании «%s» (%d жителей)\n" % [Ranks.NAMES[rank],
 					Ranks.THRESHOLDS[rank]] if road_locked else "") + about
 			continue
 		if not BuildTool.MODE_ZONES.has(mode) or mode == BuildTool.Mode.DEZONE:
@@ -304,7 +333,7 @@ func _add_tool_card(row: HBoxContainer, category: String, tool: Dictionary) -> v
 	var mode: int = tool.mode
 	var cost: int = BuildTool.cost_of(mode)
 	var price: String = ("$%d/кл. · " % cost) if cost > 0 else ""
-	var button := _make_card("%s\n%s%s" % [tool.name, price, tool.key], category)
+	var button := _make_card("%s\n%s%s" % [tool.name, price, tool.key], category, tool.get("icon", ""))
 	button.pressed.connect(func() -> void:
 		Events.tool_requested.emit(mode)
 		_sync_tool_buttons())
@@ -313,7 +342,7 @@ func _add_tool_card(row: HBoxContainer, category: String, tool: Dictionary) -> v
 
 
 func _add_building_card(row: HBoxContainer, category: String, data: BuildingData) -> void:
-	var button := _make_card("%s\n$%d" % [data.display_name, data.cost], category)
+	var button := _make_card("%s\n$%d" % [data.display_name, data.cost], category, String(data.id))
 	button.tooltip_text = _service_tooltip(data)
 	var type_id: StringName = data.id
 	button.pressed.connect(func() -> void:
@@ -326,8 +355,8 @@ func _add_building_card(row: HBoxContainer, category: String, data: BuildingData
 ## «Снос» и переключатель слоя карты — рядом с вкладками, всегда под рукой.
 func _build_bottom_extras() -> void:
 	%Tabs.add_child(VSeparator.new())
-	var bulldoze := _make_card("Снос\nB", "bulldoze")
-	bulldoze.custom_minimum_size = Vector2(72, 0)
+	var bulldoze := _make_card("Снос [B]", "bulldoze", "tool_bulldoze", false)
+	bulldoze.custom_minimum_size = Vector2(104, 38)
 	bulldoze.pressed.connect(func() -> void:
 		Events.tool_requested.emit(BuildTool.Mode.BULLDOZE)
 		_sync_tool_buttons())
@@ -341,12 +370,18 @@ func _build_bottom_extras() -> void:
 		event.action = &"overlay_next"
 		event.pressed = true
 		Input.parse_input_event(event))
+	var ov_row := HBoxContainer.new()
+	ov_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ov_row.set_anchors_preset(Control.PRESET_FULL_RECT)
+	ov_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	ov_row.add_theme_constant_override(&"separation", 6)
+	ov_row.add_child(UiTheme.make_chip_icon("tool_overlay", 20))
 	_overlay_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_overlay_label.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_overlay_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_overlay_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	overlay.custom_minimum_size = Vector2(150, 0)
-	overlay.add_child(_overlay_label)
+	ov_row.add_child(_overlay_label)
+	overlay.custom_minimum_size = Vector2(174, 38)
+	overlay.add_child(ov_row)
 	%Tabs.add_child(overlay)
 	# Уникальное имя — чтобы находить надпись как %OverlayLabel, хоть она и создана кодом.
 	_overlay_label.name = "OverlayLabel"
@@ -416,10 +451,10 @@ func _service_tooltip(data: BuildingData) -> String:
 	return "\n".join(lines)
 
 
-func _make_card(text: String, category: String) -> Button:
+func _make_card(text: String, category: String, icon_name: String = "", vertical_icon: bool = true) -> Button:
 	var button := _make_button(text, &"Card")
 	button.custom_minimum_size = CARD_SIZE
-	UiTheme.card_styles(button, category)
+	UiTheme.card_styles(button, category, icon_name, vertical_icon)
 	return button
 
 
@@ -473,7 +508,7 @@ func _build_city_controls() -> void:
 	_toast_label.theme_type_variation = &"Title"
 	# Под верхней панелью, по центру.
 	_toast.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	_toast.offset_top = 96.0
+	_toast.offset_top = 86.0
 	_toast.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	_toast.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_toast.visible = false
@@ -506,6 +541,8 @@ func _show_toast(text: String) -> void:
 	_toast_serial += 1
 	var serial: int = _toast_serial
 	_toast_label.text = text
+	# Под верхней панелью: её высота зависит от ширины окна (плашки переносятся на новые строки).
+	_toast.offset_top = $Root/Margin/Layout/TopBar.get_global_rect().end.y + 10.0
 	_toast.visible = true
 	await get_tree().create_timer(TOAST_SECONDS).timeout
 	if serial == _toast_serial:

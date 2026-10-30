@@ -3,12 +3,13 @@ extends PanelContainer
 ## Карточка «Инфо» (фаза 9): клик по клетке без инструмента — что на ней и как ей живётся.
 ## Справа по центру; обновляется с каждым пересчётом города, закрывается крестиком.
 
-const WIDTH: float = 280.0
+const WIDTH: float = 296.0
 ## Ниже этого значения показатель хороший (загрязнение, шум) — красим, только если выше.
 const BAD_LEVEL: int = 40
 
 var cell := Vector2i(-1, -1)
 
+var _icon := TextureRect.new()
 var _title := Label.new()
 var _subtitle := Label.new()
 var _rows := GridContainer.new()
@@ -22,23 +23,35 @@ func _init() -> void:
 	grow_vertical = Control.GROW_DIRECTION_BOTH
 	offset_right = -12.0
 	var column := VBoxContainer.new()
-	column.add_theme_constant_override(&"separation", 6)
+	column.add_theme_constant_override(&"separation", 8)
 	add_child(column)
 	var head := HBoxContainer.new()
+	head.add_theme_constant_override(&"separation", 10)
 	column.add_child(head)
+	_icon.custom_minimum_size = Vector2(40, 40)
+	_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	head.add_child(_icon)
+	var titles := VBoxContainer.new()
+	titles.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	titles.add_theme_constant_override(&"separation", 1)
+	head.add_child(titles)
 	_title.theme_type_variation = &"Title"
 	_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	head.add_child(_title)
+	titles.add_child(_title)
+	_subtitle.theme_type_variation = &"Caption"
+	titles.add_child(_subtitle)
 	var close := Button.new()
 	close.text = "×"
 	close.theme_type_variation = &"Small"
 	close.focus_mode = Control.FOCUS_NONE
+	close.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	close.tooltip_text = "Закрыть"
 	close.pressed.connect(hide)
 	head.add_child(close)
-	_subtitle.theme_type_variation = &"Caption"
-	column.add_child(_subtitle)
+	column.add_child(HSeparator.new())
 	_rows.columns = 2
 	_rows.add_theme_constant_override(&"h_separation", 16)
 	_rows.add_theme_constant_override(&"v_separation", 4)
@@ -72,6 +85,7 @@ func _refresh() -> void:
 	if data != null:
 		_title.text = data.display_name
 		_subtitle.text = _kind(data)
+		_icon.texture = UiTheme.icon(_building_icon(data))
 		if data.population > 0:
 			_add("Жители", str(data.population))
 		if data.jobs > 0:
@@ -92,6 +106,7 @@ func _refresh() -> void:
 	elif grid.is_road(cell):
 		var road_type: int = grid.get_road_type(cell)
 		_title.text = RoadTypes.NAMES.get(road_type, "Дорога") + (" · мост" if grid.is_water(cell) else "")
+		_icon.texture = UiTheme.icon(_road_icon(road_type))
 		var ratio: float = GameState.traffic.load_ratio(grid, grid.index_of(cell))
 		_subtitle.text = "Трасса за город" if grid.highway_cells.has(cell) else "Загрузка %d%%" % roundi(ratio * 100.0)
 		_add("Пропускает", "%d поездок" % RoadTypes.CAPACITY.get(road_type, 0.0))
@@ -102,9 +117,12 @@ func _refresh() -> void:
 	elif grid.is_water(cell):
 		_title.text = "Вода"
 		_subtitle.text = "Дорога через воду — мост ($%d/кл.)" % Economy.BRIDGE_COST
+		_icon.texture = UiTheme.icon("stat_water")
 	else:
 		_title.text = "Пустой участок"
-		_subtitle.text = _zone_name(grid.get_zone(cell))
+		var zone: CityGrid.Zone = grid.get_zone(cell)
+		_subtitle.text = _zone_name(zone)
+		_icon.texture = UiTheme.icon(_zone_icon(zone))
 	if not grid.is_water(cell) or grid.is_road(cell):
 		var value: int = land.value_at(land.land_value, grid, cell)
 		var pollution: int = land.value_at(land.pollution, grid, cell)
@@ -149,6 +167,39 @@ func _add(label_text: String, value_text: String, bad: bool = false) -> void:
 	if bad:
 		value.add_theme_color_override(&"font_color", UiTheme.BAD)
 	_rows.add_child(value)
+
+
+static func _building_icon(data: BuildingData) -> String:
+	var id_str: String = String(data.id)
+	if UiTheme.icon(id_str) != null:
+		return id_str
+	return _zone_icon(data.zone)
+
+
+static func _zone_icon(zone: CityGrid.Zone) -> String:
+	match zone:
+		CityGrid.Zone.RESIDENTIAL:
+			return "tool_zone_r"
+		CityGrid.Zone.COMMERCIAL:
+			return "tool_zone_c"
+		CityGrid.Zone.INDUSTRIAL:
+			return "tool_zone_i"
+		CityGrid.Zone.RESIDENTIAL_HIGH:
+			return "tool_zone_r_high"
+		CityGrid.Zone.COMMERCIAL_HIGH:
+			return "tool_zone_c_high"
+		CityGrid.Zone.OFFICE:
+			return "tool_zone_o"
+	return "tool_overlay"
+
+
+static func _road_icon(road_type: int) -> String:
+	match road_type:
+		RoadTypes.Type.AVENUE:
+			return "tool_avenue"
+		RoadTypes.Type.HIGHWAY:
+			return "tool_highway"
+	return "tool_road"
 
 
 static func _kind(data: BuildingData) -> String:

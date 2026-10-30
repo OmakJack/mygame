@@ -8,7 +8,7 @@ const GAME_TITLE: String = "CityBuilder"
 const SUBTITLE: String = "Уютный градострой"
 ## Скорость облёта камеры за меню, градусов в секунду.
 const ORBIT_DEGREES: float = 4.0
-const BUTTON_SIZE := Vector2(300, 50)
+const BUTTON_SIZE := Vector2(316, 52)
 ## Какую долю ширины экрана город сдвинут вправо — из-под карточки меню.
 const VIEW_SHIFT: float = 0.17
 const SHADE_SHADER: String = """
@@ -205,40 +205,54 @@ func _build() -> void:
 
 	var card := PanelContainer.new()
 	card.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	card.add_theme_stylebox_override(&"panel", UiTheme.box(UiTheme.PAPER, UiTheme.LINE, 2, 18, Vector4(32, 28, 32, 28)))
+	var card_style := UiTheme.box(UiTheme.PAPER, UiTheme.LINE, 2, 18, Vector4(32, 28, 32, 28))
+	card_style.shadow_color = Color(0.08, 0.06, 0.04, 0.30)
+	card_style.shadow_size = 18
+	card_style.shadow_offset = Vector2(0, 6)
+	card.add_theme_stylebox_override(&"panel", card_style)
 	center.add_child(card)
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override(&"separation", 10)
 	card.add_child(column)
 
+	var header := HBoxContainer.new()
+	header.add_theme_constant_override(&"separation", 14)
+	column.add_child(header)
+	var crest := UiTheme.make_chip_icon("menu_crest", 76)
+	header.add_child(crest)
+	var title_box := VBoxContainer.new()
+	title_box.alignment = BoxContainer.ALIGNMENT_CENTER
+	title_box.add_theme_constant_override(&"separation", 2)
+	header.add_child(title_box)
+
 	var title := Label.new()
 	title.text = GAME_TITLE
 	title.theme_type_variation = &"Title"
-	title.add_theme_font_size_override(&"font_size", 44)
-	column.add_child(title)
+	title.add_theme_font_size_override(&"font_size", 40)
+	title_box.add_child(title)
 	var subtitle := Label.new()
 	subtitle.text = SUBTITLE
 	subtitle.theme_type_variation = &"Caption"
 	subtitle.add_theme_font_size_override(&"font_size", 16)
-	column.add_child(subtitle)
+	title_box.add_child(subtitle)
 	var gap := Control.new()
-	gap.custom_minimum_size = Vector2(0, 14)
+	gap.custom_minimum_size = Vector2(0, 10)
 	column.add_child(gap)
 
-	_continue_button = _make_button("Продолжить", "zones", func() -> void: close())
+	_continue_button = _make_button("Продолжить", "zones", "stat_pop", func() -> void: close())
 	_continue_button.custom_minimum_size = Vector2(BUTTON_SIZE.x, 62)
 	# Главная кнопка — залита цветом.
 	var color: Color = UiTheme.CATEGORY_COLORS["zones"]
-	var filled := UiTheme.box(color, color.darkened(0.25), 2, 10, Vector4(12, 8, 12, 10))
-	var filled_hover := UiTheme.box(color.lightened(0.1), color.darkened(0.25), 2, 10, Vector4(12, 8, 12, 10))
+	var filled := UiTheme.box(color, color.darkened(0.25), 2, 10, Vector4(14, 8, 14, 10))
+	var filled_hover := UiTheme.box(color.lightened(0.1), color.darkened(0.25), 2, 10, Vector4(14, 8, 14, 10))
 	_continue_button.add_theme_stylebox_override(&"normal", filled)
 	_continue_button.add_theme_stylebox_override(&"hover", filled_hover)
 	_continue_button.add_theme_color_override(&"font_color", Color.WHITE)
 	_continue_button.add_theme_color_override(&"font_hover_color", Color.WHITE)
 	column.add_child(_continue_button)
-	column.add_child(_make_button("Новый город", "roads", _on_new_city))
-	column.add_child(_make_button("Города", "utilities", _on_cities))
-	column.add_child(_make_button("Выход", "services", _on_quit))
+	column.add_child(_make_button("Новый город", "roads", "tool_road", _on_new_city))
+	column.add_child(_make_button("Города", "utilities", "stat_rank", _on_cities))
+	column.add_child(_make_button("Выход", "services", "tool_dezone", _on_quit))
 
 	var hint := Label.new()
 	hint.text = "Esc в игре — это меню"
@@ -264,14 +278,14 @@ func _build() -> void:
 			open())
 
 
-## Широкая кнопка в стиле карточки, с цветной полоской категории.
-func _make_button(text: String, category: String, action: Callable) -> Button:
+## Широкая кнопка в стиле карточки, с 3D-иконкой слева и цветной полоской категории.
+func _make_button(text: String, category: String, icon_name: String, action: Callable) -> Button:
 	var button := Button.new()
 	button.text = text
 	button.theme_type_variation = &"Card"
 	button.custom_minimum_size = BUTTON_SIZE
 	button.focus_mode = Control.FOCUS_NONE
 	button.add_theme_font_size_override(&"font_size", 17)
-	UiTheme.card_styles(button, category)
+	UiTheme.card_styles(button, category, icon_name, false)
 	button.pressed.connect(action)
 	return button

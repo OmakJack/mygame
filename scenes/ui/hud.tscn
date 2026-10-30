@@ -35,113 +35,132 @@ theme_override_constants/separation = 8
 [node name="TopBar" type="PanelContainer" parent="Root/Margin/Layout"]
 layout_mode = 2
 
-[node name="Row" type="HFlowContainer" parent="Root/Margin/Layout/TopBar"]
+[node name="Rows" type="VBoxContainer" parent="Root/Margin/Layout/TopBar"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="TopRow" type="HFlowContainer" parent="Root/Margin/Layout/TopBar/Rows"]
 layout_mode = 2
 theme_override_constants/h_separation = 8
 theme_override_constants/v_separation = 6
 
-[node name="DayLabel" type="Label" parent="Root/Margin/Layout/TopBar/Row"]
+[node name="DayLabel" type="Label" parent="Root/Margin/Layout/TopBar/Rows/TopRow"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 4
 theme_type_variation = &"Title"
 
-[node name="MoneyChip" type="PanelContainer" parent="Root/Margin/Layout/TopBar/Row"]
+[node name="MoneyChip" type="PanelContainer" parent="Root/Margin/Layout/TopBar/Rows/TopRow"]
 layout_mode = 2
 theme_type_variation = &"Chip"
 
-[node name="MoneyLabel" type="Label" parent="Root/Margin/Layout/TopBar/Row/MoneyChip"]
+[node name="MoneyLabel" type="Label" parent="Root/Margin/Layout/TopBar/Rows/TopRow/MoneyChip"]
 unique_name_in_owner = true
 layout_mode = 2
 mouse_filter = 1
 
-[node name="PopChip" type="PanelContainer" parent="Root/Margin/Layout/TopBar/Row"]
+[node name="TaxChip" type="PanelContainer" parent="Root/Margin/Layout/TopBar/Rows/TopRow"]
 layout_mode = 2
 theme_type_variation = &"Chip"
 
-[node name="PopLabel" type="Label" parent="Root/Margin/Layout/TopBar/Row/PopChip"]
-unique_name_in_owner = true
-layout_mode = 2
-
-[node name="JobsChip" type="PanelContainer" parent="Root/Margin/Layout/TopBar/Row"]
-layout_mode = 2
-theme_type_variation = &"Chip"
-
-[node name="JobsLabel" type="Label" parent="Root/Margin/Layout/TopBar/Row/JobsChip"]
-unique_name_in_owner = true
-layout_mode = 2
-
-[node name="PowerChip" type="PanelContainer" parent="Root/Margin/Layout/TopBar/Row"]
-layout_mode = 2
-theme_type_variation = &"Chip"
-
-[node name="PowerLabel" type="Label" parent="Root/Margin/Layout/TopBar/Row/PowerChip"]
-unique_name_in_owner = true
-layout_mode = 2
-mouse_filter = 1
-
-[node name="WaterChip" type="PanelContainer" parent="Root/Margin/Layout/TopBar/Row"]
-layout_mode = 2
-theme_type_variation = &"Chip"
-
-[node name="WaterLabel" type="Label" parent="Root/Margin/Layout/TopBar/Row/WaterChip"]
-unique_name_in_owner = true
-layout_mode = 2
-mouse_filter = 1
-
-[node name="TrafficChip" type="PanelContainer" parent="Root/Margin/Layout/TopBar/Row"]
-layout_mode = 2
-theme_type_variation = &"Chip"
-
-[node name="TrafficLabel" type="Label" parent="Root/Margin/Layout/TopBar/Row/TrafficChip"]
-unique_name_in_owner = true
-layout_mode = 2
-mouse_filter = 1
-
-[node name="DemandChip" type="PanelContainer" parent="Root/Margin/Layout/TopBar/Row"]
-layout_mode = 2
-theme_type_variation = &"Chip"
-
-[node name="Demand" type="HBoxContainer" parent="Root/Margin/Layout/TopBar/Row/DemandChip"]
-unique_name_in_owner = true
+[node name="Tax" type="HBoxContainer" parent="Root/Margin/Layout/TopBar/Rows/TopRow/TaxChip"]
 layout_mode = 2
 theme_override_constants/separation = 6
 
-[node name="TaxChip" type="PanelContainer" parent="Root/Margin/Layout/TopBar/Row"]
-layout_mode = 2
-theme_type_variation = &"Chip"
-
-[node name="Tax" type="HBoxContainer" parent="Root/Margin/Layout/TopBar/Row/TaxChip"]
-layout_mode = 2
-theme_override_constants/separation = 6
-
-[node name="TaxDown" type="Button" parent="Root/Margin/Layout/TopBar/Row/TaxChip/Tax"]
+[node name="TaxDown" type="Button" parent="Root/Margin/Layout/TopBar/Rows/TopRow/TaxChip/Tax"]
 unique_name_in_owner = true
 layout_mode = 2
 focus_mode = 0
 theme_type_variation = &"Small"
 text = "−"
 
-[node name="TaxLabel" type="Label" parent="Root/Margin/Layout/TopBar/Row/TaxChip/Tax"]
+[node name="TaxLabel" type="Label" parent="Root/Margin/Layout/TopBar/Rows/TopRow/TaxChip/Tax"]
 unique_name_in_owner = true
 layout_mode = 2
 
-[node name="TaxUp" type="Button" parent="Root/Margin/Layout/TopBar/Row/TaxChip/Tax"]
+[node name="TaxUp" type="Button" parent="Root/Margin/Layout/TopBar/Rows/TopRow/TaxChip/Tax"]
 unique_name_in_owner = true
 layout_mode = 2
 focus_mode = 0
 theme_type_variation = &"Small"
 text = "+"
 
-[node name="Speed" type="HBoxContainer" parent="Root/Margin/Layout/TopBar/Row"]
+[node name="Speed" type="HBoxContainer" parent="Root/Margin/Layout/TopBar/Rows/TopRow"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 4
 
-[node name="Menu" type="HBoxContainer" parent="Root/Margin/Layout/TopBar/Row"]
+[node name="TopSpacer" type="Control" parent="Root/Margin/Layout/TopBar/Rows/TopRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+
+[node name="Menu" type="HBoxContainer" parent="Root/Margin/Layout/TopBar/Rows/TopRow"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 4
+
+[node name="SubRow" type="HFlowContainer" parent="Root/Margin/Layout/TopBar/Rows"]
+layout_mode = 2
+theme_override_constants/h_separation = 8
+theme_override_constants/v_separation = 6
+
+[node name="PopChip" type="PanelContainer" parent="Root/Margin/Layout/TopBar/Rows/SubRow"]
+layout_mode = 2
+theme_type_variation = &"Chip"
+
+[node name="PopLabel" type="Label" parent="Root/Margin/Layout/TopBar/Rows/SubRow/PopChip"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="JobsChip" type="PanelContainer" parent="Root/Margin/Layout/TopBar/Rows/SubRow"]
+layout_mode = 2
+theme_type_variation = &"Chip"
+
+[node name="JobsLabel" type="Label" parent="Root/Margin/Layout/TopBar/Rows/SubRow/JobsChip"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="DemandChip" type="PanelContainer" parent="Root/Margin/Layout/TopBar/Rows/SubRow"]
+layout_mode = 2
+theme_type_variation = &"Chip"
+
+[node name="Demand" type="HBoxContainer" parent="Root/Margin/Layout/TopBar/Rows/SubRow/DemandChip"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="SubSpacer" type="Control" parent="Root/Margin/Layout/TopBar/Rows/SubRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+
+[node name="PowerChip" type="PanelContainer" parent="Root/Margin/Layout/TopBar/Rows/SubRow"]
+layout_mode = 2
+theme_type_variation = &"Chip"
+
+[node name="PowerLabel" type="Label" parent="Root/Margin/Layout/TopBar/Rows/SubRow/PowerChip"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 1
+
+[node name="WaterChip" type="PanelContainer" parent="Root/Margin/Layout/TopBar/Rows/SubRow"]
+layout_mode = 2
+theme_type_variation = &"Chip"
+
+[node name="WaterLabel" type="Label" parent="Root/Margin/Layout/TopBar/Rows/SubRow/WaterChip"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 1
+
+[node name="TrafficChip" type="PanelContainer" parent="Root/Margin/Layout/TopBar/Rows/SubRow"]
+layout_mode = 2
+theme_type_variation = &"Chip"
+
+[node name="TrafficLabel" type="Label" parent="Root/Margin/Layout/TopBar/Rows/SubRow/TrafficChip"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 1
 
 [node name="HintsPanel" type="PanelContainer" parent="Root/Margin/Layout"]
 unique_name_in_owner = true
