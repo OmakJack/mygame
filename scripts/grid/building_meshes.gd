@@ -32,20 +32,6 @@ const CONSTRUCTION_PARTS: Array = [
 ]
 
 
-## Куски по типам (номер = порядок types), последним — стройплощадка (номер types.size()).
-static func build_library(types: Array[BuildingData]) -> MeshLibrary:
-	var library := MeshLibrary.new()
-	for item: int in types.size():
-		var data: BuildingData = types[item]
-		library.create_item(item)
-		library.set_item_name(item, String(data.id))
-		library.set_item_mesh(item, mesh_for(data))
-	library.create_item(types.size())
-	library.set_item_name(types.size(), "construction")
-	library.set_item_mesh(types.size(), construction_mesh())
-	return library
-
-
 ## Стройплощадка (фаза 10): земля, фундамент с опорами, заборчики, конусы и фонарь Kenney.
 static func construction_mesh() -> ArrayMesh:
 	var mesh: ArrayMesh = ParkMeshes.build_layout(CONSTRUCTION_PARTS, CONSTRUCTION_GROUND)

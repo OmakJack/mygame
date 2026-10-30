@@ -70,6 +70,9 @@ static func _ensure_loaded() -> void:
 			push_error("BuildingCatalog: повтор id %s в %s" % [data.id, file_name])
 			continue
 		_types[data.id] = data
+	# Многоэтажки и офисы, которые строит код (их нет в data/buildings).
+	for data: BuildingData in ProceduralBuildings.types():
+		_types[data.id] = data
 	_sorted.assign(_types.values())
 	_sorted.sort_custom(func(a: BuildingData, b: BuildingData) -> bool: return a.id < b.id)
 	for data: BuildingData in _sorted:

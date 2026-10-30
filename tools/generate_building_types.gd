@@ -2,22 +2,12 @@ extends SceneTree
 ## Создаёт типы зданий (data/buildings/*.tres) из моделей Kenney и даёт модели службам и паркам.
 ## Запуск: godot --headless --path . --script res://tools/generate_building_types.gd
 ## Масштабы наборов сближены (ревью Argon 011): окна и двери одного размера во всём городе.
-## Фаза 10: у каждой зоны — уровни 1..3, цифры пропорциональны (свет и вода — на жителя / место).
+## Фаза 10: у каждой зоны — уровни 1..3, цифры — LevelStats (общие с ProceduralBuildings).
 ## Старые id (res_house_*, com_shop_*, ind_factory_*, *_small_01, службы) сохраняются:
 ## на них держатся сохранения. Новые наборы — новые id.
 
 const KENNEY := "res://assets/models/kenney/"
 const OUT := "res://data/buildings/"
-
-## Цифры по уровням 1..3: жители, места, свет, вода, дым, шум.
-const STATS: Dictionary = {
-	CityGrid.Zone.RESIDENTIAL: [[10, 0, 1, 1, 0, 0], [20, 0, 2, 2, 0, 0], [30, 0, 3, 3, 0, 0]],
-	CityGrid.Zone.RESIDENTIAL_HIGH: [[60, 0, 6, 6, 0, 4], [90, 0, 9, 9, 0, 5], [120, 0, 12, 12, 0, 6]],
-	CityGrid.Zone.COMMERCIAL: [[0, 5, 2, 1, 0, 12], [0, 10, 4, 2, 0, 14], [0, 15, 6, 3, 0, 16]],
-	CityGrid.Zone.COMMERCIAL_HIGH: [[0, 30, 8, 4, 0, 18], [0, 45, 12, 6, 0, 20], [0, 60, 16, 8, 0, 22]],
-	CityGrid.Zone.INDUSTRIAL: [[0, 8, 3, 2, 30, 15], [0, 16, 6, 4, 35, 16], [0, 24, 9, 6, 40, 18]],
-	CityGrid.Zone.OFFICE: [[0, 40, 6, 3, 0, 8], [0, 60, 9, 4, 0, 9], [0, 80, 12, 6, 0, 10]],
-}
 
 ## Наборы: зона, модели (id → модель), название, масштаб, уровни.
 ## levels: id → уровень; «rank» — по объёму модели (меньшие — ниже), поровну на три уровня.
@@ -80,18 +70,10 @@ func _initialize() -> void:
 		var levels: Dictionary = _rank(models) if set.levels is String else set.levels
 		for id: String in models:
 			var level: int = levels[id]
-			var stats: Array = STATS[set.zone][level - 1]
 			var data := _load_or_new(id)
 			data.display_name = "%s %s · ур. %d" % [set.name, _letter(id), level]
-			data.zone = set.zone
-			data.level = level
 			data.grows = true
-			data.population = stats[0]
-			data.jobs = stats[1]
-			data.power_use = stats[2]
-			data.water_use = stats[3]
-			data.pollution = stats[4]
-			data.noise = stats[5]
+			LevelStats.apply(data, set.zone, level)
 			data.model = load(KENNEY + models[id] + ".glb")
 			data.model_scale = set.scale
 			_save(data)

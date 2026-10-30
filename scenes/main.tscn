@@ -87,7 +87,7 @@ script = ExtResource("8_zones")
 [node name="RoadVisualizer" type="GridMap" parent="."]
 script = ExtResource("4_roads")
 
-[node name="BuildingVisualizer" type="GridMap" parent="."]
+[node name="BuildingVisualizer" type="Node3D" parent="."]
 script = ExtResource("9_buildings")
 
 [node name="TreeVisualizer" type="Node3D" parent="."]
