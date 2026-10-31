@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/blender/pack/residential/res_cloister_quarter_3x2.glb" id="1_32jvp"]
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="2_5qjlp"]
+
+[resource]
+script = ExtResource("2_5qjlp")
+id = &"res_cloister_quarter_3x2_l3"
+display_name = "П-образный квартал со скатной крышей · ур. 3"
+zone = 4
+size = Vector2i(3, 2)
+population = 720
+level = 3
+weight = 1.5
+preferred = true
+power_use = 72
+water_use = 72
+noise = 6
+model = ExtResource("1_32jvp")

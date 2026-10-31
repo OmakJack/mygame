@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/blender/pack/industrial/ind_silo_elevator_3x1.glb" id="1_05ht2"]
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="2_3gnqm"]
+
+[resource]
+script = ExtResource("2_3gnqm")
+id = &"ind_silo_elevator_3x1_l1"
+display_name = "Силосный элеватор с конвейером · ур. 1"
+zone = 3
+size = Vector2i(3, 1)
+jobs = 24
+weight = 1.5
+preferred = true
+power_use = 9
+water_use = 6
+pollution = 30
+noise = 15
+model = ExtResource("1_05ht2")

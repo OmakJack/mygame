@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/blender/pack/industrial/ind_precision_lab_1x1.glb" id="1_yk3in"]
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="2_bsnsx"]
+
+[resource]
+script = ExtResource("2_bsnsx")
+id = &"ind_precision_lab_1x1_l1"
+display_name = "Чистый приборостроительный цех · ур. 1"
+zone = 3
+jobs = 8
+weight = 1.5
+preferred = true
+power_use = 3
+water_use = 2
+pollution = 30
+noise = 15
+model = ExtResource("1_yk3in")

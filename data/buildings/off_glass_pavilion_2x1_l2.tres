@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/blender/pack/offices/off_glass_pavilion_2x1.glb" id="1_ootox"]
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="2_1peev"]
+
+[resource]
+script = ExtResource("2_1peev")
+id = &"off_glass_pavilion_2x1_l2"
+display_name = "Стеклянный павильон на колоннаде · ур. 2"
+zone = 6
+size = Vector2i(2, 1)
+jobs = 120
+level = 2
+weight = 1.5
+preferred = true
+power_use = 18
+water_use = 8
+noise = 9
+model = ExtResource("1_ootox")

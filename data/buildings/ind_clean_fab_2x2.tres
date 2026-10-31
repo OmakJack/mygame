@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/blender/pack/industrial/ind_clean_fab_2x2.glb" id="1_gytwd"]
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="2_u6dfs"]
+
+[resource]
+script = ExtResource("2_u6dfs")
+id = &"ind_clean_fab_2x2"
+display_name = "Микроэлектронная фабрика (Clean Fab) · ур. 3"
+zone = 3
+size = Vector2i(2, 2)
+jobs = 96
+level = 3
+weight = 4.0
+preferred = true
+power_use = 36
+water_use = 24
+pollution = 40
+noise = 18
+model = ExtResource("1_gytwd")

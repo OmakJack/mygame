@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/blender/pack/residential/res_terrace_lofts_2x1.glb" id="1_yoghn"]
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="2_wee5n"]
+
+[resource]
+script = ExtResource("2_wee5n")
+id = &"res_terrace_lofts_2x1_l1"
+display_name = "Каскадные террасные лофты · ур. 1"
+zone = 4
+size = Vector2i(2, 1)
+population = 120
+weight = 1.5
+preferred = true
+power_use = 12
+water_use = 12
+noise = 4
+model = ExtResource("1_yoghn")

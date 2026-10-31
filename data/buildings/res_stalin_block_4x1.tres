@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/blender/pack/residential/res_stalin_block_4x1.glb" id="1_exydn"]
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="2_bgret"]
+
+[resource]
+script = ExtResource("2_bgret")
+id = &"res_stalin_block_4x1"
+display_name = "Парадный неоклассический дом · ур. 2"
+zone = 4
+size = Vector2i(4, 1)
+population = 360
+level = 2
+weight = 4.0
+preferred = true
+power_use = 36
+water_use = 36
+noise = 5
+model = ExtResource("1_exydn")

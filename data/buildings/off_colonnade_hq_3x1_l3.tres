@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/blender/pack/offices/off_colonnade_hq_3x1.glb" id="1_idyym"]
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="2_ann4v"]
+
+[resource]
+script = ExtResource("2_ann4v")
+id = &"off_colonnade_hq_3x1_l3"
+display_name = "Штаб-квартира с портиком и фонарём · ур. 3"
+zone = 6
+size = Vector2i(3, 1)
+jobs = 240
+level = 3
+weight = 1.5
+preferred = true
+power_use = 36
+water_use = 18
+noise = 10
+model = ExtResource("1_idyym")

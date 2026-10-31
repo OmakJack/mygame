@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/blender/pack/offices/off_citadel_tower_2x2.glb" id="1_i2u67"]
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="2_drqo4"]
+
+[resource]
+script = ExtResource("2_drqo4")
+id = &"off_citadel_tower_2x2"
+display_name = "Корпоративный небоскрёб «Цитадель» · ур. 3"
+zone = 6
+size = Vector2i(2, 2)
+jobs = 320
+level = 3
+weight = 4.0
+preferred = true
+power_use = 48
+water_use = 24
+noise = 10
+model = ExtResource("1_i2u67")

@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/blender/pack/residential/res_swiss_duplex_2x1.glb" id="1_vyjs6"]
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="2_j2q7p"]
+
+[resource]
+script = ExtResource("2_j2q7p")
+id = &"res_swiss_duplex_2x1_l3"
+display_name = "Двухсекционный дом-дуплекс · ур. 3"
+size = Vector2i(2, 1)
+population = 60
+level = 3
+weight = 1.5
+preferred = true
+power_use = 6
+water_use = 6
+model = ExtResource("1_vyjs6")

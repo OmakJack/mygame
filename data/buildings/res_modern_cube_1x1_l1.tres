@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/blender/pack/residential/res_modern_cube_1x1.glb" id="1_dj3jb"]
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="2_g4jeu"]
+
+[resource]
+script = ExtResource("2_g4jeu")
+id = &"res_modern_cube_1x1_l1"
+display_name = "Современная вилла с консолью · ур. 1"
+population = 10
+weight = 1.5
+preferred = true
+power_use = 1
+water_use = 1
+model = ExtResource("1_dj3jb")

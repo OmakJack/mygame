@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/blender/pack/industrial/ind_refinery_complex_3x2.glb" id="1_0vi5h"]
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="2_q68sj"]
+
+[resource]
+script = ExtResource("2_q68sj")
+id = &"ind_refinery_complex_3x2_l1"
+display_name = "Нефтехимический комбинат крекинга · ур. 1"
+zone = 3
+size = Vector2i(3, 2)
+jobs = 48
+weight = 1.5
+preferred = true
+power_use = 18
+water_use = 12
+pollution = 30
+noise = 15
+model = ExtResource("1_0vi5h")

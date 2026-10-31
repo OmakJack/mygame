@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/blender/pack/offices/off_diagrid_needle_1x1.glb" id="1_on3c6"]
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="2_2ubrs"]
+
+[resource]
+script = ExtResource("2_2ubrs")
+id = &"off_diagrid_needle_1x1_l1"
+display_name = "Небоскрёб с ромбовидным каркасом · ур. 1"
+zone = 6
+jobs = 40
+weight = 1.5
+preferred = true
+power_use = 6
+water_use = 3
+noise = 8
+model = ExtResource("1_on3c6")

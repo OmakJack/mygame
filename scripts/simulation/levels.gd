@@ -113,11 +113,11 @@ static func _plan_change(grid: CityGrid, building: BuildingInstance, data: Build
 		var rezoned_options: Array[BuildingData] = BuildingCatalog.level_types(first_zone, 1, data.size)
 		if rezoned_options.is_empty():
 			return &"redevelop"
-		return rezoned_options[rng.randi_range(0, rezoned_options.size() - 1)]
+		return BuildingCatalog.pick_weighted(rezoned_options, rng)
 	if data.level < 3 and blockers(grid, building, data, land, happiness).is_empty():
 		var options: Array[BuildingData] = BuildingCatalog.level_types(data.zone, data.level + 1, data.size)
 		if not options.is_empty():
-			return options[rng.randi_range(0, options.size() - 1)]
+			return BuildingCatalog.pick_weighted(options, rng)
 	return null
 
 

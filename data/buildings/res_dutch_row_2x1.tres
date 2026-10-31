@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/blender/pack/residential/res_dutch_row_2x1.glb" id="1_0soxc"]
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="2_c3prh"]
+
+[resource]
+script = ExtResource("2_c3prh")
+id = &"res_dutch_row_2x1"
+display_name = "Дома со ступенчатыми фронтонами · ур. 2"
+size = Vector2i(2, 1)
+population = 40
+level = 2
+weight = 4.0
+preferred = true
+power_use = 4
+water_use = 4
+model = ExtResource("1_0soxc")

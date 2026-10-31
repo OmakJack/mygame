@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/blender/pack/offices/off_financial_center_3x2.glb" id="1_0aqua"]
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="2_gsmmk"]
+
+[resource]
+script = ExtResource("2_gsmmk")
+id = &"off_financial_center_3x2"
+display_name = "Финансовый центр мегаполиса · ур. 3"
+zone = 6
+size = Vector2i(3, 2)
+jobs = 480
+level = 3
+weight = 4.0
+preferred = true
+power_use = 72
+water_use = 36
+noise = 10
+model = ExtResource("1_0aqua")

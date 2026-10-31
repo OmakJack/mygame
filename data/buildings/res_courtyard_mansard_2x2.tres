@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/blender/pack/residential/res_courtyard_mansard_2x2.glb" id="1_8ktae"]
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="2_ynya1"]
+
+[resource]
+script = ExtResource("2_ynya1")
+id = &"res_courtyard_mansard_2x2"
+display_name = "Каре-квартал с открытым двором · ур. 1"
+zone = 4
+size = Vector2i(2, 2)
+population = 240
+weight = 4.0
+preferred = true
+power_use = 24
+water_use = 24
+noise = 4
+model = ExtResource("1_8ktae")

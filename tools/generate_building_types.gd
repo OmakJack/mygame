@@ -40,6 +40,21 @@ const SETS: Array[Dictionary] = [
 		"models": {}, "kit": "commercial/building-skyscraper-", "letters": "acebd", "prefix": "off_tower_"},
 ]
 
+## Архитектурный пак Gemini (assets/models/blender/pack, tools/blender/make_building_pack.py):
+## 48 зданий 1×1…7×1, 2×2, 3×2 — зона и уровень из manifest.json, в игровом масштабе (model_scale 1),
+## фасад −Y в Blender → model_turns 2. Каждая модель — на всех трёх уровнях: на своём (из manifest)
+## с весом PACK_WEIGHT, на остальных — PACK_OTHER_WEIGHT; все — «предпочтительные» (preferred):
+## выбираются в 75 % случаев (BuildingCatalog.PREFERRED_SHARE), так новые дома видно сразу,
+## а повышение внутри пака чаще берёт здание «своего» уровня.
+const PACK_MANIFEST := "res://assets/models/blender/pack/manifest.json"
+const PACK_WEIGHT: float = 4.0
+const PACK_OTHER_WEIGHT: float = 1.5
+const PACK_ZONES: Dictionary = {
+	"RESIDENTIAL": CityGrid.Zone.RESIDENTIAL, "RESIDENTIAL_HIGH": CityGrid.Zone.RESIDENTIAL_HIGH,
+	"COMMERCIAL": CityGrid.Zone.COMMERCIAL, "COMMERCIAL_HIGH": CityGrid.Zone.COMMERCIAL_HIGH,
+	"INDUSTRIAL": CityGrid.Zone.INDUSTRIAL, "OFFICE": CityGrid.Zone.OFFICE,
+}
+
 ## Многоклеточные модели из Blender (tools/blender/make_large_buildings.py), уровни 1..3.
 const LARGE_SETS: Array[Dictionary] = [
 	{"zone": CityGrid.Zone.RESIDENTIAL_HIGH, "size": Vector2i(3, 1), "name": "Панельный корпус",
@@ -128,6 +143,7 @@ func _initialize() -> void:
 			data.model_scale = 1.0
 			_save(data)
 			created += 1
+	created += _make_pack_types()
 	for id: String in RETIRED:
 		var data := _load_or_new(id)
 		data.grows = false
@@ -179,6 +195,34 @@ static func _model_path(relative: String) -> String:
 
 static func _letter(id: String) -> String:
 	return "A" if id.ends_with("_01") else id.get_slice("_", id.get_slice_count("_") - 1).to_upper()
+
+
+## Типы из пака Gemini: id модели — на её уровне, «id_l1 / _l2 / _l3» — на остальных.
+static func _make_pack_types() -> int:
+	var file := FileAccess.open(PACK_MANIFEST, FileAccess.READ)
+	if file == null:
+		push_error("нет %s" % PACK_MANIFEST)
+		return 0
+	var manifest: Dictionary = JSON.parse_string(file.get_as_text())
+	var count: int = 0
+	for model: Dictionary in manifest.models:
+		var zone_type: CityGrid.Zone = PACK_ZONES[model.suggested_zone]
+		var plot := Vector2i(int(model.cells[0]), int(model.cells[1]))
+		var level: int = int(model.suggested_level)
+		for lvl: int in [1, 2, 3]:
+			var id: String = model.id if lvl == level else "%s_l%d" % [model.id, lvl]
+			var data := _load_or_new(id)
+			data.display_name = "%s · ур. %d" % [model.display_name, lvl]
+			data.grows = true
+			data.weight = PACK_WEIGHT if lvl == level else PACK_OTHER_WEIGHT
+			data.preferred = true
+			LevelStats.apply(data, zone_type, lvl, plot)
+			data.model = load(_model_path(model.godot_kit_path))
+			data.model_scale = 1.0
+			data.model_turns = 2
+			_save(data)
+			count += 1
+	return count
 
 
 static func _load_or_new(id: String) -> BuildingData:

@@ -48,6 +48,23 @@ static func level_types(zone_type: CityGrid.Zone, level: int,
 	return result
 
 
+## Доля выбора «предпочтительных» типов (пак Gemini), если такие есть среди вариантов.
+const PREFERRED_SHARE: float = 0.75
+
+
+## Случайный тип из options: сначала группа (пак Gemini — в PREFERRED_SHARE случаев), внутри — по весу.
+static func pick_weighted(options: Array, rng: RandomNumberGenerator) -> BuildingData:
+	var preferred: Array = options.filter(func(data: BuildingData) -> bool: return data.preferred)
+	var others: Array = options.filter(func(data: BuildingData) -> bool: return not data.preferred)
+	var group: Array = others
+	if not preferred.is_empty() and (others.is_empty() or rng.randf() < PREFERRED_SHARE):
+		group = preferred
+	var weights := PackedFloat32Array()
+	for data: BuildingData in group:
+		weights.append(maxf(0.0, data.weight))
+	return group[maxi(0, rng.rand_weighted(weights))]
+
+
 ## Служебные здания (zone = NONE), которые ставит игрок. Возвращает общий массив — не изменять.
 static func buildable_types() -> Array[BuildingData]:
 	return types_for_zone(CityGrid.Zone.NONE)

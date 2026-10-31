@@ -77,7 +77,7 @@ static func grow_one(grid: CityGrid, zone_type: CityGrid.Zone, rng: RandomNumber
 	var chosen: Array = candidates[pick]
 	var rect: Rect2i = chosen[0]
 	var options: Array = by_size[chosen[3]]
-	var data: BuildingData = options[rng.randi_range(0, options.size() - 1)]
+	var data: BuildingData = BuildingCatalog.pick_weighted(options, rng)
 	var id: int = grid.place_building(data.id, rect.position, chosen[1])
 	if id == -1:
 		return CityGrid.NO_CELL

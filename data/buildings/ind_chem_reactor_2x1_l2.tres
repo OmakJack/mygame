@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/blender/pack/industrial/ind_chem_reactor_2x1.glb" id="1_6c8mv"]
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="2_f4hlh"]
+
+[resource]
+script = ExtResource("2_f4hlh")
+id = &"ind_chem_reactor_2x1_l2"
+display_name = "Химреакторный узел с цистерной · ур. 2"
+zone = 3
+size = Vector2i(2, 1)
+jobs = 32
+level = 2
+weight = 1.5
+preferred = true
+power_use = 12
+water_use = 8
+pollution = 35
+noise = 16
+model = ExtResource("1_6c8mv")

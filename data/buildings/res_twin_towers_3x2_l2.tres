@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/blender/pack/residential/res_twin_towers_3x2.glb" id="1_n8a6k"]
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="2_7xfmk"]
+
+[resource]
+script = ExtResource("2_7xfmk")
+id = &"res_twin_towers_3x2_l2"
+display_name = "Парные жилые башни с курдонёром · ур. 2"
+zone = 4
+size = Vector2i(3, 2)
+population = 540
+level = 2
+weight = 1.5
+preferred = true
+power_use = 54
+water_use = 54
+noise = 5
+model = ExtResource("1_n8a6k")

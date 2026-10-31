@@ -1,0 +1,1022 @@
+{
+  "pack_name": "CityBuilder Architectural Low-Poly Pack v1",
+  "cell_size_m": 2.0,
+  "godot_conventions": {
+    "palette_texture": "res://assets/models/kenney/suburban/Textures/colormap.png",
+    "district_recolor_compatible": true,
+    "front_in_blender": "-Y",
+    "front_in_godot_with_turns_2": "-Z",
+    "recommended_model_scale": 1.0,
+    "recommended_model_turns": 2
+  },
+  "models": [
+    {
+      "id": "res_nordic_cottage_1x1",
+      "category": "residential",
+      "file": "assets/models/blender/pack/residential/res_nordic_cottage_1x1.glb",
+      "godot_kit_path": "blender/pack/residential/res_nordic_cottage_1x1",
+      "cells": [
+        1,
+        1
+      ],
+      "area_cells": 1,
+      "dimensions_m": [
+        1.66,
+        1.66,
+        1.47
+      ],
+      "vertices": 1182,
+      "triangles": 592,
+      "display_name": "Скандинавский коттедж",
+      "suggested_zone": "RESIDENTIAL",
+      "suggested_level": 1
+    },
+    {
+      "id": "res_brick_villa_1x1",
+      "category": "residential",
+      "file": "assets/models/blender/pack/residential/res_brick_villa_1x1.glb",
+      "godot_kit_path": "blender/pack/residential/res_brick_villa_1x1",
+      "cells": [
+        1,
+        1
+      ],
+      "area_cells": 1,
+      "dimensions_m": [
+        1.7,
+        1.7,
+        1.64
+      ],
+      "vertices": 1280,
+      "triangles": 646,
+      "display_name": "Кирпичный особняк с эркером",
+      "suggested_zone": "RESIDENTIAL",
+      "suggested_level": 2
+    },
+    {
+      "id": "res_modern_cube_1x1",
+      "category": "residential",
+      "file": "assets/models/blender/pack/residential/res_modern_cube_1x1.glb",
+      "godot_kit_path": "blender/pack/residential/res_modern_cube_1x1",
+      "cells": [
+        1,
+        1
+      ],
+      "area_cells": 1,
+      "dimensions_m": [
+        1.72,
+        1.72,
+        1.594
+      ],
+      "vertices": 940,
+      "triangles": 470,
+      "display_name": "Современная вилла с консолью",
+      "suggested_zone": "RESIDENTIAL",
+      "suggested_level": 3
+    },
+    {
+      "id": "res_point_tower_1x1",
+      "category": "residential",
+      "file": "assets/models/blender/pack/residential/res_point_tower_1x1.glb",
+      "godot_kit_path": "blender/pack/residential/res_point_tower_1x1",
+      "cells": [
+        1,
+        1
+      ],
+      "area_cells": 1,
+      "dimensions_m": [
+        1.72,
+        1.73,
+        3.535
+      ],
+      "vertices": 4608,
+      "triangles": 2324,
+      "display_name": "Кирпично-монолитный дом-свечка",
+      "suggested_zone": "RESIDENTIAL_HIGH",
+      "suggested_level": 1
+    },
+    {
+      "id": "res_sky_condo_1x1",
+      "category": "residential",
+      "file": "assets/models/blender/pack/residential/res_sky_condo_1x1.glb",
+      "godot_kit_path": "blender/pack/residential/res_sky_condo_1x1",
+      "cells": [
+        1,
+        1
+      ],
+      "area_cells": 1,
+      "dimensions_m": [
+        1.702,
+        1.78,
+        6.856
+      ],
+      "vertices": 5960,
+      "triangles": 3008,
+      "display_name": "Жилой небоскрёб-кондоминиум",
+      "suggested_zone": "RESIDENTIAL_HIGH",
+      "suggested_level": 3
+    },
+    {
+      "id": "res_swiss_duplex_2x1",
+      "category": "residential",
+      "file": "assets/models/blender/pack/residential/res_swiss_duplex_2x1.glb",
+      "godot_kit_path": "blender/pack/residential/res_swiss_duplex_2x1",
+      "cells": [
+        2,
+        1
+      ],
+      "area_cells": 2,
+      "dimensions_m": [
+        3.758,
+        1.68,
+        1.54
+      ],
+      "vertices": 1944,
+      "triangles": 976,
+      "display_name": "Двухсекционный дом-дуплекс",
+      "suggested_zone": "RESIDENTIAL",
+      "suggested_level": 1
+    },
+    {
+      "id": "res_dutch_row_2x1",
+      "category": "residential",
+      "file": "assets/models/blender/pack/residential/res_dutch_row_2x1.glb",
+      "godot_kit_path": "blender/pack/residential/res_dutch_row_2x1",
+      "cells": [
+        2,
+        1
+      ],
+      "area_cells": 2,
+      "dimensions_m": [
+        3.72,
+        1.7,
+        2.1
+      ],
+      "vertices": 3206,
+      "triangles": 1612,
+      "display_name": "Дома со ступенчатыми фронтонами",
+      "suggested_zone": "RESIDENTIAL",
+      "suggested_level": 2
+    },
+    {
+      "id": "res_terrace_lofts_2x1",
+      "category": "residential",
+      "file": "assets/models/blender/pack/residential/res_terrace_lofts_2x1.glb",
+      "godot_kit_path": "blender/pack/residential/res_terrace_lofts_2x1",
+      "cells": [
+        2,
+        1
+      ],
+      "area_cells": 2,
+      "dimensions_m": [
+        3.74,
+        1.72,
+        2.464
+      ],
+      "vertices": 5976,
+      "triangles": 2988,
+      "display_name": "Каскадные террасные лофты",
+      "suggested_zone": "RESIDENTIAL_HIGH",
+      "suggested_level": 2
+    },
+    {
+      "id": "res_english_townhouses_3x1",
+      "category": "residential",
+      "file": "assets/models/blender/pack/residential/res_english_townhouses_3x1.glb",
+      "godot_kit_path": "blender/pack/residential/res_english_townhouses_3x1",
+      "cells": [
+        3,
+        1
+      ],
+      "area_cells": 3,
+      "dimensions_m": [
+        5.72,
+        1.7,
+        2.15
+      ],
+      "vertices": 7440,
+      "triangles": 3736,
+      "display_name": "Английские таунхаусы с мансардой",
+      "suggested_zone": "RESIDENTIAL",
+      "suggested_level": 2
+    },
+    {
+      "id": "res_alpine_apartments_3x1",
+      "category": "residential",
+      "file": "assets/models/blender/pack/residential/res_alpine_apartments_3x1.glb",
+      "godot_kit_path": "blender/pack/residential/res_alpine_apartments_3x1",
+      "cells": [
+        3,
+        1
+      ],
+      "area_cells": 3,
+      "dimensions_m": [
+        5.72,
+        1.72,
+        2.64
+      ],
+      "vertices": 5604,
+      "triangles": 2806,
+      "display_name": "Альпийский шале-дом с галереями",
+      "suggested_zone": "RESIDENTIAL_HIGH",
+      "suggested_level": 1
+    },
+    {
+      "id": "res_stalin_block_4x1",
+      "category": "residential",
+      "file": "assets/models/blender/pack/residential/res_stalin_block_4x1.glb",
+      "godot_kit_path": "blender/pack/residential/res_stalin_block_4x1",
+      "cells": [
+        4,
+        1
+      ],
+      "area_cells": 4,
+      "dimensions_m": [
+        7.72,
+        1.76,
+        3.89
+      ],
+      "vertices": 12588,
+      "triangles": 6308,
+      "display_name": "Парадный неоклассический дом",
+      "suggested_zone": "RESIDENTIAL_HIGH",
+      "suggested_level": 2
+    },
+    {
+      "id": "res_modern_promenade_5x1",
+      "category": "residential",
+      "file": "assets/models/blender/pack/residential/res_modern_promenade_5x1.glb",
+      "godot_kit_path": "blender/pack/residential/res_modern_promenade_5x1",
+      "cells": [
+        5,
+        1
+      ],
+      "area_cells": 5,
+      "dimensions_m": [
+        9.72,
+        1.751,
+        4.388
+      ],
+      "vertices": 27232,
+      "triangles": 13636,
+      "display_name": "Жилой комплекс переменной этажности",
+      "suggested_zone": "RESIDENTIAL_HIGH",
+      "suggested_level": 3
+    },
+    {
+      "id": "res_boulevard_mansard_7x1",
+      "category": "residential",
+      "file": "assets/models/blender/pack/residential/res_boulevard_mansard_7x1.glb",
+      "godot_kit_path": "blender/pack/residential/res_boulevard_mansard_7x1",
+      "cells": [
+        7,
+        1
+      ],
+      "area_cells": 7,
+      "dimensions_m": [
+        13.72,
+        1.76,
+        4.32
+      ],
+      "vertices": 18094,
+      "triangles": 9102,
+      "display_name": "Бульварный дом с ротондами и аркой",
+      "suggested_zone": "RESIDENTIAL_HIGH",
+      "suggested_level": 3
+    },
+    {
+      "id": "res_garden_estate_2x2",
+      "category": "residential",
+      "file": "assets/models/blender/pack/residential/res_garden_estate_2x2.glb",
+      "godot_kit_path": "blender/pack/residential/res_garden_estate_2x2",
+      "cells": [
+        2,
+        2
+      ],
+      "area_cells": 4,
+      "dimensions_m": [
+        3.72,
+        3.72,
+        1.72
+      ],
+      "vertices": 3040,
+      "triangles": 1520,
+      "display_name": "Городская Г-образная усадьба",
+      "suggested_zone": "RESIDENTIAL",
+      "suggested_level": 3
+    },
+    {
+      "id": "res_courtyard_mansard_2x2",
+      "category": "residential",
+      "file": "assets/models/blender/pack/residential/res_courtyard_mansard_2x2.glb",
+      "godot_kit_path": "blender/pack/residential/res_courtyard_mansard_2x2",
+      "cells": [
+        2,
+        2
+      ],
+      "area_cells": 4,
+      "dimensions_m": [
+        3.74,
+        3.74,
+        2.66
+      ],
+      "vertices": 8094,
+      "triangles": 4050,
+      "display_name": "Каре-квартал с открытым двором",
+      "suggested_zone": "RESIDENTIAL_HIGH",
+      "suggested_level": 1
+    },
+    {
+      "id": "res_tower_podium_2x2",
+      "category": "residential",
+      "file": "assets/models/blender/pack/residential/res_tower_podium_2x2.glb",
+      "godot_kit_path": "blender/pack/residential/res_tower_podium_2x2",
+      "cells": [
+        2,
+        2
+      ],
+      "area_cells": 4,
+      "dimensions_m": [
+        3.73,
+        3.78,
+        6.328
+      ],
+      "vertices": 11996,
+      "triangles": 6042,
+      "display_name": "Жилая высотка на стилобате",
+      "suggested_zone": "RESIDENTIAL_HIGH",
+      "suggested_level": 3
+    },
+    {
+      "id": "res_cloister_quarter_3x2",
+      "category": "residential",
+      "file": "assets/models/blender/pack/residential/res_cloister_quarter_3x2.glb",
+      "godot_kit_path": "blender/pack/residential/res_cloister_quarter_3x2",
+      "cells": [
+        3,
+        2
+      ],
+      "area_cells": 6,
+      "dimensions_m": [
+        5.74,
+        3.74,
+        2.98
+      ],
+      "vertices": 13042,
+      "triangles": 6522,
+      "display_name": "П-образный квартал со скатной крышей",
+      "suggested_zone": "RESIDENTIAL_HIGH",
+      "suggested_level": 2
+    },
+    {
+      "id": "res_twin_towers_3x2",
+      "category": "residential",
+      "file": "assets/models/blender/pack/residential/res_twin_towers_3x2.glb",
+      "godot_kit_path": "blender/pack/residential/res_twin_towers_3x2",
+      "cells": [
+        3,
+        2
+      ],
+      "area_cells": 6,
+      "dimensions_m": [
+        5.74,
+        3.77,
+        6.52
+      ],
+      "vertices": 17688,
+      "triangles": 8884,
+      "display_name": "Парные жилые башни с курдонёром",
+      "suggested_zone": "RESIDENTIAL_HIGH",
+      "suggested_level": 3
+    },
+    {
+      "id": "off_boutique_1x1",
+      "category": "offices",
+      "file": "assets/models/blender/pack/offices/off_boutique_1x1.glb",
+      "godot_kit_path": "blender/pack/offices/off_boutique_1x1",
+      "cells": [
+        1,
+        1
+      ],
+      "area_cells": 1,
+      "dimensions_m": [
+        1.72,
+        1.72,
+        2.231
+      ],
+      "vertices": 1584,
+      "triangles": 812,
+      "display_name": "Архитектурное бюро с ламелями",
+      "suggested_zone": "OFFICE",
+      "suggested_level": 1
+    },
+    {
+      "id": "off_artdeco_spire_1x1",
+      "category": "offices",
+      "file": "assets/models/blender/pack/offices/off_artdeco_spire_1x1.glb",
+      "godot_kit_path": "blender/pack/offices/off_artdeco_spire_1x1",
+      "cells": [
+        1,
+        1
+      ],
+      "area_cells": 1,
+      "dimensions_m": [
+        1.692,
+        1.78,
+        6.215
+      ],
+      "vertices": 2888,
+      "triangles": 1480,
+      "display_name": "Офисная башня ар-деко со шпилем",
+      "suggested_zone": "OFFICE",
+      "suggested_level": 2
+    },
+    {
+      "id": "off_diagrid_needle_1x1",
+      "category": "offices",
+      "file": "assets/models/blender/pack/offices/off_diagrid_needle_1x1.glb",
+      "godot_kit_path": "blender/pack/offices/off_diagrid_needle_1x1",
+      "cells": [
+        1,
+        1
+      ],
+      "area_cells": 1,
+      "dimensions_m": [
+        1.702,
+        1.78,
+        7.795
+      ],
+      "vertices": 4688,
+      "triangles": 2364,
+      "display_name": "Небоскрёб с ромбовидным каркасом",
+      "suggested_zone": "OFFICE",
+      "suggested_level": 3
+    },
+    {
+      "id": "off_glass_pavilion_2x1",
+      "category": "offices",
+      "file": "assets/models/blender/pack/offices/off_glass_pavilion_2x1.glb",
+      "godot_kit_path": "blender/pack/offices/off_glass_pavilion_2x1",
+      "cells": [
+        2,
+        1
+      ],
+      "area_cells": 2,
+      "dimensions_m": [
+        3.72,
+        1.72,
+        2.323
+      ],
+      "vertices": 2464,
+      "triangles": 1252,
+      "display_name": "Стеклянный павильон на колоннаде",
+      "suggested_zone": "OFFICE",
+      "suggested_level": 1
+    },
+    {
+      "id": "off_cantilever_2x1",
+      "category": "offices",
+      "file": "assets/models/blender/pack/offices/off_cantilever_2x1.glb",
+      "godot_kit_path": "blender/pack/offices/off_cantilever_2x1",
+      "cells": [
+        2,
+        1
+      ],
+      "area_cells": 2,
+      "dimensions_m": [
+        3.74,
+        1.74,
+        3.864
+      ],
+      "vertices": 3392,
+      "triangles": 1716,
+      "display_name": "Консольный бизнес-центр",
+      "suggested_zone": "OFFICE",
+      "suggested_level": 2
+    },
+    {
+      "id": "off_twin_slabs_2x1",
+      "category": "offices",
+      "file": "assets/models/blender/pack/offices/off_twin_slabs_2x1.glb",
+      "godot_kit_path": "blender/pack/offices/off_twin_slabs_2x1",
+      "cells": [
+        2,
+        1
+      ],
+      "area_cells": 2,
+      "dimensions_m": [
+        3.658,
+        1.78,
+        5.614
+      ],
+      "vertices": 4288,
+      "triangles": 2212,
+      "display_name": "Парные офисные пластины с атриумом",
+      "suggested_zone": "OFFICE",
+      "suggested_level": 3
+    },
+    {
+      "id": "off_colonnade_hq_3x1",
+      "category": "offices",
+      "file": "assets/models/blender/pack/offices/off_colonnade_hq_3x1.glb",
+      "godot_kit_path": "blender/pack/offices/off_colonnade_hq_3x1",
+      "cells": [
+        3,
+        1
+      ],
+      "area_cells": 3,
+      "dimensions_m": [
+        5.523,
+        1.78,
+        2.848
+      ],
+      "vertices": 3950,
+      "triangles": 2014,
+      "display_name": "Штаб-квартира с портиком и фонарём",
+      "suggested_zone": "OFFICE",
+      "suggested_level": 1
+    },
+    {
+      "id": "off_stepped_terrace_3x1",
+      "category": "offices",
+      "file": "assets/models/blender/pack/offices/off_stepped_terrace_3x1.glb",
+      "godot_kit_path": "blender/pack/offices/off_stepped_terrace_3x1",
+      "cells": [
+        3,
+        1
+      ],
+      "area_cells": 3,
+      "dimensions_m": [
+        5.74,
+        1.755,
+        4.22
+      ],
+      "vertices": 5352,
+      "triangles": 2704,
+      "display_name": "Каскадный террасный бизнес-центр",
+      "suggested_zone": "OFFICE",
+      "suggested_level": 2
+    },
+    {
+      "id": "off_skybridge_gate_4x1",
+      "category": "offices",
+      "file": "assets/models/blender/pack/offices/off_skybridge_gate_4x1.glb",
+      "godot_kit_path": "blender/pack/offices/off_skybridge_gate_4x1",
+      "cells": [
+        4,
+        1
+      ],
+      "area_cells": 4,
+      "dimensions_m": [
+        7.74,
+        1.77,
+        5.091
+      ],
+      "vertices": 6560,
+      "triangles": 3344,
+      "display_name": "Деловой комплекс «Небесные ворота»",
+      "suggested_zone": "OFFICE",
+      "suggested_level": 3
+    },
+    {
+      "id": "off_tech_boulevard_5x1",
+      "category": "offices",
+      "file": "assets/models/blender/pack/offices/off_tech_boulevard_5x1.glb",
+      "godot_kit_path": "blender/pack/offices/off_tech_boulevard_5x1",
+      "cells": [
+        5,
+        1
+      ],
+      "area_cells": 5,
+      "dimensions_m": [
+        9.74,
+        1.74,
+        4.168
+      ],
+      "vertices": 6078,
+      "triangles": 3062,
+      "display_name": "IT-бульвар с воздушными переходами",
+      "suggested_zone": "OFFICE",
+      "suggested_level": 2
+    },
+    {
+      "id": "off_world_plaza_7x1",
+      "category": "offices",
+      "file": "assets/models/blender/pack/offices/off_world_plaza_7x1.glb",
+      "godot_kit_path": "blender/pack/offices/off_world_plaza_7x1",
+      "cells": [
+        7,
+        1
+      ],
+      "area_cells": 7,
+      "dimensions_m": [
+        13.22,
+        1.78,
+        8.265
+      ],
+      "vertices": 12760,
+      "triangles": 6488,
+      "display_name": "Флагманский деловой центр World Plaza",
+      "suggested_zone": "OFFICE",
+      "suggested_level": 3
+    },
+    {
+      "id": "off_atrium_cube_2x2",
+      "category": "offices",
+      "file": "assets/models/blender/pack/offices/off_atrium_cube_2x2.glb",
+      "godot_kit_path": "blender/pack/offices/off_atrium_cube_2x2",
+      "cells": [
+        2,
+        2
+      ],
+      "area_cells": 4,
+      "dimensions_m": [
+        3.73,
+        3.78,
+        3.316
+      ],
+      "vertices": 2652,
+      "triangles": 1392,
+      "display_name": "Бизнес-куб со стеклянным куполом",
+      "suggested_zone": "OFFICE",
+      "suggested_level": 1
+    },
+    {
+      "id": "off_citadel_tower_2x2",
+      "category": "offices",
+      "file": "assets/models/blender/pack/offices/off_citadel_tower_2x2.glb",
+      "godot_kit_path": "blender/pack/offices/off_citadel_tower_2x2",
+      "cells": [
+        2,
+        2
+      ],
+      "area_cells": 4,
+      "dimensions_m": [
+        3.672,
+        3.78,
+        8.645
+      ],
+      "vertices": 8240,
+      "triangles": 4168,
+      "display_name": "Корпоративный небоскрёб «Цитадель»",
+      "suggested_zone": "OFFICE",
+      "suggested_level": 3
+    },
+    {
+      "id": "off_silicon_campus_3x2",
+      "category": "offices",
+      "file": "assets/models/blender/pack/offices/off_silicon_campus_3x2.glb",
+      "godot_kit_path": "blender/pack/offices/off_silicon_campus_3x2",
+      "cells": [
+        3,
+        2
+      ],
+      "area_cells": 6,
+      "dimensions_m": [
+        5.74,
+        3.75,
+        2.966
+      ],
+      "vertices": 4288,
+      "triangles": 2196,
+      "display_name": "Технологический кампус с ротондой",
+      "suggested_zone": "OFFICE",
+      "suggested_level": 2
+    },
+    {
+      "id": "off_financial_center_3x2",
+      "category": "offices",
+      "file": "assets/models/blender/pack/offices/off_financial_center_3x2.glb",
+      "godot_kit_path": "blender/pack/offices/off_financial_center_3x2",
+      "cells": [
+        3,
+        2
+      ],
+      "area_cells": 6,
+      "dimensions_m": [
+        5.76,
+        3.76,
+        10.025
+      ],
+      "vertices": 6898,
+      "triangles": 3514,
+      "display_name": "Финансовый центр мегаполиса",
+      "suggested_zone": "OFFICE",
+      "suggested_level": 3
+    },
+    {
+      "id": "ind_brick_workshop_1x1",
+      "category": "industrial",
+      "file": "assets/models/blender/pack/industrial/ind_brick_workshop_1x1.glb",
+      "godot_kit_path": "blender/pack/industrial/ind_brick_workshop_1x1",
+      "cells": [
+        1,
+        1
+      ],
+      "area_cells": 1,
+      "dimensions_m": [
+        1.74,
+        1.74,
+        1.92
+      ],
+      "vertices": 978,
+      "triangles": 528,
+      "display_name": "Кирпичная мастерская с фонарём",
+      "suggested_zone": "INDUSTRIAL",
+      "suggested_level": 1
+    },
+    {
+      "id": "ind_boiler_house_1x1",
+      "category": "industrial",
+      "file": "assets/models/blender/pack/industrial/ind_boiler_house_1x1.glb",
+      "godot_kit_path": "blender/pack/industrial/ind_boiler_house_1x1",
+      "cells": [
+        1,
+        1
+      ],
+      "area_cells": 1,
+      "dimensions_m": [
+        1.74,
+        1.74,
+        2.65
+      ],
+      "vertices": 1468,
+      "triangles": 810,
+      "display_name": "Котельная с циклоном и трубой",
+      "suggested_zone": "INDUSTRIAL",
+      "suggested_level": 2
+    },
+    {
+      "id": "ind_precision_lab_1x1",
+      "category": "industrial",
+      "file": "assets/models/blender/pack/industrial/ind_precision_lab_1x1.glb",
+      "godot_kit_path": "blender/pack/industrial/ind_precision_lab_1x1",
+      "cells": [
+        1,
+        1
+      ],
+      "area_cells": 1,
+      "dimensions_m": [
+        1.74,
+        1.74,
+        1.552
+      ],
+      "vertices": 1212,
+      "triangles": 636,
+      "display_name": "Чистый приборостроительный цех",
+      "suggested_zone": "INDUSTRIAL",
+      "suggested_level": 3
+    },
+    {
+      "id": "ind_sawtooth_mill_2x1",
+      "category": "industrial",
+      "file": "assets/models/blender/pack/industrial/ind_sawtooth_mill_2x1.glb",
+      "godot_kit_path": "blender/pack/industrial/ind_sawtooth_mill_2x1",
+      "cells": [
+        2,
+        1
+      ],
+      "area_cells": 2,
+      "dimensions_m": [
+        3.74,
+        1.74,
+        2.3
+      ],
+      "vertices": 1580,
+      "triangles": 826,
+      "display_name": "Механический цех с шедовой крышей",
+      "suggested_zone": "INDUSTRIAL",
+      "suggested_level": 1
+    },
+    {
+      "id": "ind_barrel_hangar_2x1",
+      "category": "industrial",
+      "file": "assets/models/blender/pack/industrial/ind_barrel_hangar_2x1.glb",
+      "godot_kit_path": "blender/pack/industrial/ind_barrel_hangar_2x1",
+      "cells": [
+        2,
+        1
+      ],
+      "area_cells": 2,
+      "dimensions_m": [
+        3.74,
+        1.74,
+        1.661
+      ],
+      "vertices": 3208,
+      "triangles": 1638,
+      "display_name": "Сдвоенный арочный ангар",
+      "suggested_zone": "INDUSTRIAL",
+      "suggested_level": 2
+    },
+    {
+      "id": "ind_chem_reactor_2x1",
+      "category": "industrial",
+      "file": "assets/models/blender/pack/industrial/ind_chem_reactor_2x1.glb",
+      "godot_kit_path": "blender/pack/industrial/ind_chem_reactor_2x1",
+      "cells": [
+        2,
+        1
+      ],
+      "area_cells": 2,
+      "dimensions_m": [
+        3.74,
+        1.74,
+        2.38
+      ],
+      "vertices": 1652,
+      "triangles": 940,
+      "display_name": "Химреакторный узел с цистерной",
+      "suggested_zone": "INDUSTRIAL",
+      "suggested_level": 3
+    },
+    {
+      "id": "ind_red_foundry_3x1",
+      "category": "industrial",
+      "file": "assets/models/blender/pack/industrial/ind_red_foundry_3x1.glb",
+      "godot_kit_path": "blender/pack/industrial/ind_red_foundry_3x1",
+      "cells": [
+        3,
+        1
+      ],
+      "area_cells": 3,
+      "dimensions_m": [
+        5.74,
+        1.74,
+        2.95
+      ],
+      "vertices": 2620,
+      "triangles": 1404,
+      "display_name": "Краснокирпичный литейный завод",
+      "suggested_zone": "INDUSTRIAL",
+      "suggested_level": 2
+    },
+    {
+      "id": "ind_silo_elevator_3x1",
+      "category": "industrial",
+      "file": "assets/models/blender/pack/industrial/ind_silo_elevator_3x1.glb",
+      "godot_kit_path": "blender/pack/industrial/ind_silo_elevator_3x1",
+      "cells": [
+        3,
+        1
+      ],
+      "area_cells": 3,
+      "dimensions_m": [
+        5.74,
+        1.74,
+        2.955
+      ],
+      "vertices": 1686,
+      "triangles": 938,
+      "display_name": "Силосный элеватор с конвейером",
+      "suggested_zone": "INDUSTRIAL",
+      "suggested_level": 2
+    },
+    {
+      "id": "ind_assembly_plant_4x1",
+      "category": "industrial",
+      "file": "assets/models/blender/pack/industrial/ind_assembly_plant_4x1.glb",
+      "godot_kit_path": "blender/pack/industrial/ind_assembly_plant_4x1",
+      "cells": [
+        4,
+        1
+      ],
+      "area_cells": 4,
+      "dimensions_m": [
+        7.74,
+        1.74,
+        1.637
+      ],
+      "vertices": 2386,
+      "triangles": 1208,
+      "display_name": "Конвейерный машиностроительный завод",
+      "suggested_zone": "INDUSTRIAL",
+      "suggested_level": 2
+    },
+    {
+      "id": "ind_logistics_hub_5x1",
+      "category": "industrial",
+      "file": "assets/models/blender/pack/industrial/ind_logistics_hub_5x1.glb",
+      "godot_kit_path": "blender/pack/industrial/ind_logistics_hub_5x1",
+      "cells": [
+        5,
+        1
+      ],
+      "area_cells": 5,
+      "dimensions_m": [
+        9.74,
+        1.76,
+        1.99
+      ],
+      "vertices": 3228,
+      "triangles": 1616,
+      "display_name": "Логистический терминал с краном",
+      "suggested_zone": "INDUSTRIAL",
+      "suggested_level": 3
+    },
+    {
+      "id": "ind_heavy_works_7x1",
+      "category": "industrial",
+      "file": "assets/models/blender/pack/industrial/ind_heavy_works_7x1.glb",
+      "godot_kit_path": "blender/pack/industrial/ind_heavy_works_7x1",
+      "cells": [
+        7,
+        1
+      ],
+      "area_cells": 7,
+      "dimensions_m": [
+        13.74,
+        1.76,
+        3.35
+      ],
+      "vertices": 4334,
+      "triangles": 2340,
+      "display_name": "Металлургический комбинат с домной",
+      "suggested_zone": "INDUSTRIAL",
+      "suggested_level": 3
+    },
+    {
+      "id": "ind_tank_depot_2x2",
+      "category": "industrial",
+      "file": "assets/models/blender/pack/industrial/ind_tank_depot_2x2.glb",
+      "godot_kit_path": "blender/pack/industrial/ind_tank_depot_2x2",
+      "cells": [
+        2,
+        2
+      ],
+      "area_cells": 4,
+      "dimensions_m": [
+        3.74,
+        3.74,
+        1.75
+      ],
+      "vertices": 1662,
+      "triangles": 938,
+      "display_name": "Нефтебаза в обваловании",
+      "suggested_zone": "INDUSTRIAL",
+      "suggested_level": 1
+    },
+    {
+      "id": "ind_clean_fab_2x2",
+      "category": "industrial",
+      "file": "assets/models/blender/pack/industrial/ind_clean_fab_2x2.glb",
+      "godot_kit_path": "blender/pack/industrial/ind_clean_fab_2x2",
+      "cells": [
+        2,
+        2
+      ],
+      "area_cells": 4,
+      "dimensions_m": [
+        3.74,
+        3.74,
+        1.951
+      ],
+      "vertices": 2584,
+      "triangles": 1376,
+      "display_name": "Микроэлектронная фабрика (Clean Fab)",
+      "suggested_zone": "INDUSTRIAL",
+      "suggested_level": 3
+    },
+    {
+      "id": "ind_thermo_plant_3x2",
+      "category": "industrial",
+      "file": "assets/models/blender/pack/industrial/ind_thermo_plant_3x2.glb",
+      "godot_kit_path": "blender/pack/industrial/ind_thermo_plant_3x2",
+      "cells": [
+        3,
+        2
+      ],
+      "area_cells": 6,
+      "dimensions_m": [
+        5.76,
+        3.76,
+        3.55
+      ],
+      "vertices": 2902,
+      "triangles": 1562,
+      "display_name": "Энергокомбинат с градирней",
+      "suggested_zone": "INDUSTRIAL",
+      "suggested_level": 2
+    },
+    {
+      "id": "ind_refinery_complex_3x2",
+      "category": "industrial",
+      "file": "assets/models/blender/pack/industrial/ind_refinery_complex_3x2.glb",
+      "godot_kit_path": "blender/pack/industrial/ind_refinery_complex_3x2",
+      "cells": [
+        3,
+        2
+      ],
+      "area_cells": 6,
+      "dimensions_m": [
+        5.76,
+        3.76,
+        3.65
+      ],
+      "vertices": 3284,
+      "triangles": 1856,
+      "display_name": "Нефтехимический комбинат крекинга",
+      "suggested_zone": "INDUSTRIAL",
+      "suggested_level": 3
+    }
+  ]
+}
