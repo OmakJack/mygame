@@ -216,7 +216,8 @@ func _homes_at_least(layer: PackedByteArray, limit: int) -> int:
 	var count: int = 0
 	for building: BuildingInstance in grid.buildings.values():
 		var data: BuildingData = BuildingCatalog.get_type(building.type_id)
-		if data != null and data.population > 0 and land.building_value(layer, grid, building) >= limit:
+		if data != null and data.population > 0 and not building.abandoned \
+				and land.building_value(layer, grid, building) >= limit:
 			count += 1
 	return count
 

@@ -77,13 +77,17 @@ func _initialize() -> void:
 	# Снять зону под домом нельзя.
 	var other: BuildingInstance = g.buildings.values()[0]
 	check.call("no dezone under building", not g.can_zone(other.cell, CityGrid.Zone.NONE))
-	# Заброшенность: сносим дорогу, 2 тика — дома стоят, 3-й — пусто (рост тоже невозможен).
+	# Упадок (Decay): сносим дорогу — дома стоят NO_ROAD_TICKS тиков, потом пустеют (а не исчезают).
+	var no_road_ticks: int = load("res://scripts/simulation/decay.gd").NO_ROAD_TICKS
 	drag.call(tool.Mode.BULLDOZE, Vector2i(5,20), Vector2i(40,20))
 	var n: int = g.buildings.size()
-	ev.sim_tick.emit(); ev.sim_tick.emit()
-	check.call("kept 2 ticks", g.buildings.size() == n)
+	for i in no_road_ticks - 1: ev.sim_tick.emit()
+	check.call("kept until the deadline", g.buildings.size() == n and gs.population > 0)
 	ev.sim_tick.emit()
-	check.call("abandoned at 3", g.buildings.size() == 2 and gs.population == 0)
+	var left: Array = g.buildings.values().filter(func(b: BuildingInstance) -> bool:
+		return BuildingCatalog.get_type(b.type_id).zone != CityGrid.Zone.NONE)
+	check.call("abandoned at the deadline", gs.population == 0 and not left.is_empty()
+			and left.all(func(b: BuildingInstance) -> bool: return b.abandoned))
 	check.call("zones kept", g.get_zone(Vector2i(10,18)) == CityGrid.Zone.RESIDENTIAL)
 	check.call("cache after abandon", cache_ok.call())
 	# SimClock.

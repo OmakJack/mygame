@@ -121,11 +121,11 @@ func _initialize() -> void:
 	# Срок без света — 6 игровых часов: подводим счётчики к концу срока.
 	for b in east:
 		b.construction_ticks = 0
-		b.no_power_ticks = main.get_node("Simulation").UTILITY_ABANDON_TICKS - 1
+		b.no_power_ticks = load("res://scripts/simulation/decay.gd").NO_UTILITY_TICKS - 1
 	tick.call(1)
 	east_alive = 0
 	for b in east:
-		if g.buildings.has(b.id): east_alive += 1
+		if g.buildings.has(b.id) and not b.abandoned: east_alive += 1
 	check.call("east abandoned at deadline", east_alive == 0)
 	check.call("services never abandon", g.buildings.has(school.id) and g.buildings.has(plant.id))
 	check.call("school inactive", gs.service_coverage.get(BuildingData.Service.SCHOOL, 0.0) == 0.0)

@@ -29,7 +29,7 @@ static func compute(grid: CityGrid, land: LandValue, traffic: Traffic, tax_rate:
 	var people: int = 0
 	for building: BuildingInstance in grid.buildings.values():
 		var data: BuildingData = BuildingCatalog.get_type(building.type_id)
-		if data == null or data.population == 0:
+		if data == null or data.population == 0 or building.abandoned:
 			continue
 		var value: int = _score(factors(grid, building, data, land, traffic, tax_rate, services))
 		result.by_building[building.id] = value

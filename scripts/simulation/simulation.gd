@@ -1,14 +1,9 @@
 extends Node
-## Порядок одного тика симуляции: заброшенные → рост → пересчёт (сеть, свет и вода, подсчёт,
+## Порядок одного тика симуляции: упадок и возвращение жильцов (Decay) → рост → пересчёт (сеть, свет и вода, подсчёт,
 ## трафик, службы, спрос, прогноз денег) → деньги → сигналы.
 ## Вне тика (стройка и снос на паузе, налог, новая сетка) тоже пересчитывает всё для UI.
 ## Узлы сцены не ищет: работает с GameState и Events.
 
-## Через сколько тиков без доступа к дороге дом сносится.
-const ABANDON_TICKS: int = 3
-## Через сколько тиков без света или воды дом сносится: дома растут и без них (со значком над крышей),
-## так что у игрока есть 6 игровых часов (12 минут при ×1), чтобы провести свет и воду.
-const UTILITY_ABANDON_TICKS: int = 6 * GameTime.TICKS_PER_HOUR
 ## Во сколько раз шанс роста больше спроса.
 const GROWTH_CHANCE_FACTOR: float = 0.7
 ## На тике трафик пересчитывается раз в столько тиков (и сразу — при изменении дорог).
@@ -39,7 +34,8 @@ func _ready() -> void:
 func _on_sim_tick() -> void:
 	var grid: CityGrid = GameState.grid
 	var changed: Array[Vector2i] = []
-	_abandon_buildings(grid, changed)
+	changed.append_array(Decay.step(grid, GameState.network, GameState.land, GameState.traffic, GameState.tax_rate,
+			_demands()))
 	# Фаза 10: упадок несчастных домов, конец стройки, рост, повышения и перестройки.
 	changed.append_array(Levels.decline(grid, GameState.happiness))
 	changed.append_array(Levels.tick_construction(grid))
@@ -74,28 +70,6 @@ func _refresh_stats() -> void:
 	Events.stats_changed.emit()
 
 
-## Только дома R/C/I: служебные здания сами не сносятся, а просто не работают.
-## Флаги света и воды — из последнего пересчёта; стройплощадке они не нужны.
-func _abandon_buildings(grid: CityGrid, changed: Array[Vector2i]) -> void:
-	var abandoned: Array[int] = []
-	for building: BuildingInstance in grid.buildings.values():
-		var data: BuildingData = BuildingCatalog.get_type(building.type_id)
-		if data == null or data.zone == CityGrid.Zone.NONE:
-			continue
-		building.no_road_ticks = 0 if grid.has_building_road_access(building) else building.no_road_ticks + 1
-		var building_site: bool = building.construction_ticks > 0
-		building.no_power_ticks = 0 if building.powered or building_site else building.no_power_ticks + 1
-		building.no_water_ticks = 0 if building.has_water or building_site else building.no_water_ticks + 1
-		if building.no_road_ticks >= ABANDON_TICKS \
-				or building.no_power_ticks >= UTILITY_ABANDON_TICKS \
-				or building.no_water_ticks >= UTILITY_ABANDON_TICKS:
-			abandoned.append(building.id)
-	# Удаляем после обхода, чтобы не менять словарь во время итерации.
-	for id: int in abandoned:
-		changed.append_array(grid.buildings[id].cells())
-		grid.remove_building(id)
-
-
 ## Шанс вырасти дому зоны на тике = min(1, спрос · GROWTH_CHANCE_FACTOR):
 ## при спросе 0.5 — примерно раз в 3 тика, при просадке (налог, нет служб) — реже.
 func _grow(grid: CityGrid, changed: Array[Vector2i]) -> void:
@@ -118,11 +92,7 @@ func _grow(grid: CityGrid, changed: Array[Vector2i]) -> void:
 
 ## Спрос по категориям зон.
 func _demands() -> Dictionary[CityGrid.Zone, float]:
-	return {
-		CityGrid.Zone.RESIDENTIAL: GameState.demand_r,
-		CityGrid.Zone.COMMERCIAL: GameState.demand_c,
-		CityGrid.Zone.INDUSTRIAL: GameState.demand_i,
-	}
+	return GameState.demand_by_zone()
 
 
 ## Пересчитывает всё, что видит UI: сеть, свет и воду, население и рабочие места,
@@ -138,7 +108,7 @@ func _update_stats(from_tick: bool = false) -> void:
 	var service_upkeep: int = 0
 	for building: BuildingInstance in grid.buildings.values():
 		var data: BuildingData = BuildingCatalog.get_type(building.type_id)
-		if data == null:
+		if data == null or building.abandoned:
 			continue
 		population += data.population
 		match CityGrid.zone_category(data.zone):
@@ -201,7 +171,7 @@ func _tax_base(grid: CityGrid) -> float:
 	var base: float = 0.0
 	for building: BuildingInstance in grid.buildings.values():
 		var data: BuildingData = BuildingCatalog.get_type(building.type_id)
-		if data == null or data.population + data.jobs == 0:
+		if data == null or data.population + data.jobs == 0 or building.abandoned:
 			continue
 		var value: int = GameState.land.building_value(GameState.land.land_value, grid, building)
 		base += (data.population + data.jobs) * Economy.land_factor(value)

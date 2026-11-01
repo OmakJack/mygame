@@ -1,7 +1,7 @@
 extends SceneTree
 ## Дома растут без света и воды, над ними — значки (BadgeVisualizer); провели свет и воду — значки
 ## пропали. Без света дом не пустеет от несчастья и не повышается, сносится только через
-## UTILITY_ABANDON_TICKS; стройплощадка без значка и без счётчика.
+## Decay.NO_UTILITY_TICKS (тогда пустеет); стройплощадка без значка и без счётчика.
 
 func _initialize() -> void:
 	root.get_node("SaveManager").save_dir = "res://tests/out/test_saves/" # не трогать сохранения Андрея
@@ -83,7 +83,7 @@ func _initialize() -> void:
 	print("after 120 ticks: buildings %d -> %d, removed %d" % [before, g.buildings.size(), removed])
 	check.call("no houses lost before the deadline", removed == 0)
 
-	# Срок вышел — дом сносится, зона остаётся.
+	# Срок вышел — дом пустеет (Decay), зона остаётся.
 	var victim: BuildingInstance = null
 	for b: BuildingInstance in g.buildings.values():
 		if b.construction_ticks == 0 and BuildingCatalog.get_type(b.type_id).zone == CityGrid.Zone.RESIDENTIAL:
@@ -91,9 +91,9 @@ func _initialize() -> void:
 			break
 	var victim_id: int = victim.id
 	var victim_cell: Vector2i = victim.cell
-	victim.no_power_ticks = main.get_node("Simulation").UTILITY_ABANDON_TICKS - 1
+	victim.no_power_ticks = load("res://scripts/simulation/decay.gd").NO_UTILITY_TICKS - 1
 	ev.sim_tick.emit()
-	check.call("abandoned after the deadline", not g.buildings.has(victim_id)
+	check.call("abandoned after the deadline", g.buildings.has(victim_id) and victim.abandoned
 			and g.get_zone(victim_cell) == CityGrid.Zone.RESIDENTIAL)
 
 	# ТЭЦ и водокачка у дороги — значки пропадают.

@@ -48,6 +48,8 @@ static func to_dict(grid: CityGrid, city_name: String, money: int, tax_rate: int
 			"nh": building.unhappy_ticks,
 			"ct": building.construction_ticks,
 			"ctt": building.construction_total,
+			"ab": 1 if building.abandoned else 0,
+			"rt": building.recover_ticks,
 		})
 	return {
 		"format": FORMAT,
@@ -226,6 +228,9 @@ static func _load_building(grid: CityGrid, entry: Dictionary, occupied: Dictiona
 	# Стройплощадка: нет поля — здание готово (старые сохранения).
 	building.construction_ticks = maxi(0, _int(entry.get("ct"), 0))
 	building.construction_total = maxi(building.construction_ticks, _int(entry.get("ctt"), 0))
+	# Брошенное здание (Decay): нет поля — жилое (старые сохранения).
+	building.abandoned = _int(entry.get("ab"), 0) == 1 and data.zone != CityGrid.Zone.NONE
+	building.recover_ticks = maxi(0, _int(entry.get("rt"), 0)) if building.abandoned else 0
 	grid.buildings[id] = building
 	for c: Vector2i in cells:
 		occupied[c] = true

@@ -86,18 +86,20 @@ func _refresh() -> void:
 	var data: BuildingData = BuildingCatalog.get_type(building.type_id) if building != null else null
 	if data != null:
 		_title.text = data.display_name
-		_subtitle.text = _kind(data)
+		_subtitle.text = _kind(data) + (" · заброшено" if building.abandoned else "")
 		_icon.texture = UiTheme.icon(_building_icon(data))
 		if data.area() > 1:
 			_add("Участок", "%d×%d (%d кл.)" % [data.size.x, data.size.y, data.area()])
-		if data.population > 0:
+		if building.abandoned:
+			_add_abandoned(grid, building, data)
+		elif data.population > 0:
 			_add("Жители", "%d (%s)" % [data.population, _families_text(LevelStats.families(data.population))])
 		if data.jobs > 0:
 			_add("Рабочие места", str(data.jobs))
-		if data.power_use > 0:
+		if data.power_use > 0 and not building.abandoned:
 			_add("Свет", "%s, %s" % [Utilities.power_text(data.power_use), "есть" if building.powered else "нет"],
 					not building.powered)
-		if data.water_use > 0:
+		if data.water_use > 0 and not building.abandoned:
 			_add("Вода", "%s, %s" % [Utilities.water_text(data.water_use), "есть" if building.has_water else "нет"],
 					not building.has_water)
 		if data.power_supply > 0:
@@ -110,7 +112,12 @@ func _refresh() -> void:
 			var total: int = maxi(building.construction_total, building.construction_ticks)
 			_add("Стройка", "%d%%, ещё %d мин" % [roundi(100.0 * (total - building.construction_ticks) / total),
 					building.construction_ticks * GameTime.TICK_MINUTES])
-		_add_mood(grid, building, data)
+		var left: int = Decay.ticks_left(building)
+		if left >= 0 and not building.abandoned:
+			_add("Опустеет через", "%s — %s" % [_minutes_text(left * GameTime.TICK_MINUTES),
+					"нет дороги" if building.no_road_ticks > 0 else "нет света или воды"], true)
+		if not building.abandoned:
+			_add_mood(grid, building, data)
 	elif grid.is_road(cell):
 		var road_type: int = grid.get_road_type(cell)
 		_title.text = RoadTypes.NAMES.get(road_type, "Дорога") + (" · мост" if grid.is_water(cell) else "")
@@ -145,8 +152,28 @@ func _refresh() -> void:
 		_add("Цена земли", "%d / 100" % value, value < 25)
 		_add("Загрязнение", str(pollution), pollution >= BAD_LEVEL)
 		_add("Шум", str(noise), noise >= BAD_LEVEL)
-		if data != null and data.population + data.jobs > 0:
+		if data != null and data.population + data.jobs > 0 and not building.abandoned:
 			_add("Налог с участка", "×%.2f" % Economy.land_factor(value))
+
+
+## Брошенное здание (Decay): никого нет, что мешает въехать или через сколько въедут, как снести.
+func _add_abandoned(grid: CityGrid, building: BuildingInstance, data: BuildingData) -> void:
+	_add("Состояние", "заброшено — %s" % ("жителей нет" if data.population > 0 else "работников нет"), true)
+	var blockers: PackedStringArray = Decay.recover_blockers(grid, building, data, GameState.network, GameState.land,
+			GameState.traffic, GameState.tax_rate, GameState.demand_by_zone())
+	if blockers.is_empty():
+		_add("Въедут через", _minutes_text((Decay.RECOVER_TICKS - building.recover_ticks) * GameTime.TICK_MINUTES))
+	else:
+		_add("Не въезжают", ", ".join(blockers), true)
+	_add("Снести", "бульдозер [B], бесплатно")
+
+
+## «45 мин», «2 ч 5 мин».
+static func _minutes_text(minutes: int) -> String:
+	if minutes < GameTime.MINUTES_PER_HOUR:
+		return "%d мин" % minutes
+	var rest: int = minutes % GameTime.MINUTES_PER_HOUR
+	return "%d ч" % (minutes / GameTime.MINUTES_PER_HOUR) + (" %d мин" % rest if rest > 0 else "")
 
 
 ## «1 семья», «3 семьи», «5 семей».

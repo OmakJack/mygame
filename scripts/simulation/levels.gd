@@ -10,7 +10,7 @@ const HAPPINESS_FOR_LEVEL: Array[int] = [0, 0, 45, 60]
 const CHANGES_PER_TICK: int = 2
 const CHANGE_CHANCE: float = 0.5
 ## Упадок: дом пустеет, если счастье ниже этого дольше DECLINE_TICKS тиков. Дом без света или воды
-## от несчастья не пустеет — его срок Simulation.UTILITY_ABANDON_TICKS (иначе дома, выросшие до
+## от несчастья не пустеет — его срок Decay.NO_UTILITY_TICKS (иначе дома, выросшие до
 ## первой ТЭЦ, исчезали бы через 20 минут).
 const DECLINE_HAPPINESS: int = 20
 const DECLINE_TICKS: int = 20
@@ -59,7 +59,7 @@ static func step(grid: CityGrid, rng: RandomNumberGenerator, network: RoadNetwor
 	var candidates: Array[Array] = []
 	for building: BuildingInstance in grid.buildings.values():
 		var data: BuildingData = BuildingCatalog.get_type(building.type_id)
-		if data == null or data.zone == CityGrid.Zone.NONE or building.construction_ticks > 0:
+		if data == null or data.zone == CityGrid.Zone.NONE or building.construction_ticks > 0 or building.abandoned:
 			continue
 		if demands.get(CityGrid.zone_category(data.zone), 0.0) <= 0.0:
 			continue
@@ -83,11 +83,12 @@ static func step(grid: CityGrid, rng: RandomNumberGenerator, network: RoadNetwor
 	return changed
 
 
-## Упадок: считает несчастные дни, пустые дома сносит (зона остаётся). Возвращает клетки снесённых.
+## Упадок: считает несчастные тики; дом, где жителям плохо дольше DECLINE_TICKS, пустеет (Decay.abandon) —
+## стоит брошенным, пока его не снесут или не станет лучше. Стройплощадки не пустеют. Возвращает клетки.
 static func decline(grid: CityGrid, happiness: Happiness) -> Array[Vector2i]:
-	var gone: Array[int] = []
+	var cells: Array[Vector2i] = []
 	for building: BuildingInstance in grid.buildings.values():
-		if not happiness.by_building.has(building.id):
+		if not happiness.by_building.has(building.id) or building.abandoned or building.construction_ticks > 0:
 			continue
 		if not building.powered or not building.has_water:
 			building.unhappy_ticks = 0
@@ -95,13 +96,10 @@ static func decline(grid: CityGrid, happiness: Happiness) -> Array[Vector2i]:
 		if happiness.by_building[building.id] < DECLINE_HAPPINESS:
 			building.unhappy_ticks += 1
 			if building.unhappy_ticks >= DECLINE_TICKS:
-				gone.append(building.id)
+				Decay.abandon(grid, building)
+				cells.append_array(building.cells())
 		else:
 			building.unhappy_ticks = 0
-	var cells: Array[Vector2i] = []
-	for id: int in gone:
-		cells.append_array(grid.buildings[id].cells())
-		grid.remove_building(id)
 	return cells
 
 

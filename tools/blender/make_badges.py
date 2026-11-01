@@ -1,5 +1,6 @@
-"""Значки над зданиями без света и воды (как в SimCity): красная «булавка» в белой окантовке,
-в ней белый круг с символом — жёлтая молния (нет света) или голубая капля (нет воды).
+"""Значки над зданиями (как в SimCity): «булавка» в белой окантовке, в ней белый круг с символом.
+Красные: жёлтая молния (нет света), голубая капля (нет воды), перечёркнутая дорога (нет дороги —
+скоро опустеет). Тёмная: заколоченные крест-накрест доски (здание брошено, Decay).
 Модели для BadgeVisualizer в Godot: он ставит значок остриём на крышу и поворачивает к камере.
 
 Запуск (без окна):
@@ -7,9 +8,12 @@
       --python tools/blender/make_badges.py
 
 Результат:
-  - assets/models/blender/badges/badge_power.glb, badge_water.glb — острие внизу в (0, 0, 0),
+  - assets/models/blender/badges/badge_power.glb, badge_water.glb, badge_road.glb, badge_abandoned.glb —
+    острие внизу в (0, 0, 0),
     высота 1 м, лицевая сторона на −Y Blender (в Godot — на +Z, к камере);
-  - docs/collab/visual/badges_preview.png — превью обоих значков.
+  - docs/collab/visual/badges_preview.png — превью всех значков.
+
+Только некоторые значки: BADGES_ONLY="badge_road,badge_abandoned" (остальные .glb не трогаются).
 """
 
 import math
@@ -28,6 +32,11 @@ PIN_RED = (0.86, 0.22, 0.19)
 WHITE = (0.98, 0.97, 0.94)
 BOLT_YELLOW = (1.0, 0.76, 0.08)
 DROP_BLUE = (0.14, 0.58, 0.96)
+PIN_DARK = (0.34, 0.31, 0.3)
+ROAD_GREY = (0.3, 0.31, 0.35)
+DASH_YELLOW = (1.0, 0.84, 0.22)
+WOOD = (0.7, 0.47, 0.24)
+WOOD_DARK = (0.55, 0.35, 0.17)
 
 # Булавка: острие в нуле, круг радиуса PIN_R с центром на высоте PIN_CENTER (верх — 1 м).
 PIN_R = 0.38
@@ -116,16 +125,45 @@ def drop_outline():
     return teardrop((0.0, PIN_CENTER + 0.22), 0.28, 0.16, up=True)
 
 
-def build_badge(symbol_outline, symbol_color):
-    red = make_mat("badge_red", PIN_RED)
+def rect(cx, cz, width, height, angle=0.0):
+    """Прямоугольник [(x, z)] с центром (cx, cz), повёрнутый на angle радиан."""
+    c, s = math.cos(angle), math.sin(angle)
+    corners = [(-width / 2, -height / 2), (width / 2, -height / 2), (width / 2, height / 2), (-width / 2, height / 2)]
+    return [(cx + x * c - z * s, cz + x * s + z * c) for x, z in corners]
+
+
+def road_symbol():
+    # Дорога уходит вдаль (трапеция), жёлтая разметка, красная черта поперёк — «нет дороги».
+    cz = PIN_CENTER
+    road = [(-0.15, cz - 0.21), (0.15, cz - 0.21), (0.075, cz + 0.21), (-0.075, cz + 0.21)]
+    dashes = [rect(0.0, cz - 0.12, 0.035, 0.09), rect(0.0, cz + 0.03, 0.028, 0.07), rect(0.0, cz + 0.15, 0.022, 0.05)]
+    slash = rect(0.0, cz, 0.06, 0.56, math.radians(45.0))
+    return [([road], ROAD_GREY), (dashes, DASH_YELLOW), ([slash], PIN_RED)]
+
+
+def planks_symbol():
+    # Две доски крест-накрест, как на заколоченном окне.
+    cz = PIN_CENTER
+    return [([rect(0.0, cz, 0.44, 0.1, math.radians(38.0))], WOOD_DARK),
+            ([rect(0.0, cz, 0.44, 0.1, math.radians(-38.0))], WOOD)]
+
+
+def build_badge(symbol_outline, symbol_color, pin_color=PIN_RED):
+    """symbol_outline — контур символа, или symbol_color=None и symbol_outline — слои [([контуры], цвет)]:
+    каждый следующий слой чуть ближе к зрителю."""
+    red = make_mat("badge_pin", pin_color)
     white = make_mat("badge_white", WHITE, roughness=0.5)
-    symbol = make_mat("badge_symbol", symbol_color, roughness=0.32)
     # Белая окантовка — та же булавка, крупнее и чуть сзади: видна на любой крыше.
     prism("border", teardrop((0.0, -BORDER * 1.6), PIN_CENTER + BORDER * 1.6, PIN_R + BORDER, up=False),
           -PIN_DEPTH * 0.5 + 0.03, PIN_DEPTH - 0.02, white, bevel=0.015)
     prism("pin", teardrop((0.0, 0.0), PIN_CENTER, PIN_R, up=False), -PIN_DEPTH * 0.5, PIN_DEPTH, red, bevel=0.03)
     prism("disc", circle((0.0, PIN_CENTER), DISC_R), -PIN_DEPTH * 0.5 - 0.03, 0.04, white, bevel=0.012)
-    prism("symbol", symbol_outline, -PIN_DEPTH * 0.5 - 0.075, 0.06, symbol, bevel=0.012)
+    layers = symbol_outline if symbol_color is None else [([symbol_outline], symbol_color)]
+    for index, (outlines, color) in enumerate(layers):
+        mat = make_mat("badge_symbol_%d" % index, color, roughness=0.32)
+        for part, outline in enumerate(outlines):
+            prism("symbol_%d_%d" % (index, part), outline, -PIN_DEPTH * 0.5 - 0.075 - 0.02 * index, 0.06, mat,
+                  bevel=0.012 if index == 0 else 0.008)
 
 
 def export(name):
@@ -146,10 +184,9 @@ def export(name):
 
 def render_preview():
     clear_scene()
-    for name, outline, color, x in (("power", bolt_outline(), BOLT_YELLOW, -0.65),
-                                    ("water", drop_outline(), DROP_BLUE, 0.65)):
+    for (name, outline, color, pin), x in zip(badges(), (-1.95, -0.65, 0.65, 1.95)):
         before = set(bpy.data.objects)
-        build_badge(outline, color)
+        build_badge(outline, color, pin)
         for obj in bpy.data.objects:
             if obj not in before:
                 obj.location.x += x
@@ -160,7 +197,7 @@ def render_preview():
             break
         except Exception:
             pass
-    scene.render.resolution_x = 640
+    scene.render.resolution_x = 1100
     scene.render.resolution_y = 420
     scene.render.film_transparent = False
     try:
@@ -173,7 +210,7 @@ def render_preview():
     scene.world = world
     cam = bpy.data.objects.new("cam", bpy.data.cameras.new("cam"))
     cam.data.type = "ORTHO"
-    cam.data.ortho_scale = 2.9
+    cam.data.ortho_scale = 5.0
     bpy.context.collection.objects.link(cam)
     target = Vector((0.0, 0.0, 0.5))
     cam.location = target + Vector((0.35, -3.0, 0.9))
@@ -189,11 +226,21 @@ def render_preview():
     print("PREVIEW", PREVIEW)
 
 
+def badges():
+    """[имя, контур или слои, цвет символа (None — слои), цвет булавки]."""
+    return [("badge_power", bolt_outline(), BOLT_YELLOW, PIN_RED),
+            ("badge_water", drop_outline(), DROP_BLUE, PIN_RED),
+            ("badge_road", road_symbol(), None, PIN_RED),
+            ("badge_abandoned", planks_symbol(), None, PIN_DARK)]
+
+
 def main():
-    for name, outline, color in (("badge_power", bolt_outline(), BOLT_YELLOW),
-                                 ("badge_water", drop_outline(), DROP_BLUE)):
+    only = [name for name in os.environ.get("BADGES_ONLY", "").split(",") if name]
+    for name, outline, color, pin in badges():
+        if only and name not in only:
+            continue
         clear_scene()
-        build_badge(outline, color)
+        build_badge(outline, color, pin)
         export(name)
     render_preview()
 

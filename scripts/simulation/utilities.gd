@@ -39,7 +39,7 @@ static func distribute(grid: CityGrid, network: RoadNetwork) -> Utilities:
 			# Без дороги — без света и воды.
 			building.powered = false
 			building.has_water = false
-			if data != null:
+			if data != null and not building.abandoned:
 				result._count_unserved(data, building)
 			continue
 		var queues: Dictionary[int, Array] = service_queue if data.zone == CityGrid.Zone.NONE else home_queue
@@ -63,6 +63,10 @@ func _distribute_power(component: int, order: Array) -> void:
 		powered_components[component] = true
 	for building: BuildingInstance in order:
 		var use: int = BuildingCatalog.get_type(building.type_id).power_use
+		# Брошенное здание свет не берёт; powered — хватило бы ему запаса (чтобы туда въехали снова).
+		if building.abandoned:
+			building.powered = use <= available
+			continue
 		power_use += use
 		building.powered = use <= available
 		if building.powered:
@@ -83,6 +87,9 @@ func _distribute_water(component: int, order: Array) -> void:
 		watered_components[component] = true
 	for building: BuildingInstance in order:
 		var use: int = BuildingCatalog.get_type(building.type_id).water_use
+		if building.abandoned:
+			building.has_water = use <= available
+			continue
 		water_use += use
 		building.has_water = use <= available
 		if building.has_water:

@@ -95,10 +95,12 @@ func _initialize() -> void:
 	# --- Счастье и упадок ---
 	var hp = HP.new()
 	hp.by_building[uid] = 5
+	# Стройплощадка не пустеет: дом после повышения ещё строится — достраиваем.
+	g.buildings[uid].construction_ticks = 0
 	for i in LV.DECLINE_TICKS - 1: LV.decline(g, hp)
 	check.call("unhappy house still there", g.buildings.has(uid))
 	var gone: Array = LV.decline(g, hp)
-	check.call("unhappy house leaves", not g.buildings.has(uid) and gone.size() == 1)
+	check.call("unhappy house abandoned", g.buildings.has(uid) and g.buildings[uid].abandoned and gone.size() == 1)
 	var dirty := CityGrid.new(32)
 	for x in range(5, 25): dirty.set_road(Vector2i(x, 10))
 	var home: int = dirty.place_building(&"res_small_01", Vector2i(12, 11), 0)

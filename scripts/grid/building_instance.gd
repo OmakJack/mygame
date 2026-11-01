@@ -13,7 +13,7 @@ var size: Vector2i = Vector2i.ONE
 ## Направление на дорогу 0/1/2/3 = N/E/S/W (поворот по часовой 0°/90°/180°/270°).
 var orientation: int
 # Состояние симуляции.
-## Сколько тиков подряд нет дороги / света / воды.
+## Сколько тиков подряд нет дороги / света / воды (Decay: по сроку здание пустеет).
 var no_road_ticks: int = 0
 var no_power_ticks: int = 0
 var no_water_ticks: int = 0
@@ -23,7 +23,11 @@ var unhappy_ticks: int = 0
 var construction_ticks: int = 0
 ## Сколько тиков длится вся стройка (Levels.start_construction) — для анимации стройки.
 var construction_total: int = 0
-## Результат последнего распределения света и воды.
+## Здание брошено (Decay): жителей и работы нет, налогов и света с водой не берёт, темнеет.
+var abandoned: bool = false
+## Сколько тиков подряд причина упадка исправлена — после Decay.RECOVER_TICKS въезжают снова.
+var recover_ticks: int = 0
+## Результат последнего распределения света и воды (у брошенного — хватило бы ему запаса).
 var powered: bool = false
 var has_water: bool = false
 

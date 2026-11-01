@@ -52,6 +52,18 @@ static func build() -> Array[String]:
 		hints.append("Нет света у %d зд.: нужна ТЭЦ, ветряк или дорога к ним" % utilities.unpowered_count)
 	if utilities.no_water_count > 0:
 		hints.append("Нет воды у %d зд.: нужна водокачка (ей нужен свет)" % utilities.no_water_count)
+	# Упадок (Decay): здания без дороги скоро опустеют, брошенные ждут бульдозера или починки.
+	var cut_road: int = 0
+	var abandoned: int = 0
+	for building: BuildingInstance in grid.buildings.values():
+		if building.abandoned:
+			abandoned += 1
+		elif building.no_road_ticks > 0:
+			cut_road += 1
+	if cut_road > 0:
+		hints.append("Без дороги %d зд.: верните дорогу, иначе через пару часов опустеют" % cut_road)
+	if abandoned > 0:
+		hints.append("Заброшено %d зд.: снесите бульдозером [B] или исправьте причину (клик по дому)" % abandoned)
 
 	for service: BuildingData.Service in Services.REQUIRED_FROM:
 		if GameState.population < Services.REQUIRED_FROM[service]:
@@ -74,7 +86,8 @@ static func build() -> Array[String]:
 	var dirty_homes: int = 0
 	for building: BuildingInstance in grid.buildings.values():
 		var data: BuildingData = BuildingCatalog.get_type(building.type_id)
-		if data != null and data.population > 0 and land.building_value(land.pollution, grid, building) >= DIRTY_HOME:
+		if data != null and data.population > 0 and not building.abandoned \
+				and land.building_value(land.pollution, grid, building) >= DIRTY_HOME:
 			dirty_homes += 1
 	var dirty_zone: int = 0
 	for cell: Vector2i in grid.zoned_empty_cells[CityGrid.Zone.RESIDENTIAL]:

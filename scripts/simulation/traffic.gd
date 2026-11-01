@@ -118,7 +118,7 @@ static func compute(grid: CityGrid) -> Traffic:
 	jobs_at.fill(0.0)
 	for building: BuildingInstance in grid.buildings.values():
 		var data: BuildingData = BuildingCatalog.get_type(building.type_id)
-		if data == null:
+		if data == null or building.abandoned:
 			continue
 		var road: Vector2i = grid.find_building_road(building)
 		if road == CityGrid.NO_CELL:

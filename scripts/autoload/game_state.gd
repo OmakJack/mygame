@@ -43,6 +43,15 @@ var rank: int = 0
 var rng := RandomNumberGenerator.new()
 
 
+## Спрос по категориям зон (R, C, I) — для роста, повышений и возвращения жильцов.
+func demand_by_zone() -> Dictionary[CityGrid.Zone, float]:
+	return {
+		CityGrid.Zone.RESIDENTIAL: demand_r,
+		CityGrid.Zone.COMMERCIAL: demand_c,
+		CityGrid.Zone.INDUSTRIAL: demand_i,
+	}
+
+
 func _init() -> void:
 	# Создаём сетку в _init, чтобы она была готова до _ready любых узлов сцены.
 	grid = CityGrid.new(CityGrid.GRID_SIZE)

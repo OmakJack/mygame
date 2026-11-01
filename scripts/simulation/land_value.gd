@@ -15,6 +15,10 @@ const BASE_VALUE: float = 25.0
 ## Сколько отнимают загрязнение и шум.
 const POLLUTION_WEIGHT: float = 0.7
 const NOISE_WEIGHT: float = 0.4
+## Насколько брошенное здание (Decay) снижает цену земли: всего на здание, по его клеткам поровну,
+## размытие — как у бонусов. У домика 1×1 своя клетка −8 из 25, соседи −5…6; у дома 3×3 середина −6;
+## у ряда брошенных — больше: упадок расползается, как в SimCity.
+const ABANDONED_PENALTY: float = 8.0
 ## Клетка воды поднимает цену берега.
 const WATER_BONUS: float = 10.0
 ## Шум дороги: тихая улица и прибавка от загрузки трафика.
@@ -55,7 +59,7 @@ func average_value(grid: CityGrid) -> int:
 	var count: int = 0
 	for building: BuildingInstance in grid.buildings.values():
 		var data: BuildingData = BuildingCatalog.get_type(building.type_id)
-		if data != null and (data.population > 0 or data.jobs > 0):
+		if data != null and (data.population > 0 or data.jobs > 0) and not building.abandoned:
 			var area: int = building.size.x * building.size.y
 			total += building_value(land_value, grid, building) * area
 			count += area
@@ -80,11 +84,12 @@ static func compute(grid: CityGrid, traffic: Traffic) -> LandValue:
 		var data: BuildingData = BuildingCatalog.get_type(building.type_id)
 		if data == null:
 			continue
-		# Дымит и шумит только работающее здание: без света или без дороги (ТЭЦ) — нет.
+		# Дымит и шумит только работающее здание: без света или без дороги (ТЭЦ) — нет; брошенное — тоже нет.
 		var working: bool = building.powered if data.power_use > 0 else grid.has_building_road_access(building)
+		working = working and not building.abandoned
 		# Цену земли поднимают парки всегда, службы — только работающие (ревью Argon 014).
 		var gives_bonus: bool = data.park != BuildingData.Park.NONE or Services.is_active(grid, building, data)
-		if not working and not gives_bonus:
+		if not working and not gives_bonus and not building.abandoned:
 			continue
 		for dy: int in building.size.y:
 			for dx: int in building.size.x:
@@ -97,6 +102,8 @@ static func compute(grid: CityGrid, traffic: Traffic) -> LandValue:
 					loud[i] += data.noise
 				if gives_bonus:
 					bonus[i] += data.land_value
+				if building.abandoned:
+					bonus[i] -= ABANDONED_PENALTY / (building.size.x * building.size.y)
 	for cell: Vector2i in grid.road_cells:
 		var i: int = grid.index_of(cell)
 		var factor: float = RoadTypes.NOISE_FACTOR.get(grid.road_type[i], 1.0)

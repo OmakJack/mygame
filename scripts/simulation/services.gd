@@ -24,7 +24,7 @@ static func coverage(grid: CityGrid, population: int) -> Dictionary[BuildingData
 		var data: BuildingData = BuildingCatalog.get_type(building.type_id)
 		if data == null:
 			continue
-		if data.population > 0:
+		if data.population > 0 and not building.abandoned:
 			homes.append(building)
 		if is_active(grid, building, data):
 			if not active.has(data.service):
