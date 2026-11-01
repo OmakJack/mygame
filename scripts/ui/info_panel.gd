@@ -95,13 +95,15 @@ func _refresh() -> void:
 		if data.jobs > 0:
 			_add("Рабочие места", str(data.jobs))
 		if data.power_use > 0:
-			_add("Свет", "есть" if building.powered else "нет", not building.powered)
+			_add("Свет", "%s, %s" % [Utilities.power_text(data.power_use), "есть" if building.powered else "нет"],
+					not building.powered)
 		if data.water_use > 0:
-			_add("Вода", "есть" if building.has_water else "нет", not building.has_water)
+			_add("Вода", "%s, %s" % [Utilities.water_text(data.water_use), "есть" if building.has_water else "нет"],
+					not building.has_water)
 		if data.power_supply > 0:
-			_add("Даёт свет", str(data.power_supply))
+			_add("Даёт свет", Utilities.power_text(data.power_supply))
 		if data.water_supply > 0:
-			_add("Даёт воду", str(data.water_supply))
+			_add("Даёт воду", Utilities.water_text(data.water_supply))
 		if data.land_value > 0:
 			_add("Цена земли вокруг", "+%d" % data.land_value)
 		if building.construction_ticks > 0:

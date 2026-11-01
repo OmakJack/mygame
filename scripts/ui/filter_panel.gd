@@ -88,9 +88,11 @@ func _summary(mode: int) -> Array:
 	var traffic: Traffic = GameState.traffic
 	match mode:
 		ZoneVisualizer.Overlay.POWER:
-			return ["%d/%d" % [utilities.power_use, utilities.power_supply], utilities.unpowered_count > 0]
+			return [_load_text(utilities.power_use, utilities.power_supply),
+					utilities.unpowered_count > 0 or utilities.power_use > utilities.power_supply]
 		ZoneVisualizer.Overlay.WATER:
-			return ["%d/%d" % [utilities.water_use, utilities.water_supply], utilities.no_water_count > 0]
+			return [_load_text(utilities.water_use, utilities.water_supply),
+					utilities.no_water_count > 0 or utilities.water_use > utilities.water_supply]
 		ZoneVisualizer.Overlay.TRAFFIC:
 			if traffic.jammed_cells > 0:
 				return ["на %d кл." % traffic.jammed_cells, true]
@@ -126,7 +128,9 @@ func _fill_legend() -> void:
 		_add_line("Выберите, что показать на карте.")
 		_add_line("Клавиша V — открыть или закрыть фильтры.")
 		return
-	_add_title(filter.name)
+	# У света и воды заголовок — у шкалы (UtilityMeter: «Электричество», «Вода»).
+	if overlay not in [ZoneVisualizer.Overlay.POWER, ZoneVisualizer.Overlay.WATER]:
+		_add_title(filter.name)
 	_swatches.columns = 2
 	_swatches.add_theme_constant_override(&"h_separation", 14)
 	_swatches.add_theme_constant_override(&"v_separation", 2)
@@ -134,15 +138,13 @@ func _fill_legend() -> void:
 	var traffic: Traffic = GameState.traffic
 	match overlay:
 		ZoneVisualizer.Overlay.POWER:
-			_add_line("Потребление: %d из %d" % [utilities.power_use, utilities.power_supply])
-			_add_line("Без света: %d зд." % utilities.unpowered_count, utilities.unpowered_count > 0)
+			_add_meter(UtilityMeter.Kind.POWER)
 			_add_swatch(ZoneVisualizer.POWER_SOURCE, "электростанция")
 			_add_swatch(ZoneVisualizer.SERVED, "есть свет")
 			_add_swatch(ZoneVisualizer.UNSERVED, "нет света")
 			_add_swatch(ZoneVisualizer.POWER_ROAD, "дорога со светом")
 		ZoneVisualizer.Overlay.WATER:
-			_add_line("Потребление: %d из %d" % [utilities.water_use, utilities.water_supply])
-			_add_line("Без воды: %d зд." % utilities.no_water_count, utilities.no_water_count > 0)
+			_add_meter(UtilityMeter.Kind.WATER)
 			_add_swatch(ZoneVisualizer.WATER_SOURCE, "водокачка (нужен свет)")
 			_add_swatch(ZoneVisualizer.SERVED, "есть вода")
 			_add_swatch(ZoneVisualizer.UNSERVED, "нет воды")
@@ -217,6 +219,19 @@ func _homes_at_least(layer: PackedByteArray, limit: int) -> int:
 		if data != null and data.population > 0 and land.building_value(layer, grid, building) >= limit:
 			count += 1
 	return count
+
+
+## Загрузка станций для карточки: «загрузка 93%», «нет станций» или «—».
+static func _load_text(use: int, supply: int) -> String:
+	if supply > 0:
+		return "загрузка %d%%" % roundi(100.0 * use / supply)
+	return "нет станций" if use > 0 else "—"
+
+
+## Шкала потребления и мощности, как в Cities: Skylines (UtilityMeter).
+func _add_meter(kind: UtilityMeter.Kind) -> void:
+	var meter := UtilityMeter.new(kind)
+	_legend.add_child(meter)
 
 
 func _add_title(text: String) -> void:

@@ -4,6 +4,13 @@ extends RefCounted
 ## В каждом компоненте: сначала служебные здания по id, потом дома R/C/I по id;
 ## кому не хватило запаса — без ресурса. Вода идёт только от водокачек со светом.
 
+## Единицы на экране, как в Cities: Skylines: единица света — 10 кВт (домик 1×1 — 10 кВт,
+## ТЭЦ — 1 000 кВт), единица воды — 1 м³ в сутки (домик — 1 м³, водокачка — 100 м³).
+const KW_PER_UNIT: int = 10
+const M3_PER_UNIT: int = 1
+const POWER_UNIT := "кВт"
+const WATER_UNIT := "м³/сут"
+
 ## Свободный запас по компонентам — рост проверяет его перед постройкой дома.
 var spare_power: Dictionary[int, int] = {}
 var spare_water: Dictionary[int, int] = {}
@@ -83,6 +90,26 @@ func _distribute_water(component: int, order: Array) -> void:
 		else:
 			no_water_count += 1
 	spare_water[component] = available
+
+
+## «1 860 кВт» — units единиц света.
+static func power_text(units: int) -> String:
+	return "%s %s" % [digits(units * KW_PER_UNIT), POWER_UNIT]
+
+
+## «131 м³/сут» — units единиц воды.
+static func water_text(units: int) -> String:
+	return "%s %s" % [digits(units * M3_PER_UNIT), WATER_UNIT]
+
+
+## Число с пробелами между тысячами: 12 400 (неразрывный пробел — не переносится).
+static func digits(value: int) -> String:
+	var text := str(absi(value))
+	var grouped := ""
+	while text.length() > 3:
+		grouped = "\u00a0" + text.right(3) + grouped
+		text = text.left(text.length() - 3)
+	return ("-" if value < 0 else "") + text + grouped
 
 
 ## Здание без дороги: учитываем его потребление как необеспеченное.

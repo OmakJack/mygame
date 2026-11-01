@@ -39,6 +39,8 @@ const DEMANDS: Array[Dictionary] = [
 ]
 ## Размер карточки инструмента (с 3D-иконкой сверху).
 const CARD_SIZE := Vector2(106, 78)
+## Ширина шкалы света или воды во вкладке «Свет и вода».
+const METER_WIDTH: float = 250.0
 ## Вкладка фильтров карты (свет, вода, пробки…) — FilterPanel.
 const FILTER_TAB := "filters"
 ## Сколько секунд висит сообщение о сохранении.
@@ -50,6 +52,7 @@ var _tool_buttons: Dictionary[int, Button] = {}
 var _service_buttons: Dictionary[StringName, Button] = {}
 var _speed_buttons: Dictionary[int, Button] = {}
 var _demand_bars: Array[DemandBar] = []
+var _utility_meters: Array[UtilityMeter] = []
 ## Вкладки: id → кнопка вкладки и ряд её карточек.
 var _tab_buttons: Dictionary[String, Button] = {}
 var _tab_cards: Dictionary[String, HBoxContainer] = {}
@@ -183,6 +186,8 @@ func _refresh_stats() -> void:
 	%TaxLabel.text = "Налог %d%%" % GameState.tax_rate
 	%TaxDown.disabled = GameState.tax_rate <= Economy.MIN_TAX_RATE
 	%TaxUp.disabled = GameState.tax_rate >= Economy.MAX_TAX_RATE
+	for meter: UtilityMeter in _utility_meters:
+		meter.refresh()
 	var demands: Array[float] = [GameState.demand_r, GameState.demand_c, GameState.demand_i]
 	for i: int in _demand_bars.size():
 		_demand_bars[i].value = demands[i]
@@ -322,6 +327,8 @@ func _build_tabs() -> void:
 		if tab.has("buildings"):
 			for data: BuildingData in _tab_buildings(tab.buildings):
 				_add_building_card(cards, id, data)
+		if id == "utilities":
+			_add_utility_meters(cards)
 		var button := _make_button(tab.name, &"Tab")
 		UiTheme.tab_styles(button, id)
 		button.pressed.connect(func() -> void:
@@ -329,6 +336,17 @@ func _build_tabs() -> void:
 			_select_tab("" if _active_tab == id else id))
 		%Tabs.add_child(button)
 		_tab_buttons[id] = button
+
+
+## Шкалы света и воды справа от станций, как в Cities: Skylines: видно, хватает ли и сколько ещё нужно.
+func _add_utility_meters(row: HBoxContainer) -> void:
+	row.add_child(VSeparator.new())
+	for kind: UtilityMeter.Kind in [UtilityMeter.Kind.POWER, UtilityMeter.Kind.WATER]:
+		var meter := UtilityMeter.new(kind)
+		meter.custom_minimum_size = Vector2(METER_WIDTH, 0)
+		meter.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.add_child(meter)
+		_utility_meters.append(meter)
 
 
 ## Здания вкладки: «utilities» — дают свет или воду, «parks» — парки (по цене),
@@ -470,11 +488,12 @@ func _sync_tool_buttons() -> void:
 func _service_tooltip(data: BuildingData) -> String:
 	var lines: PackedStringArray = ["Цена: $%d, содержание: $%d/ч" % [data.cost, roundi(GameTime.per_hour(data.upkeep))]]
 	if data.power_supply > 0:
-		lines.append("Даёт свет: %d" % data.power_supply)
+		lines.append("Даёт свет: %s" % Utilities.power_text(data.power_supply))
 	if data.water_supply > 0:
-		lines.append("Даёт воду: %d" % data.water_supply)
+		lines.append("Даёт воду: %s" % Utilities.water_text(data.water_supply))
 	if data.power_use > 0 or data.water_use > 0:
-		lines.append("Потребляет: свет %d, вода %d" % [data.power_use, data.water_use])
+		lines.append("Потребляет: свет %s, вода %s" % [Utilities.power_text(data.power_use),
+				Utilities.water_text(data.water_use)])
 	if data.land_value > 0:
 		lines.append("Цена земли вокруг: +%d" % data.land_value)
 	if data.pollution > 0:
