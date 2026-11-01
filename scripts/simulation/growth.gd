@@ -5,16 +5,29 @@ extends RefCounted
 ## к дороге. Клетки зоны без участка (старые сохранения, остатки после снятия зоны) растут по одной.
 ## Выбирается свободный участок, у компонента дорог которого хватает света и воды; запас сразу уменьшается.
 ## Фаза 9: жильё не растёт в грязи; жильё и магазины выбирают землю подороже.
+## Если дом во весь участок сейчас не встаёт (спрос слабый — город его «не потянет», не хватает света
+## или воды, часть участка в грязи), на участке ставится дом поменьше — у фасада, а если там грязно,
+## то глубже; остаток участка снова делится на участки (LotPlanner). Иначе один большой дом съедал
+## спрос или участок у заводов стоял пустым целиком, и рост вставал.
 
 ## С такого загрязнения жильё на клетке не растёт.
 const MAX_HOME_POLLUTION: int = 40
 ## Из скольких случайных подходящих участков выбирается самый дорогой.
 const VALUE_SAMPLES: int = 6
+## Сколько клеток может занять новый дом на каждую единицу спроса (max_cells): при спросе 0.1 —
+## до 2 клеток, 0.4 — до 5, 1.0 — до 11. Дом 1×1 растёт всегда.
+const CELLS_PER_DEMAND: float = 10.0
+
+
+## Самый большой новый дом (в клетках) при спросе demand его категории.
+static func max_cells(demand: float) -> int:
+	return 1 + floori(maxf(0.0, demand) * CELLS_PER_DEMAND)
 
 
 ## Ставит одно здание на зону zone_type. Возвращает левую верхнюю клетку или NO_CELL, если места нет.
+## cells_limit — самый большой дом в клетках (по спросу, max_cells); участок крупнее застраивается частью.
 static func grow_one(grid: CityGrid, zone_type: CityGrid.Zone, rng: RandomNumberGenerator,
-		network: RoadNetwork, utilities: Utilities, land: LandValue = null) -> Vector2i:
+		network: RoadNetwork, utilities: Utilities, land: LandValue = null, cells_limit: int = 1 << 20) -> Vector2i:
 	var types: Array[BuildingData] = BuildingCatalog.growable_types(zone_type)
 	if types.is_empty():
 		return CityGrid.NO_CELL
@@ -27,7 +40,8 @@ static func grow_one(grid: CityGrid, zone_type: CityGrid.Zone, rng: RandomNumber
 	var empty_set: Dictionary = grid.zoned_empty_cells[zone_type]
 	var residential: bool = CityGrid.is_residential(zone_type)
 	var entry_comp: int = network.component_of.get(grid.entry, -2) if grid.has_entry() else -1
-	# Кандидаты: [прямоугольник, сторона фасада, компонент дорог, размер типа].
+	# Кандидаты: [прямоугольник дома, сторона фасада, компонент дорог, подходящие типы,
+	# участок, который придётся поделить (дом меньше участка), или -1].
 	var candidates: Array[Array] = []
 	var seen: Dictionary[int, bool] = {}
 	var unbuildable: Array[int] = []
@@ -51,14 +65,16 @@ static func grow_one(grid: CityGrid, zone_type: CityGrid.Zone, rng: RandomNumber
 				continue
 		else:
 			dir = _best_1x1_dir(grid, cell)
-		if residential and land != null and _max_pollution(grid, land, rect) >= MAX_HOME_POLLUTION:
-			continue
 		var component: int = _component_of(grid, network, rect, dir)
 		if component == -1 or (grid.has_entry() and component != entry_comp):
 			continue
-		if not _component_fits(utilities, component, by_size[size][0]):
+		# Самый большой дом, который сейчас встаёт на участок (во весь участок или у его начала).
+		var part: Array = _fitting_part(grid, land, utilities, component, by_size, rect, dir, size,
+				residential, cells_limit)
+		if part.is_empty():
 			continue
-		candidates.append([rect, dir, component, size])
+		var split_lot: int = lot.id if lot != null and part[0] != rect else -1
+		candidates.append([part[0], dir, component, part[1], split_lot])
 	for id: int in unbuildable:
 		grid.dissolve_lot(id)
 	if candidates.is_empty():
@@ -76,8 +92,9 @@ static func grow_one(grid: CityGrid, zone_type: CityGrid.Zone, rng: RandomNumber
 				pick = other
 	var chosen: Array = candidates[pick]
 	var rect: Rect2i = chosen[0]
-	var options: Array = by_size[chosen[3]]
-	var data: BuildingData = BuildingCatalog.pick_weighted(options, rng)
+	if chosen[4] != -1:
+		_split_lot(grid, zone_type, chosen[4], rect, chosen[1])
+	var data: BuildingData = BuildingCatalog.pick_weighted(chosen[3], rng)
 	var id: int = grid.place_building(data.id, rect.position, chosen[1])
 	if id == -1:
 		return CityGrid.NO_CELL
@@ -88,6 +105,51 @@ static func grow_one(grid: CityGrid, zone_type: CityGrid.Zone, rng: RandomNumber
 	utilities.spare_power[chosen[2]] -= data.power_use
 	utilities.spare_water[chosen[2]] -= data.water_use
 	return rect.position
+
+
+## Самый большой дом для участка rect (размер типа full — вдоль фасада × вглубь): сначала во весь
+## участок, иначе — поменьше: у фасада с начала участка, потом дальше вдоль и вглубь. Подходит дом,
+## если он не больше cells_limit клеток (1×1 — всегда), жильё не в грязи и у компонента хватает
+## света и воды хоть на один тип. Возвращает [прямоугольник, подходящие типы] или [], если не встаёт ничего.
+static func _fitting_part(grid: CityGrid, land: LandValue, utilities: Utilities, component: int,
+		by_size: Dictionary[Vector2i, Array], rect: Rect2i, dir: int, full: Vector2i, residential: bool,
+		cells_limit: int) -> Array:
+	var sizes: Array[Vector2i] = []
+	for size: Vector2i in by_size:
+		if size.x <= full.x and size.y <= full.y and (size == Vector2i.ONE or size.x * size.y <= cells_limit):
+			sizes.append(size)
+	# Крупнее — раньше; при равной площади — во всю глубину участка (не оставлять узкую полосу сзади).
+	sizes.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
+		if a.x * a.y != b.x * b.y:
+			return a.x * a.y > b.x * b.y
+		return a.y > b.y)
+	for size: Vector2i in sizes:
+		var options: Array = by_size[size].filter(func(data: BuildingData) -> bool:
+			return _component_fits(utilities, component, data))
+		if options.is_empty():
+			continue
+		for v: int in full.y - size.y + 1:
+			for u: int in full.x - size.x + 1:
+				var part: Rect2i = LotPlanner.part_of(rect, dir, u, v, size.x, size.y)
+				if residential and land != null and _max_pollution(grid, land, part) >= MAX_HOME_POLLUTION:
+					continue
+				return [part, options]
+	return []
+
+
+## Дом встаёт на часть участка: часть становится своим участком, остаток делится заново.
+static func _split_lot(grid: CityGrid, zone_type: CityGrid.Zone, lot_id: int, part: Rect2i, dir: int) -> void:
+	var lot: CityGrid.Lot = grid.lots.get(lot_id)
+	if lot == null:
+		return
+	var rest: Array[Vector2i] = []
+	for cell: Vector2i in lot.cells():
+		if not part.has_point(cell):
+			rest.append(cell)
+	grid.dissolve_lot(lot_id)
+	grid.add_lot(part, dir)
+	for plan: Array in LotPlanner.plan(grid, rest, zone_type):
+		grid.add_lot(plan[0], plan[1])
 
 
 static func _all_free(rect: Rect2i, empty_set: Dictionary) -> bool:

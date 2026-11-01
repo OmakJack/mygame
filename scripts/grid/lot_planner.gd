@@ -79,6 +79,12 @@ static func front_side(grid: CityGrid, bounds: Rect2i) -> int:
 	return best
 
 
+## Часть участка rect (фасад dir): w клеток вдоль фасада, d — вглубь, с отступом u от начала участка
+## и v от фасада (дом поменьше, когда во весь участок не встаёт — Growth).
+static func part_of(rect: Rect2i, dir: int, u: int, v: int, w: int, d: int) -> Rect2i:
+	return _local_rect(rect, dir, u, v, w, d)
+
+
 ## Какие ширины участков есть в зоне: [глубина 1, глубина 2] (по зданиям 1-го уровня).
 static func _widths(zone_type: CityGrid.Zone) -> Array:
 	var single: Array[int] = []
