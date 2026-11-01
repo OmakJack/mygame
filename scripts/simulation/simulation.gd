@@ -111,7 +111,7 @@ func _grow(grid: CityGrid, changed: Array[Vector2i]) -> void:
 		if _rng.randf() >= chance:
 			continue
 		var cell: Vector2i = Growth.grow_one(grid, zone_type, _rng, GameState.network, GameState.utilities,
-				GameState.land, Growth.max_cells(demand))
+				GameState.land)
 		if cell != CityGrid.NO_CELL:
 			var building: BuildingInstance = grid.get_building_at(cell)
 			Levels.start_construction(building, BuildingCatalog.get_type(building.type_id))

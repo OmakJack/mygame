@@ -6,29 +6,21 @@ extends RefCounted
 ## Свет и вода росту не нужны (как в SimCity): дом растёт и без них, а над ним висит значок
 ## (BadgeVisualizer), пока игрок не проведёт свет и воду. Запас компонента, если хватает, сразу уменьшается.
 ## Фаза 9: жильё не растёт в грязи; жильё и магазины выбирают землю подороже.
-## Если дом во весь участок сейчас не встаёт (спрос слабый — город его «не потянет», часть участка
-## в грязи), на участке ставится дом поменьше — у фасада, а если там грязно, то глубже; остаток участка
-## снова делится на участки (LotPlanner). Иначе один большой дом съедал спрос или участок у заводов
-## стоял пустым целиком, и рост вставал.
+## Участок всегда застраивается домом во весь участок. Только жильё, участок которого частью в дыму
+## от заводов, встаёт поменьше на чистой части — у фасада, а если там грязно, то глубже; остаток участка
+## снова делится на участки (LotPlanner). Иначе такой участок стоял пустым целиком.
+## (Был и предел размера по спросу — большой участок при слабом спросе дробился на маленькие дома;
+## убран по просьбе Андрея: размер дома задаёт разметка, спрос — только темп роста.)
 
 ## С такого загрязнения жильё на клетке не растёт.
 const MAX_HOME_POLLUTION: int = 40
 ## Из скольких случайных подходящих участков выбирается самый дорогой.
 const VALUE_SAMPLES: int = 6
-## Сколько клеток может занять новый дом на каждую единицу спроса (max_cells): при спросе 0.1 —
-## до 2 клеток, 0.4 — до 5, 1.0 — до 11. Дом 1×1 растёт всегда.
-const CELLS_PER_DEMAND: float = 10.0
-
-
-## Самый большой новый дом (в клетках) при спросе demand его категории.
-static func max_cells(demand: float) -> int:
-	return 1 + floori(maxf(0.0, demand) * CELLS_PER_DEMAND)
 
 
 ## Ставит одно здание на зону zone_type. Возвращает левую верхнюю клетку или NO_CELL, если места нет.
-## cells_limit — самый большой дом в клетках (по спросу, max_cells); участок крупнее застраивается частью.
 static func grow_one(grid: CityGrid, zone_type: CityGrid.Zone, rng: RandomNumberGenerator,
-		network: RoadNetwork, utilities: Utilities, land: LandValue = null, cells_limit: int = 1 << 20) -> Vector2i:
+		network: RoadNetwork, utilities: Utilities, land: LandValue = null) -> Vector2i:
 	var types: Array[BuildingData] = BuildingCatalog.growable_types(zone_type)
 	if types.is_empty():
 		return CityGrid.NO_CELL
@@ -70,7 +62,7 @@ static func grow_one(grid: CityGrid, zone_type: CityGrid.Zone, rng: RandomNumber
 		if component == -1 or (grid.has_entry() and component != entry_comp):
 			continue
 		# Самый большой дом, который сейчас встаёт на участок (во весь участок или у его начала).
-		var part: Array = _fitting_part(grid, land, by_size, rect, dir, size, residential, cells_limit)
+		var part: Array = _fitting_part(grid, land, by_size, rect, dir, size, residential)
 		if part.is_empty():
 			continue
 		var split_lot: int = lot.id if lot != null and part[0] != rect else -1
@@ -111,15 +103,14 @@ static func grow_one(grid: CityGrid, zone_type: CityGrid.Zone, rng: RandomNumber
 	return rect.position
 
 
-## Самый большой дом для участка rect (размер типа full — вдоль фасада × вглубь): сначала во весь
-## участок, иначе — поменьше: у фасада с начала участка, потом дальше вдоль и вглубь. Подходит дом,
-## если он не больше cells_limit клеток (1×1 — всегда) и жильё не в грязи.
+## Самый большой дом для участка rect (размер типа full — вдоль фасада × вглубь): во весь участок,
+## а если жильё там в грязи — поменьше: у фасада с начала участка, потом дальше вдоль и вглубь.
 ## Возвращает [прямоугольник, подходящие типы] или [], если не встаёт ничего.
 static func _fitting_part(grid: CityGrid, land: LandValue, by_size: Dictionary[Vector2i, Array], rect: Rect2i,
-		dir: int, full: Vector2i, residential: bool, cells_limit: int) -> Array:
+		dir: int, full: Vector2i, residential: bool) -> Array:
 	var sizes: Array[Vector2i] = []
 	for size: Vector2i in by_size:
-		if size.x <= full.x and size.y <= full.y and (size == Vector2i.ONE or size.x * size.y <= cells_limit):
+		if size.x <= full.x and size.y <= full.y:
 			sizes.append(size)
 	# Крупнее — раньше; при равной площади — во всю глубину участка (не оставлять узкую полосу сзади).
 	sizes.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
