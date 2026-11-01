@@ -1,0 +1,255 @@
+{
+  "pack_name": "CityBuilder Services & Animated Wind Power Pack v1",
+  "cell_size_m": 2.0,
+  "godot_conventions": {
+    "palette_texture": "res://assets/models/kenney/suburban/Textures/colormap.png",
+    "service_zone_none_preserves_exact_colors": true,
+    "front_in_blender": "-Y",
+    "front_in_godot_with_turns_2": "-Z",
+    "recommended_model_scale": 1.0,
+    "recommended_model_turns": 2,
+    "recommended_sign_color": "Color(0, 0, 0, 0) — 3D-эмблемы уже встроены в модели"
+  },
+  "models": [
+    {
+      "id": "police_station_1x1",
+      "kind": "service_static",
+      "service": "POLICE",
+      "suggested_building_id": "police_01",
+      "display_name": "Полицейский участок (1×1)",
+      "file": "assets/models/blender/services/police_station_1x1.glb",
+      "godot_kit_path": "blender/services/police_station_1x1",
+      "cells": [
+        1,
+        1
+      ],
+      "area_cells": 1,
+      "dimensions_m": [
+        1.74,
+        1.74,
+        2.604
+      ],
+      "vertices": 2452,
+      "triangles": 1308,
+      "recommended_model_scale": 1.0,
+      "recommended_model_turns": 2,
+      "built_in_emblem": true
+    },
+    {
+      "id": "police_precinct_2x1",
+      "kind": "service_static",
+      "service": "POLICE",
+      "suggested_building_id": "police_02",
+      "display_name": "Полицейское управление (2×1)",
+      "file": "assets/models/blender/services/police_precinct_2x1.glb",
+      "godot_kit_path": "blender/services/police_precinct_2x1",
+      "cells": [
+        2,
+        1
+      ],
+      "area_cells": 2,
+      "dimensions_m": [
+        3.618,
+        1.78,
+        3.119
+      ],
+      "vertices": 3796,
+      "triangles": 2068,
+      "recommended_model_scale": 1.0,
+      "recommended_model_turns": 2,
+      "built_in_emblem": true
+    },
+    {
+      "id": "fire_station_1x1",
+      "kind": "service_static",
+      "service": "FIRE",
+      "suggested_building_id": "fire_01",
+      "display_name": "Пожарное депо (1×1)",
+      "file": "assets/models/blender/services/fire_station_1x1.glb",
+      "godot_kit_path": "blender/services/fire_station_1x1",
+      "cells": [
+        1,
+        1
+      ],
+      "area_cells": 1,
+      "dimensions_m": [
+        1.75,
+        1.74,
+        3.2
+      ],
+      "vertices": 1880,
+      "triangles": 980,
+      "recommended_model_scale": 1.0,
+      "recommended_model_turns": 2,
+      "built_in_emblem": true
+    },
+    {
+      "id": "fire_depot_2x1",
+      "kind": "service_static",
+      "service": "FIRE",
+      "suggested_building_id": "fire_02",
+      "display_name": "Пожарная часть на 3 выезда (2×1)",
+      "file": "assets/models/blender/services/fire_depot_2x1.glb",
+      "godot_kit_path": "blender/services/fire_depot_2x1",
+      "cells": [
+        2,
+        1
+      ],
+      "area_cells": 2,
+      "dimensions_m": [
+        3.74,
+        1.76,
+        3.66
+      ],
+      "vertices": 3652,
+      "triangles": 1894,
+      "recommended_model_scale": 1.0,
+      "recommended_model_turns": 2,
+      "built_in_emblem": true
+    },
+    {
+      "id": "clinic_1x1",
+      "kind": "service_static",
+      "service": "HEALTH",
+      "suggested_building_id": "health_01",
+      "display_name": "Городская поликлиника (1×1)",
+      "file": "assets/models/blender/services/clinic_1x1.glb",
+      "godot_kit_path": "blender/services/clinic_1x1",
+      "cells": [
+        1,
+        1
+      ],
+      "area_cells": 1,
+      "dimensions_m": [
+        1.74,
+        1.74,
+        2.175
+      ],
+      "vertices": 2304,
+      "triangles": 1252,
+      "recommended_model_scale": 1.0,
+      "recommended_model_turns": 2,
+      "built_in_emblem": true
+    },
+    {
+      "id": "clinic_center_2x1",
+      "kind": "service_static",
+      "service": "HEALTH",
+      "suggested_building_id": "health_02",
+      "display_name": "Медицинский центр со скорой (2×1)",
+      "file": "assets/models/blender/services/clinic_center_2x1.glb",
+      "godot_kit_path": "blender/services/clinic_center_2x1",
+      "cells": [
+        2,
+        1
+      ],
+      "area_cells": 2,
+      "dimensions_m": [
+        3.74,
+        1.76,
+        2.625
+      ],
+      "vertices": 3448,
+      "triangles": 1876,
+      "recommended_model_scale": 1.0,
+      "recommended_model_turns": 2,
+      "built_in_emblem": true
+    },
+    {
+      "id": "wind_turbine_hawt_1x1",
+      "kind": "power_animated",
+      "service": "POWER_WIND_HAWT",
+      "display_name": "Ветрогенератор трёхлопастной (HAWT)",
+      "file": "assets/models/blender/services/wind_turbine_hawt_1x1.glb",
+      "godot_kit_path": "blender/services/wind_turbine_hawt_1x1",
+      "cells": [
+        1,
+        1
+      ],
+      "area_cells": 1,
+      "dimensions_m": [
+        1.74,
+        1.74,
+        4.36
+      ],
+      "vertices": 1796,
+      "triangles": 1032,
+      "recommended_model_scale": 1.0,
+      "recommended_model_turns": 2,
+      "animation": {
+        "clip_name": "spin-loop",
+        "auto_loops_in_godot": true,
+        "fps": 30,
+        "frames": 120,
+        "duration_sec": 4.0,
+        "base_node": "Base",
+        "rotor_node": "Rotor",
+        "rotor_axis_godot": "Z",
+        "rotor_pivot_godot_scene": [
+          0.0,
+          3.38,
+          0.44
+        ],
+        "rotor_pivot_godot_with_turns_2": [
+          0.0,
+          3.38,
+          -0.44
+        ],
+        "split_parts": {
+          "base_file": "assets/models/blender/services/parts/wind_hawt_base.glb",
+          "base_godot_kit_path": "blender/services/parts/wind_hawt_base",
+          "rotor_file": "assets/models/blender/services/parts/wind_hawt_rotor.glb",
+          "rotor_godot_kit_path": "blender/services/parts/wind_hawt_rotor"
+        }
+      }
+    },
+    {
+      "id": "wind_turbine_vawt_1x1",
+      "kind": "power_animated",
+      "service": "POWER_WIND_VAWT",
+      "display_name": "Вертикально-осевой ветрогенератор (VAWT)",
+      "file": "assets/models/blender/services/wind_turbine_vawt_1x1.glb",
+      "godot_kit_path": "blender/services/wind_turbine_vawt_1x1",
+      "cells": [
+        1,
+        1
+      ],
+      "area_cells": 1,
+      "dimensions_m": [
+        1.74,
+        1.74,
+        3.475
+      ],
+      "vertices": 2348,
+      "triangles": 1282,
+      "recommended_model_scale": 1.0,
+      "recommended_model_turns": 2,
+      "animation": {
+        "clip_name": "spin-loop",
+        "auto_loops_in_godot": true,
+        "fps": 30,
+        "frames": 90,
+        "duration_sec": 3.0,
+        "base_node": "Base",
+        "rotor_node": "Rotor",
+        "rotor_axis_godot": "Y",
+        "rotor_pivot_godot_scene": [
+          0.0,
+          1.04,
+          0.0
+        ],
+        "rotor_pivot_godot_with_turns_2": [
+          0.0,
+          1.04,
+          0.0
+        ],
+        "split_parts": {
+          "base_file": "assets/models/blender/services/parts/wind_vawt_base.glb",
+          "base_godot_kit_path": "blender/services/parts/wind_vawt_base",
+          "rotor_file": "assets/models/blender/services/parts/wind_vawt_rotor.glb",
+          "rotor_godot_kit_path": "blender/services/parts/wind_vawt_rotor"
+        }
+      }
+    }
+  ]
+}

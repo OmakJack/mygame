@@ -53,7 +53,7 @@ func show_values(use: int, supply: int, unserved: int) -> void:
 	var factor: int = Utilities.KW_PER_UNIT if power else Utilities.M3_PER_UNIT
 	var unit_text: Callable = func(units: int) -> String:
 		return Utilities.power_text(units) if power else Utilities.water_text(units)
-	var station: String = "ТЭЦ" if power else "водокачка"
+	var station: String = "ТЭЦ или ветряк" if power else "водокачка"
 	_value.text = "%s / %s" % [Utilities.digits(use * factor), unit_text.call(supply)]
 	var color: Color = UiTheme.GOOD
 	var footer := ""
@@ -67,7 +67,7 @@ func show_values(use: int, supply: int, unserved: int) -> void:
 		footer = "Запас %s" % unit_text.call(supply - use)
 		if use >= supply * NEAR_FULL:
 			color = WARN
-			footer += " — пора ставить ещё одну"
+			footer += " — пора ставить ещё станцию"
 	if unserved > 0:
 		footer += " · без %s %d зд." % ["света" if power else "воды", unserved]
 	_footer.text = footer
@@ -75,9 +75,19 @@ func show_values(use: int, supply: int, unserved: int) -> void:
 	_footer.add_theme_color_override(&"font_color", UiTheme.BAD if footer_bad else UiTheme.INK_SOFT)
 	_value.add_theme_color_override(&"font_color", UiTheme.BAD if color == UiTheme.BAD else UiTheme.INK)
 	_bar.set_values(use, supply, color)
-	tooltip_text = "Потребление: %s\nДают станции: %s\nБез %s: %d зд.\n%s" % [unit_text.call(use),
-			unit_text.call(supply), "света" if power else "воды", unserved,
-			"Домик 1×1 — 10 кВт, ТЭЦ — 1 000 кВт" if power else "Домик 1×1 — 1 м³ в сутки, водокачка — 100 м³"]
+	tooltip_text = "Потребление: %s\nДают станции: %s\nБез %s: %d зд.\nДомик 1×1 — %s; %s" % [unit_text.call(use),
+			unit_text.call(supply), "света" if power else "воды", unserved, unit_text.call(1), _stations_text(power)]
+
+
+## «ТЭЦ — 1 000 кВт, ветряк — 200 кВт…» — что даёт каждая станция из каталога.
+static func _stations_text(power: bool) -> String:
+	var parts: PackedStringArray = []
+	for data: BuildingData in BuildingCatalog.buildable_types():
+		var supply: int = data.power_supply if power else data.water_supply
+		if supply > 0:
+			parts.append("%s — %s" % [data.display_name.to_lower() if data.display_name != "ТЭЦ" else data.display_name,
+					Utilities.power_text(supply) if power else Utilities.water_text(supply)])
+	return ", ".join(parts)
 
 
 ## Сама шкала: дорожка, заливка потребления, бегунок на мощности станций (треугольник сверху).

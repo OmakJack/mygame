@@ -42,10 +42,14 @@ static func build() -> Array[String]:
 				cut_off += 1
 	if cut_off > 0:
 		hints.append("%d кл. зон не связаны с трассой — дома там не строятся" % cut_off)
-	if zoned > 0 and (utilities.power_supply == 0 or utilities.water_supply == 0):
+	if zoned > 0 and utilities.power_supply == 0 and utilities.water_supply == 0:
 		hints.append("Нет ТЭЦ или водокачки: без света и воды дома не повышаются и пустеют — поставьте их у дороги")
+	elif zoned > 0 and utilities.power_supply == 0:
+		hints.append("Нет ТЭЦ или ветряка: без света дома не повышаются и пустеют — поставьте у дороги")
+	elif zoned > 0 and utilities.water_supply == 0:
+		hints.append("Нет водокачки: без воды дома не повышаются и пустеют — поставьте её у дороги")
 	if utilities.unpowered_count > 0:
-		hints.append("Нет света у %d зд.: нужна ТЭЦ или дорога к ней" % utilities.unpowered_count)
+		hints.append("Нет света у %d зд.: нужна ТЭЦ, ветряк или дорога к ним" % utilities.unpowered_count)
 	if utilities.no_water_count > 0:
 		hints.append("Нет воды у %d зд.: нужна водокачка (ей нужен свет)" % utilities.no_water_count)
 
@@ -113,8 +117,12 @@ static func _first_step(grid: CityGrid, utilities: Utilities, zoned: int) -> Str
 		return "Шаг 1: проведите дорогу [R] от трассы у края карты — по ней в город приедут жители"
 	if grid.road_cells.is_empty():
 		return "Шаг 1: проведите дорогу [R]"
-	if utilities.power_supply == 0 or utilities.water_supply == 0:
-		return "Шаг 2: поставьте у дороги ТЭЦ и водокачку (кнопки внизу)"
+	if utilities.power_supply == 0 and utilities.water_supply == 0:
+		return "Шаг 2: поставьте у дороги ТЭЦ (или ветряк) и водокачку (кнопки внизу)"
+	if utilities.power_supply == 0:
+		return "Шаг 2: поставьте у дороги ТЭЦ или ветряк — свет нужен и водокачке"
+	if utilities.water_supply == 0:
+		return "Шаг 2: поставьте у дороги водокачку (вкладка «Свет и вода»)"
 	if zoned == 0:
 		return "Шаг 3: разметьте у дороги жилую [1] и промышленную [3] зоны"
 	return ""

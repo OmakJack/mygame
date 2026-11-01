@@ -364,6 +364,9 @@ func _tab_buildings(kind: String) -> Array[BuildingData]:
 	result.sort_custom(func(a: BuildingData, b: BuildingData) -> bool:
 		if a.service != b.service:
 			return a.service < b.service
+		# «Свет и вода»: сначала станции света (ветряки, ТЭЦ), потом воды.
+		if (a.water_supply > 0) != (b.water_supply > 0):
+			return b.water_supply > 0
 		return a.cost < b.cost or (a.cost == b.cost and a.id < b.id))
 	return result
 

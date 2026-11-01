@@ -26,6 +26,8 @@ const FENCE_OFFSET: float = 0.3
 static var _meshes: Dictionary[StringName, Mesh] = {}
 ## Площадка стройки по типу здания (site_mesh).
 static var _sites: Dictionary[StringName, ArrayMesh] = {}
+## Как модель типа вписана в участок (model_placement).
+static var _placements: Dictionary[StringName, Transform3D] = {}
 
 
 ## Площадка стройки участка типа data (как и меш — фасад на −Z): земля во весь участок, забор Kenney
@@ -78,15 +80,26 @@ static func _build_mesh(data: BuildingData) -> Mesh:
 
 static func _from_model(data: BuildingData) -> ArrayMesh:
 	# Масштаб типа, но основание не шире участка (size клеток с отступом 0.2 м); модель загружается один раз.
-	var margin: float = CityGrid.CELL_SIZE - FOOTPRINT
-	var max_size := Vector2(
-		data.size.x * CityGrid.CELL_SIZE - margin,
-		data.size.y * CityGrid.CELL_SIZE - margin
-	)
+	var max_size: Vector2 = _max_size(data)
 	var mesh: ArrayMesh = ModelLoader.fitted_rect(data.model, data.model_scale, data.model_turns, max_size)
 	if data.sign_color.a > 0.0:
 		_add_sign(mesh, data.sign_color, data.sign_cross, max_size.y)
 	return mesh
+
+
+## Как модель типа вписана в участок (координаты модели → клетки), как в mesh_for:
+## по нему RotorVisualizer ставит ротор ветряка на его ось.
+static func model_placement(data: BuildingData) -> Transform3D:
+	if not _placements.has(data.id):
+		_placements[data.id] = ModelLoader.fitted_placement(data.model, data.model_scale, data.model_turns,
+				_max_size(data))
+	return _placements[data.id]
+
+
+## Основание модели не шире участка: size клеток с отступом CELL_SIZE − FOOTPRINT.
+static func _max_size(data: BuildingData) -> Vector2:
+	var margin: float = CityGrid.CELL_SIZE - FOOTPRINT
+	return Vector2(data.size.x * CityGrid.CELL_SIZE - margin, data.size.y * CityGrid.CELL_SIZE - margin)
 
 
 ## Вывеска цвета службы над крышей у фасада — чтобы службы отличались от обычных домов.

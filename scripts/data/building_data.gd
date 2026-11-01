@@ -72,6 +72,16 @@ enum Park { NONE, SQUARE, GARDEN, PLAZA }
 ## Высота заглушки, метры.
 @export var placeholder_height: float = 1.5
 
+@export_group("Ротор")
+## Вращающаяся часть (ротор ветряка) — отдельная модель, её крутит RotorVisualizer; model — без неё.
+@export var rotor: PackedScene
+## Ось ротора в координатах модели (до поворота model_turns и вписывания в клетку), метры.
+@export var rotor_pivot: Vector3 = Vector3.ZERO
+## Вокруг чего крутится, в координатах ротора; знак — направление.
+@export var rotor_axis: Vector3 = Vector3.UP
+## Оборотов в секунду, пока игра идёт.
+@export var rotor_speed: float = 0.25
+
 
 ## Площадь участка в клетках.
 func area() -> int:

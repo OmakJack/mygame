@@ -106,6 +106,18 @@ const EXISTING: Dictionary = {
 	"police_01": ["commercial/building-h", 1.4, Color(0.2, 0.4, 0.9), false, 0, 0, 10],
 }
 
+## Ветряки (Argon, tools/blender/make_services_and_wind.py → assets/models/blender/services/parts):
+## основание — модель здания, ротор крутит RotorVisualizer. Обычный (трёхлопастной) даёт мало,
+## вертикальный — больше; дыма нет, но дороже ТЭЦ за киловатт.
+## id → [название, основание, ротор, ось ротора в координатах модели, ось вращения, оборотов в секунду,
+## цена, содержание, свет (единицы по 10 кВт), шум].
+const WIND: Dictionary = {
+	"wind_turbine_01": ["Ветряк", "blender/services/parts/wind_hawt_base", "blender/services/parts/wind_hawt_rotor",
+		Vector3(0.0, 3.38, 0.44), Vector3(0.0, 0.0, -1.0), 0.25, 100, 2, 20, 8],
+	"wind_turbine_02": ["Вертикальный ветряк", "blender/services/parts/wind_vawt_base",
+		"blender/services/parts/wind_vawt_rotor", Vector3(0.0, 1.04, 0.0), Vector3(0.0, -1.0, 0.0), 0.33, 220, 4, 45, 4],
+}
+
 ## Парки (фаза 9): id → [название, вид, цена, содержание, бонус к цене земли].
 const PARKS: Dictionary = {
 	"park_square": ["Сквер", BuildingData.Park.SQUARE, 60, 1, 35],
@@ -159,6 +171,28 @@ func _initialize() -> void:
 		data.pollution = entry[4]
 		data.noise = entry[5]
 		data.land_value = entry[6]
+		_save(data)
+	for id: String in WIND:
+		var entry: Array = WIND[id]
+		var data := _load_or_new(id)
+		data.display_name = entry[0]
+		data.zone = CityGrid.Zone.NONE
+		data.grows = false
+		data.size = Vector2i.ONE
+		data.model = load(_model_path(entry[1]))
+		data.model_scale = 1.0
+		data.model_turns = 2
+		data.sign_color = Color(0, 0, 0, 0)
+		data.rotor = load(_model_path(entry[2]))
+		data.rotor_pivot = entry[3]
+		data.rotor_axis = entry[4]
+		data.rotor_speed = entry[5]
+		data.cost = entry[6]
+		data.upkeep = entry[7]
+		data.power_supply = entry[8]
+		data.noise = entry[9]
+		data.placeholder_color = Color(0.92, 0.94, 0.96)
+		data.placeholder_height = 3.0
 		_save(data)
 	for id: String in PARKS:
 		var entry: Array = PARKS[id]

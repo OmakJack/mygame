@@ -32,15 +32,29 @@ static func fitted_rect(scene: PackedScene, scale: float, turns: int, max_size: 
 	var root: Node = scene.instantiate()
 	var parts: Array[Array] = _mesh_nodes(root, Transform3D.IDENTITY)
 	var box: AABB = _bounds_of(parts)
+	var mesh: ArrayMesh = _merge_parts(parts, placement(box, _fitted_scale(box, scale, turns, max_size), turns))
+	root.free()
+	return mesh
+
+
+## Трансформ модели, как у fitted_rect (координаты модели → клетки): по нему к модели
+## пристраивают её подвижные части (ротор ветряка, RotorVisualizer).
+static func fitted_placement(scene: PackedScene, scale: float, turns: int, max_size: Vector2) -> Transform3D:
+	var root: Node = scene.instantiate()
+	var box: AABB = _bounds_of(_mesh_nodes(root, Transform3D.IDENTITY))
+	root.free()
+	return placement(box, _fitted_scale(box, scale, turns, max_size), turns)
+
+
+## Масштаб scale, ужатый так, чтобы основание модели после поворота влезло в max_size (X, Z).
+static func _fitted_scale(box: AABB, scale: float, turns: int, max_size: Vector2) -> float:
 	var span_x: float = box.size.z if posmod(turns, 2) == 1 else box.size.x
 	var span_z: float = box.size.x if posmod(turns, 2) == 1 else box.size.z
 	if max_size.x > 0.0 and span_x > 0.0:
 		scale = minf(scale, max_size.x / span_x)
 	if max_size.y > 0.0 and span_z > 0.0:
 		scale = minf(scale, max_size.y / span_z)
-	var mesh: ArrayMesh = _merge_parts(parts, placement(box, scale, turns))
-	root.free()
-	return mesh
+	return scale
 
 
 ## Трансформ, который ставит модель основанием на землю в центр клетки, с поворотом и масштабом.

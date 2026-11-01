@@ -313,6 +313,25 @@ def icon_power_plant():
     add_box((0.36, -0.34, 0.24), (0.14, 0.08, 0.34), gold, rot=(0, math.radians(22), math.radians(-20)), bevel=0.02)
 
 
+def _bolt():
+    """3D молния спереди — как у ТЭЦ: станция даёт свет."""
+    gold = make_mat("bolt", (1.0, 0.82, 0.12), roughness=0.25, emission=0.6)
+    add_box((0.36, -0.36, 0.40), (0.13, 0.08, 0.33), gold, rot=(0, math.radians(22), math.radians(-20)), bevel=0.02)
+    add_box((0.40, -0.38, 0.23), (0.13, 0.08, 0.31), gold, rot=(0, math.radians(22), math.radians(-20)), bevel=0.02)
+
+
+def icon_wind_small():
+    add_plinth((0.46, 0.80, 0.52), size=(1.2, 1.2, 0.16))
+    import_glb("blender/services/wind_turbine_hawt_1x1", (-0.04, 0.04, 0.0), scale=0.42)
+    _bolt()
+
+
+def icon_wind_large():
+    add_plinth((0.46, 0.80, 0.52), size=(1.2, 1.2, 0.16))
+    import_glb("blender/services/wind_turbine_vawt_1x1", (-0.04, 0.04, 0.0), scale=0.5)
+    _bolt()
+
+
 def icon_water_tower():
     add_plinth((0.24, 0.64, 0.94), size=(1.2, 1.2, 0.16))
     import_glb("kenney/industrial/water-tower", (-0.06, 0.06, 0.0), scale=1.05)
@@ -487,6 +506,8 @@ ICONS = [
     ("tool_zone_o", icon_zone_o, 96, 1.12),
     ("power_plant_01", icon_power_plant, 96, 1.14),
     ("water_tower_01", icon_water_tower, 96, 1.14),
+    ("wind_turbine_01", icon_wind_small, 96, 1.10),
+    ("wind_turbine_02", icon_wind_large, 96, 1.12),
     ("school_01", icon_school, 96, 1.15),
     ("health_01", icon_health, 96, 1.14),
     ("fire_01", icon_fire, 96, 1.14),
@@ -506,5 +527,8 @@ ICONS = [
     ("menu_crest", icon_menu_crest, 144, 1.12),
 ]
 
+# Только некоторые иконки: ICONS_ONLY="wind_turbine_01,wind_turbine_02" (остальные не перерисовываются).
+ONLY = set(filter(None, os.environ.get("ICONS_ONLY", "").split(",")))
 for icon_name, fn, px, pad in ICONS:
-    render_icon(icon_name, fn, size_px=px, padding=pad)
+    if not ONLY or icon_name in ONLY:
+        render_icon(icon_name, fn, size_px=px, padding=pad)
