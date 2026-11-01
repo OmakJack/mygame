@@ -1,7 +1,7 @@
 class_name Levels
 extends RefCounted
 ## Уровни зданий (фаза 10): повышение, перестройка под новую плотность зоны и упадок домов.
-## Повышение и перестройка — замена type_id того же размера участка и 2 дня стройплощадки.
+## Повышение и перестройка — замена type_id того же размера участка и 2 часа стройплощадки.
 
 ## Цена земли и счастье для уровня 2 и 3 (индекс — уровень).
 const LAND_FOR_LEVEL: Array[int] = [0, 0, 30, 50]
@@ -9,10 +9,10 @@ const HAPPINESS_FOR_LEVEL: Array[int] = [0, 0, 45, 60]
 ## Сколько зданий за тик может повыситься или перестроиться, и с каким шансом на каждую попытку.
 const CHANGES_PER_TICK: int = 2
 const CHANGE_CHANCE: float = 0.5
-## Упадок: дом пустеет, если счастье ниже этого дольше DECLINE_TICKS дней.
+## Упадок: дом пустеет, если счастье ниже этого дольше DECLINE_TICKS часов.
 const DECLINE_HAPPINESS: int = 20
 const DECLINE_TICKS: int = 20
-## Сколько дней здание стоит стройплощадкой.
+## Сколько часов здание стоит стройплощадкой.
 const CONSTRUCTION_TICKS: int = 2
 
 
@@ -83,7 +83,7 @@ static func decline(grid: CityGrid, happiness: Happiness) -> Array[Vector2i]:
 	return cells
 
 
-## Стройплощадки: минус день; возвращает клетки, где стройка закончилась (показать дом).
+## Стройплощадки: минус час; возвращает клетки, где стройка закончилась (показать дом).
 static func tick_construction(grid: CityGrid) -> Array[Vector2i]:
 	var done: Array[Vector2i] = []
 	for building: BuildingInstance in grid.buildings.values():

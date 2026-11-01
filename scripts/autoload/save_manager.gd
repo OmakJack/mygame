@@ -7,7 +7,8 @@ const EXTENSION: String = ".city.json"
 const AUTOSAVE: String = "autosave"
 const QUICKSAVE: String = "quicksave"
 ## Автосохранение каждые столько игровых дней.
-const AUTOSAVE_DAYS: int = 30
+## Автосохранение раз в игровые сутки (на ×1 — раз в 48 с).
+const AUTOSAVE_HOURS: int = GameTime.HOURS_PER_DAY
 const DEFAULT_CITY_NAME: String = "Новый город"
 const MAX_FILE_NAME_LENGTH: int = 60
 ## Имена, которые Windows не даёт использовать для файлов.
@@ -23,13 +24,13 @@ var save_dir: String = "user://saves/"
 var with_river: bool = true
 ## Въезд трассы на новой карте (город растёт только связанный с ней). Тесты могут выключить.
 var with_highway: bool = true
-## День последнего автосохранения (или загрузки / нового города).
-var _last_autosave_day: int = 0
+## Игровой час последнего автосохранения (или загрузки / нового города).
+var _last_autosave_hour: int = 0
 
 
 func _ready() -> void:
 	Events.sim_tick.connect(_on_sim_tick)
-	Events.grid_reset.connect(func() -> void: _last_autosave_day = GameState.day)
+	Events.grid_reset.connect(func() -> void: _last_autosave_hour = GameState.hours)
 
 
 func _notification(what: int) -> void:
@@ -63,7 +64,7 @@ func load_city(file_id: String) -> bool:
 		return false
 	for warning: String in result.warnings:
 		push_warning("Загрузка «%s»: %s" % [file_id, warning])
-	_apply(result.grid, result.name, result.money, result.tax_rate, result.day, result.rank)
+	_apply(result.grid, result.name, result.money, result.tax_rate, result.hours, result.rank)
 	Events.load_done.emit(result.name, result.warnings.size())
 	return true
 
@@ -76,7 +77,7 @@ func new_city() -> void:
 		MapGenerator.add_river(grid, map_seed)
 	if with_highway:
 		MapGenerator.add_highway(grid, map_seed)
-	_apply(grid, DEFAULT_CITY_NAME, Economy.START_MONEY, Economy.DEFAULT_TAX_RATE, 0, 0)
+	_apply(grid, DEFAULT_CITY_NAME, Economy.START_MONEY, Economy.DEFAULT_TAX_RATE, GameTime.START_HOUR, 0)
 
 
 ## Сохранения: file, name, day, population, money, saved_at, broken. Новые — первыми.
@@ -145,7 +146,7 @@ static func file_id_for(city_name: String) -> String:
 func _write(file_id: String, label: String) -> bool:
 	DirAccess.make_dir_recursive_absolute(save_dir)
 	var data: Dictionary = CitySerializer.to_dict(GameState.grid, GameState.city_name, GameState.money,
-			GameState.tax_rate, GameState.day, GameState.population, GameState.rank)
+			GameState.tax_rate, GameState.hours, GameState.population, GameState.rank)
 	var path: String = _path(file_id)
 	var temp_path: String = path + ".tmp"
 	# Сначала во временный файл, потом поверх старого: при сбое старое сохранение цело.
@@ -164,13 +165,13 @@ func _write(file_id: String, label: String) -> bool:
 	return true
 
 
-func _apply(grid: CityGrid, city_name: String, money: int, tax_rate: int, day: int, rank: int) -> void:
+func _apply(grid: CityGrid, city_name: String, money: int, tax_rate: int, hours: int, rank: int) -> void:
 	GameState.grid = grid
 	GameState.rank = rank
 	GameState.city_name = city_name
 	GameState.money = money
 	GameState.tax_rate = tax_rate
-	GameState.day = day
+	GameState.hours = hours
 	# Сеть сверяется со ссылкой на сетку сама; свет, вода и службы пересчитает Simulation.
 	GameState.utilities = Utilities.new()
 	GameState.service_coverage = {}
@@ -179,16 +180,16 @@ func _apply(grid: CityGrid, city_name: String, money: int, tax_rate: int, day: i
 	Events.grid_reset.emit()
 
 
-## Раз в AUTOSAVE_DAYS дней от последнего автосохранения (а не «день кратен 30»:
-## иначе после загрузки сохранения с дня 30 автосохранение сработало бы сразу).
+## Раз в AUTOSAVE_HOURS игровых часов от последнего автосохранения (а не «в полночь»:
+## иначе после загрузки сохранения, сделанного в 23:50, автосохранение сработало бы сразу).
 func _on_sim_tick() -> void:
-	if GameState.day - _last_autosave_day >= AUTOSAVE_DAYS:
+	if GameState.hours - _last_autosave_hour >= AUTOSAVE_HOURS:
 		_autosave()
 
 
 func _autosave() -> void:
 	if not is_city_empty() and _write(AUTOSAVE, "Автосохранение"):
-		_last_autosave_day = GameState.day
+		_last_autosave_hour = GameState.hours
 
 
 ## Только имя файла (get_file): даже «../что-то» не выйдет за папку сохранений.

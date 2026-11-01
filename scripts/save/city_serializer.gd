@@ -19,11 +19,12 @@ class LoadResult extends RefCounted:
 	var name: String = ""
 	var money: int = 0
 	var tax_rate: int = 0
-	var day: int = 0
+	## Игровое время, часы (GameState.hours).
+	var hours: int = GameTime.START_HOUR
 	var rank: int = -1
 
 
-static func to_dict(grid: CityGrid, city_name: String, money: int, tax_rate: int, day: int,
+static func to_dict(grid: CityGrid, city_name: String, money: int, tax_rate: int, hours: int,
 		population: int, rank: int = -1) -> Dictionary:
 	var roads := PackedByteArray()
 	roads.resize(grid.size * grid.size)
@@ -48,8 +49,8 @@ static func to_dict(grid: CityGrid, city_name: String, money: int, tax_rate: int
 		"format": FORMAT,
 		"version": VERSION,
 		"saved_at": Time.get_datetime_string_from_system(),
-		"meta": {"name": city_name, "day": day, "population": population, "money": money},
-		"state": {"money": money, "tax_rate": tax_rate, "day": day, "rank": rank},
+		"meta": {"name": city_name, "day": GameTime.day_of(hours), "population": population, "money": money},
+		"state": {"money": money, "tax_rate": tax_rate, "hours": hours, "rank": rank},
 		"grid": {
 			"size": grid.size,
 			"next_building_id": grid.next_building_id,
@@ -148,7 +149,11 @@ static func from_dict(data: Variant) -> LoadResult:
 	result.money = _int(state.get("money"), Economy.START_MONEY)
 	result.tax_rate = clampi(_int(state.get("tax_rate"), Economy.DEFAULT_TAX_RATE),
 			Economy.MIN_TAX_RATE, Economy.MAX_TAX_RATE)
-	result.day = maxi(0, _int(state.get("day"), 0))
+	# Игровое время: нет поля hours — сохранение, где 1 тик был днём; тот же день, утро.
+	if state.has("hours"):
+		result.hours = maxi(0, _int(state.get("hours"), GameTime.START_HOUR))
+	else:
+		result.hours = GameTime.from_old_days(_int(state.get("day"), 0))
 	# Звание (фаза 10): нет поля — −1, Simulation выставит по населению без награды.
 	result.rank = clampi(_int(state.get("rank"), -1), -1, Ranks.NAMES.size() - 1)
 	var meta: Dictionary = _dict(root.get("meta"))

@@ -43,7 +43,7 @@ const MAX_PEOPLE_PATHS: int = 80
 ## С какой доли пеших (велосипедистов) путь дома попадает в выборку для фигурок.
 const PEOPLE_PATH_SHARE: float = 0.12
 
-## Нагрузка по индексу клетки (поездок за день).
+## Нагрузка по индексу клетки (поездок за тик).
 var road_load := PackedFloat32Array()
 ## id дома → тяжесть поездки в [0, 1] (1 — работы не достать).
 var home_badness: Dictionary[int, float] = {}

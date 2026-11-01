@@ -40,6 +40,8 @@ const DEMANDS: Array[Dictionary] = [
 const CARD_SIZE := Vector2(106, 78)
 ## Сколько секунд висит сообщение о сохранении.
 const TOAST_SECONDS: float = 2.5
+## Ширина часов «00:00» с запасом, px.
+const CLOCK_WIDTH: float = 52.0
 
 var _tool_buttons: Dictionary[int, Button] = {}
 var _service_buttons: Dictionary[StringName, Button] = {}
@@ -59,6 +61,8 @@ var _toast_label := Label.new()
 var _info := InfoPanel.new()
 ## Плашка звания (фаза 10) — создаётся кодом рядом с «Жителями»; счастье — в плашке «Жители».
 var _rank_label := Label.new()
+## Игровые часы рядом с днём.
+var _clock_label := Label.new()
 ## Номер последнего сообщения: старый таймер не прячет новое сообщение.
 var _toast_serial: int = 0
 ## Скорость до окна подтверждения «Новый город».
@@ -70,6 +74,7 @@ func _ready() -> void:
 	$Root.theme = theme
 	_build_rank_chips()
 	_decorate_top_bar()
+	_make_clock()
 	_build_demand_bars()
 	_build_speed_buttons()
 	_build_tabs()
@@ -109,6 +114,33 @@ func _decorate_top_bar() -> void:
 	_attach_chip_icon(%TrafficLabel, "stat_traffic")
 
 
+## Часы — отдельной надписью постоянной ширины: цифры у шрифта разной ширины, и плашки рядом
+## дрожали бы каждую игровую минуту.
+func _make_clock() -> void:
+	_clock_label.custom_minimum_size = Vector2(CLOCK_WIDTH, 0)
+	_clock_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_clock_label.mouse_filter = Control.MOUSE_FILTER_PASS
+	_clock_label.tooltip_text = "Игровое время: час — %d с на ×1, сутки — %d с" % [
+			roundi(SimClock.TICK_SECONDS), roundi(SimClock.TICK_SECONDS * GameTime.HOURS_PER_DAY)]
+	var top_row: Node = %DayLabel.get_parent()
+	top_row.add_child(_clock_label)
+	top_row.move_child(_clock_label, %DayLabel.get_index() + 1)
+
+
+## Город, сутки и часы; минуты идут между тиками, поэтому обновляем каждый кадр (только если изменилось).
+func _show_clock() -> void:
+	var day_text: String = "%s · День %d" % [GameState.city_name, GameState.day]
+	if %DayLabel.text != day_text:
+		%DayLabel.text = day_text
+	var time_text: String = SimClock.time_text()
+	if _clock_label.text != time_text:
+		_clock_label.text = time_text
+
+
+func _process(_delta: float) -> void:
+	_show_clock()
+
+
 func _attach_chip_icon(label: Label, icon_name: String) -> void:
 	var chip: Node = label.get_parent()
 	if chip == null:
@@ -128,11 +160,11 @@ func _attach_chip_icon(label: Label, icon_name: String) -> void:
 
 func _refresh_stats() -> void:
 	var balance: int = GameState.income - GameState.expenses
-	%MoneyLabel.text = "$%d (%+d/день)" % [GameState.money, balance]
-	var money_tip: String = "Доход: +$%d/день\nСодержание дорог и служб: −$%d/день"
+	%MoneyLabel.text = "$%d (%+d/ч)" % [GameState.money, balance]
+	var money_tip: String = "За игровой час:\nдоход +$%d\nсодержание дорог и служб −$%d"
 	%MoneyLabel.tooltip_text = money_tip % [GameState.income, GameState.expenses]
 	_mark_bad(%MoneyLabel, GameState.money < 0)
-	%DayLabel.text = "%s · День %d" % [GameState.city_name, GameState.day]
+	_show_clock()
 	%PopLabel.text = "Жители: %d" % GameState.population
 	%JobsLabel.text = "Работа: C %d · I %d" % [GameState.jobs_commercial, GameState.jobs_industrial]
 	var utilities: Utilities = GameState.utilities
@@ -202,7 +234,7 @@ func _sync_locks() -> void:
 			var rank: int = RoadTypes.UNLOCK_RANK[road_type]
 			var road_locked: bool = BuildTool.is_locked(mode)
 			_tool_buttons[mode].disabled = road_locked
-			var about: String = "%s: пропускает %d поездок, скорость ×%.1f, содержание $%.1f/кл. в день" % [
+			var about: String = "%s: пропускает %d поездок, скорость ×%.1f, содержание $%.1f/кл. в час" % [
 					RoadTypes.NAMES[road_type], RoadTypes.CAPACITY[road_type], 1.0 / RoadTypes.TRAVEL_COST[road_type],
 					RoadTypes.UPKEEP[road_type]]
 			if road_type == RoadTypes.Type.HIGHWAY:
@@ -439,7 +471,7 @@ func _show_overlay(overlay: int) -> void:
 
 ## Цена, содержание, что даёт и потребляет, радиус и с какого населения нужна служба.
 func _service_tooltip(data: BuildingData) -> String:
-	var lines: PackedStringArray = ["Цена: $%d, содержание: $%d/день" % [data.cost, data.upkeep]]
+	var lines: PackedStringArray = ["Цена: $%d, содержание: $%d/ч" % [data.cost, data.upkeep]]
 	if data.power_supply > 0:
 		lines.append("Даёт свет: %d" % data.power_supply)
 	if data.water_supply > 0:

@@ -1,6 +1,6 @@
 extends Node
 ## Состояние города: деньги, налог, население, рабочие места, спрос, свет и вода, службы,
-## день и сетка. Статистику пишет simulation.gd, деньги меняет только Economy.
+## игровое время и сетка. Статистику пишет simulation.gd, деньги меняет только Economy.
 
 var grid: CityGrid
 ## Имя города (хранится в сохранении).
@@ -8,7 +8,7 @@ var city_name: String = "Новый город"
 var money: int = Economy.START_MONEY
 ## Налог, %. Меняется через Events.tax_rate_requested.
 var tax_rate: int = Economy.DEFAULT_TAX_RATE
-## Доход и расходы за последний день (для UI).
+## Доход и расходы за игровой час — прогноз на следующий тик (для UI).
 var income: int = 0
 var expenses: int = 0
 var population: int = 0
@@ -18,8 +18,12 @@ var jobs_industrial: int = 0
 var demand_r: float = 0.0
 var demand_c: float = 0.0
 var demand_i: float = 0.0
-## Номер дня с начала игры (1 тик = 1 день, считает SimClock).
-var day: int = 0
+## Игровое время в целых часах с полуночи первых суток (1 тик = 1 час, считает SimClock).
+var hours: int = GameTime.START_HOUR
+## Номер суток (с 1) — из hours.
+var day: int:
+	get:
+		return GameTime.day_of(hours)
 ## Связные компоненты дорог (пересчитывает simulation.gd).
 var network := RoadNetwork.new()
 ## Последнее распределение света и воды: итоги по городу и запас по компонентам.

@@ -105,7 +105,7 @@ func _refresh() -> void:
 		if data.land_value > 0:
 			_add("Цена земли вокруг", "+%d" % data.land_value)
 		if building.construction_ticks > 0:
-			_add("Стройка", "ещё %d дн." % building.construction_ticks)
+			_add("Стройка", "ещё %d ч" % building.construction_ticks)
 		_add_mood(grid, building, data)
 	elif grid.is_road(cell):
 		var road_type: int = grid.get_road_type(cell)
@@ -115,7 +115,7 @@ func _refresh() -> void:
 		_subtitle.text = "Трасса за город" if grid.highway_cells.has(cell) else "Загрузка %d%%" % roundi(ratio * 100.0)
 		_add("Пропускает", "%d поездок" % RoadTypes.CAPACITY.get(road_type, 0.0))
 		_add("Загрузка", "%d%%" % roundi(ratio * 100.0), ratio >= 1.0)
-		_add("Содержание", "$%.1f/день" % RoadTypes.UPKEEP.get(road_type, 0.0))
+		_add("Содержание", "$%.1f/ч" % RoadTypes.UPKEEP.get(road_type, 0.0))
 		if not RoadTypes.gives_access(road_type):
 			_add("Дома", "не подключаются")
 	elif grid.is_water(cell):
