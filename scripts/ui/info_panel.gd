@@ -91,7 +91,7 @@ func _refresh() -> void:
 		if data.area() > 1:
 			_add("Участок", "%d×%d (%d кл.)" % [data.size.x, data.size.y, data.area()])
 		if data.population > 0:
-			_add("Жители", str(data.population))
+			_add("Жители", "%d (%s)" % [data.population, _families_text(LevelStats.families(data.population))])
 		if data.jobs > 0:
 			_add("Рабочие места", str(data.jobs))
 		if data.power_use > 0:
@@ -145,6 +145,16 @@ func _refresh() -> void:
 		_add("Шум", str(noise), noise >= BAD_LEVEL)
 		if data != null and data.population + data.jobs > 0:
 			_add("Налог с участка", "×%.2f" % Economy.land_factor(value))
+
+
+## «1 семья», «3 семьи», «5 семей».
+static func _families_text(count: int) -> String:
+	var word := "семей"
+	if count % 10 == 1 and count % 100 != 11:
+		word = "семья"
+	elif count % 10 in [2, 3, 4] and count % 100 not in [12, 13, 14]:
+		word = "семьи"
+	return "%d %s" % [count, word]
 
 
 ## Счастье дома с причинами и что мешает следующему уровню (фаза 10).

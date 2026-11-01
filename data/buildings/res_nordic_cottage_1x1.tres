@@ -7,7 +7,7 @@
 script = ExtResource("2_h238p")
 id = &"res_nordic_cottage_1x1"
 display_name = "Скандинавский коттедж · ур. 1"
-population = 10
+population = 3
 weight = 4.0
 preferred = true
 power_use = 1

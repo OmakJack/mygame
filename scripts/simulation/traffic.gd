@@ -7,8 +7,8 @@ extends RefCounted
 
 ## Доля жителей, которые ездят на работу.
 const WORK_SHARE: float = 0.5
-## Сколько поездок выдерживает клетка обычной дороги.
-const CAPACITY: float = 80.0
+## Сколько поездок выдерживает клетка обычной дороги (как улица в RoadTypes.CAPACITY).
+const CAPACITY: float = 27.0
 const BASE_COST: float = 1.0
 ## Добавка к стоимости клетки за каждую единицу перегрузки.
 const JAM_PENALTY: float = 3.0

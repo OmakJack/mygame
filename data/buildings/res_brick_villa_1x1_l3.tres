@@ -7,7 +7,7 @@
 script = ExtResource("2_xmc7b")
 id = &"res_brick_villa_1x1_l3"
 display_name = "Кирпичный особняк с эркером · ур. 3"
-population = 30
+population = 5
 level = 3
 weight = 1.5
 preferred = true

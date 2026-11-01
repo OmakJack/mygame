@@ -16,7 +16,8 @@ const MIN_TAX_RATE: int = 0
 const MAX_TAX_RATE: int = 20
 ## Доход за тик = налоговая база · налог(%) · TAX_FACTOR. База — жители и рабочие места,
 ## каждое здание с поправкой land_factor на стоимость земли под ним (фаза 9).
-const TAX_FACTOR: float = 0.015
+## Жителей и мест в здании с 2026-11-01 в 3–6 раз меньше (LevelStats) — налог с человека втрое выше.
+const TAX_FACTOR: float = 0.045
 ## Мост через воду, $ за клетку (обычная дорога — ROAD_COST).
 const BRIDGE_COST: int = 40
 

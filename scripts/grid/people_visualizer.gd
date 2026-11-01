@@ -17,7 +17,7 @@ const CYCLIST_MODELS: Array[String] = ["res://assets/models/blender/cyclist.glb"
 ## Человек 1.75 м → ~0.39 м: чуть крупнее масштаба машин Kenney (те мультяшно высокие), чтобы фигурки читались сверху.
 const PEOPLE_SCALE: float = 0.22
 ## Сколько работников «изображает» одна фигурка и сколько фигурок не больше.
-const WORKERS_PER_PERSON: float = 2.0
+const WORKERS_PER_PERSON: float = 0.7
 const MAX_WALKERS: int = 200
 const MAX_CYCLISTS: int = 120
 ## Скорость, клеток в секунду на ×1 (машины — TrafficVisualizer.SPEED).

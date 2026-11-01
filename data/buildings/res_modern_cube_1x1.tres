@@ -7,7 +7,7 @@
 script = ExtResource("2_1d044")
 id = &"res_modern_cube_1x1"
 display_name = "Современная вилла с консолью · ур. 3"
-population = 30
+population = 5
 level = 3
 weight = 4.0
 preferred = true

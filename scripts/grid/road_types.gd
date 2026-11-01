@@ -11,8 +11,9 @@ const NAMES: Dictionary[Type, String] = {
 	Type.AVENUE: "Проспект",
 	Type.HIGHWAY: "Шоссе",
 }
-## Ёмкость клетки: столько поездок за пересчёт проходит без пробки (Traffic).
-const CAPACITY: Dictionary[Type, float] = {Type.STREET: 80.0, Type.AVENUE: 200.0, Type.HIGHWAY: 320.0}
+## Ёмкость клетки: столько поездок за пересчёт проходит без пробки (Traffic). С 2026-11-01 жителей
+## в доме втрое меньше (LevelStats) — и ёмкость втрое меньше, пробки на тех же улицах.
+const CAPACITY: Dictionary[Type, float] = {Type.STREET: 27.0, Type.AVENUE: 67.0, Type.HIGHWAY: 107.0}
 ## Время проезда клетки без пробки: меньше — быстрее (Traffic, базовая цена клетки).
 const TRAVEL_COST: Dictionary[Type, float] = {Type.STREET: 1.0, Type.AVENUE: 0.8, Type.HIGHWAY: 0.5}
 ## Цена клетки и содержание за тик, $ (в интерфейсе — за час).

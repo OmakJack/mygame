@@ -3,16 +3,17 @@ extends RefCounted
 ## Спрос R/C/I в [−1, 1]. Держит соотношение жители : заводы : магазины ≈ 1 : 0.7 : 0.3.
 ## Налог выше нейтрального тормозит рост, ниже — ускоряет (tax_offset).
 
+## Буферы и шкалы — в людях; с 2026-11-01 жителей в доме втрое меньше (LevelStats), они тоже втрое меньше.
 ## Жители: стремятся к числу рабочих мест + стартовый буфер (пустому городу нужны первые дома).
-const R_BUFFER: float = 20.0
-const R_SCALE: float = 50.0
+const R_BUFFER: float = 7.0
+const R_SCALE: float = 17.0
 ## Заводы: базовый работодатель, доля от населения + стартовый буфер.
 const I_SHARE: float = 0.7
-const I_BUFFER: float = 15.0
-const I_SCALE: float = 40.0
+const I_BUFFER: float = 5.0
+const I_SCALE: float = 13.0
 ## Магазины: появляются после первых жителей.
 const C_SHARE: float = 0.3
-const C_SCALE: float = 30.0
+const C_SCALE: float = 10.0
 ## Поправка спроса на каждый процент налога от нейтрального (Economy.DEFAULT_TAX_RATE).
 const TAX_SENSITIVITY: float = 0.08
 

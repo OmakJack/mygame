@@ -11,8 +11,8 @@ extends MultiMeshInstance3D
 ## _target_count, _speed, _lane_offset, _slowdown, _obeys_rules, _load_layers, _dress и _bob.
 
 const MAX_CARS: int = 300
-## Сколько работников «изображает» одна машинка.
-const WORKERS_PER_CAR: float = 4.0
+## Сколько работников «изображает» одна машинка (≈ сколько людей в машине).
+const WORKERS_PER_CAR: float = 1.3
 ## Скорость, клеток в секунду на ×1.
 const SPEED: float = 2.0
 ## Сдвиг на правую полосу от оси дороги, метры (асфальт Kenney ×2 — полуширина ~0.8 м).

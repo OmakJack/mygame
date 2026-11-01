@@ -7,7 +7,7 @@
 script = ExtResource("2_g4jeu")
 id = &"res_modern_cube_1x1_l1"
 display_name = "Современная вилла с консолью · ур. 1"
-population = 10
+population = 3
 weight = 1.5
 preferred = true
 power_use = 1

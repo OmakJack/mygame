@@ -7,7 +7,7 @@
 script = ExtResource("2_2b30k")
 id = &"res_house_e"
 display_name = "Дом E · ур. 2"
-population = 20
+population = 4
 level = 2
 power_use = 2
 water_use = 2

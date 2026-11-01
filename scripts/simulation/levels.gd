@@ -16,9 +16,9 @@ const DECLINE_HAPPINESS: int = 20
 const DECLINE_TICKS: int = 20
 ## Сколько тиков здание стоит стройплощадкой: чем больше здание, тем дольше (как в Cities: Skylines) —
 ## CONSTRUCTION_BASE_TICKS + CONSTRUCTION_TICKS_PER_ROOT · √(жители + места). Домик 1×1 — 8 игровых
-## минут, дом 5×1 — 14, многоэтажка 1×1 ур.3 — 19, многоэтажка 7×1 ур.3 — 46.
+## минут, дом 5×1 — 13, многоэтажка 1×1 ур.3 — 21, многоэтажка 7×1 ур.3 — 52.
 const CONSTRUCTION_BASE_TICKS: int = 3
-const CONSTRUCTION_TICKS_PER_ROOT: float = 1.5
+const CONSTRUCTION_TICKS_PER_ROOT: float = 2.6
 
 
 static func construction_ticks_for(data: BuildingData) -> int:

@@ -8,7 +8,7 @@ const OUTSIDE_CELLS: int = 30
 ## Машин в каждую сторону: пустой город — немного, дальше +1 на POPULATION_PER_CAR жителей.
 const MIN_CARS: int = 3
 const MAX_CARS: int = 14
-const POPULATION_PER_CAR: int = 120
+const POPULATION_PER_CAR: int = 40
 ## Скорость машин, м/с на ×1, и сдвиг от оси дороги к своей полосе.
 const SPEED: float = 3.0
 const LANE_OFFSET: float = 0.3
