@@ -15,44 +15,58 @@ const SIGN_SIZE := Vector3(0.8, 0.32, 0.06)
 const SIGN_POST := Vector3(0.06, 0.3, 0.06)
 const SIGN_POST_COLOR := Color(0.3, 0.3, 0.32)
 const CONSTRUCTION_GROUND := Color(0.55, 0.44, 0.32)
-const FOUNDATION_COLOR := Color(0.72, 0.72, 0.7)
 const KENNEY_ROADS := "res://assets/models/kenney/roads/"
-## Детали стройплощадки: [модель, x, z, поворот, масштаб] (дорожный набор Kenney: 1 ед. ≈ 0.4 м забора).
-const CONSTRUCTION_PARTS: Array = [
-	[KENNEY_ROADS + "construction-fence", -0.85, -0.45, 0, 2.5],
-	[KENNEY_ROADS + "construction-fence", -0.85, 0.45, 0, 2.5],
-	[KENNEY_ROADS + "construction-fence", 0.85, -0.45, 0, 2.5],
-	[KENNEY_ROADS + "construction-fence", 0.85, 0.45, 0, 2.5],
-	[KENNEY_ROADS + "construction-fence", -0.45, 0.85, 1, 2.5],
-	[KENNEY_ROADS + "construction-fence", 0.45, 0.85, 1, 2.5],
-	[KENNEY_ROADS + "construction-barrier", -0.45, -0.85, 1, 2.5],
-	[KENNEY_ROADS + "construction-cone", 0.3, -0.8, 0, 2.5],
-	[KENNEY_ROADS + "construction-cone", 0.55, -0.8, 0, 2.5],
-	[KENNEY_ROADS + "construction-light", 0.8, -0.8, 0, 2.5],
-]
+## Забор стройки Kenney: масштаб и длина звена, метры (дорожный набор: 1 ед. ≈ 0.4 м забора).
+const FENCE_SCALE: float = 2.5
+const FENCE_STEP: float = 0.9
+## Забор стоит перед лесами (ConstructionVisualizer: зазор 0.03 + модуль 0.2 м) — на тротуаре.
+const FENCE_OFFSET: float = 0.3
 
-## Высота меша по типу здания (BadgeVisualizer вешает значок над крышей).
-static var _heights: Dictionary[StringName, float] = {}
+## Меш по типу здания: модель грузится и вписывается один раз (BuildingVisualizer, стройка, значки).
+static var _meshes: Dictionary[StringName, Mesh] = {}
+## Площадка стройки по типу здания (site_mesh).
+static var _sites: Dictionary[StringName, ArrayMesh] = {}
 
 
-## Стройплощадка (фаза 10): земля, фундамент с опорами, заборчики, конусы и фонарь Kenney.
-static func construction_mesh() -> ArrayMesh:
-	var mesh: ArrayMesh = ParkMeshes.build_layout(CONSTRUCTION_PARTS, CONSTRUCTION_GROUND)
-	_add_box(mesh, Vector3(1.2, 0.12, 1.2), Vector3(0.0, 0.09, 0.05), FOUNDATION_COLOR)
-	for corner: Vector2 in [Vector2(-0.5, -0.45), Vector2(0.5, -0.45), Vector2(-0.5, 0.55), Vector2(0.5, 0.55)]:
-		_add_box(mesh, Vector3(0.1, 0.7, 0.1), Vector3(corner.x, 0.5, corner.y), FOUNDATION_COLOR)
+## Площадка стройки участка типа data (как и меш — фасад на −Z): земля во весь участок, забор Kenney
+## вдоль улицы перед лесами с воротами-шлагбаумом посередине, конусы у ворот, фонарь на углу.
+static func site_mesh(data: BuildingData) -> ArrayMesh:
+	if _sites.has(data.id):
+		return _sites[data.id]
+	var half := Vector2(data.size.x, data.size.y) * CityGrid.CELL_SIZE * 0.5
+	var fence_z: float = mesh_for(data).get_aabb().position.z - FENCE_OFFSET
+	var count: int = maxi(2, floori(half.x * 2.0 / FENCE_STEP))
+	var step: float = half.x * 2.0 / count
+	var parts: Array = []
+	for k: int in count:
+		var x: float = -half.x + step * (k + 0.5)
+		var gate: bool = k == count / 2
+		parts.append([KENNEY_ROADS + ("construction-barrier" if gate else "construction-fence"), x, fence_z, 1, FENCE_SCALE])
+		if gate:
+			parts.append([KENNEY_ROADS + "construction-cone", x - step * 0.45, fence_z - 0.12, 0, FENCE_SCALE])
+			parts.append([KENNEY_ROADS + "construction-cone", x + step * 0.45, fence_z - 0.12, 0, FENCE_SCALE])
+	parts.append([KENNEY_ROADS + "construction-light", half.x - 0.12, fence_z + 0.05, 0, FENCE_SCALE])
+	var mesh: ArrayMesh = ParkMeshes.build_layout(parts, CONSTRUCTION_GROUND)
+	# Земля во весь участок (основание ParkMeshes — на одну клетку).
+	_add_box(mesh, Vector3(half.x * 2.0 - 0.06, 0.025, half.y * 2.0 - 0.06), Vector3(0.0, 0.0125, 0.0), CONSTRUCTION_GROUND)
+	_sites[data.id] = mesh
 	return mesh
 
 
-## Высота здания типа (верх меша), метры; меш строится один раз на тип.
+## Высота здания типа (верх меша), метры.
 static func height_of(data: BuildingData) -> float:
-	if not _heights.has(data.id):
-		_heights[data.id] = mesh_for(data).get_aabb().end.y
-	return _heights[data.id]
+	return mesh_for(data).get_aabb().end.y
 
 
 ## Меш типа здания в координатах клетки: центр основания — в начале координат, фасад на −Z.
+## Один на тип: BuildingPalette.convert потом меняет его материалы на месте.
 static func mesh_for(data: BuildingData) -> Mesh:
+	if not _meshes.has(data.id):
+		_meshes[data.id] = _build_mesh(data)
+	return _meshes[data.id]
+
+
+static func _build_mesh(data: BuildingData) -> Mesh:
 	if data.park != BuildingData.Park.NONE:
 		return ParkMeshes.build(data.park)
 	if data.model != null:

@@ -40,6 +40,11 @@ func time_text() -> String:
 	return GameTime.clock(GameState.minutes)
 
 
+## Сколько прошло от последнего тика до следующего, 0..1 — для плавной анимации между тиками (стройка).
+func tick_progress() -> float:
+	return clampf(_accumulator / TICK_SECONDS, 0.0, 1.0)
+
+
 ## Реальных секунд в игровом часе на скорости value (для подсказок).
 func seconds_per_hour(value: int) -> float:
 	return TICK_SECONDS * GameTime.TICKS_PER_HOUR / maxi(1, value)

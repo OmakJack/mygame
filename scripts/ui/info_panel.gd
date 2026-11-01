@@ -105,7 +105,9 @@ func _refresh() -> void:
 		if data.land_value > 0:
 			_add("Цена земли вокруг", "+%d" % data.land_value)
 		if building.construction_ticks > 0:
-			_add("Стройка", "ещё %d мин" % (building.construction_ticks * GameTime.TICK_MINUTES))
+			var total: int = maxi(building.construction_total, building.construction_ticks)
+			_add("Стройка", "%d%%, ещё %d мин" % [roundi(100.0 * (total - building.construction_ticks) / total),
+					building.construction_ticks * GameTime.TICK_MINUTES])
 		_add_mood(grid, building, data)
 	elif grid.is_road(cell):
 		var road_type: int = grid.get_road_type(cell)

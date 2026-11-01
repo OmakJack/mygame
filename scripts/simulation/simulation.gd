@@ -114,7 +114,7 @@ func _grow(grid: CityGrid, changed: Array[Vector2i]) -> void:
 				GameState.land, Growth.max_cells(demand))
 		if cell != CityGrid.NO_CELL:
 			var building: BuildingInstance = grid.get_building_at(cell)
-			building.construction_ticks = Levels.CONSTRUCTION_TICKS
+			Levels.start_construction(building, BuildingCatalog.get_type(building.type_id))
 			changed.append_array(building.cells())
 
 

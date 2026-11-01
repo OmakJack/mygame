@@ -1,9 +1,10 @@
 extends Node3D
-## Показывает здания из GameState.grid: по мультимешу на тип здания (и один — на стройплощадки).
+## Показывает здания из GameState.grid: по мультимешу на тип здания. Стройку (construction_ticks > 0)
+## рисует ConstructionVisualizer; здесь у неё только номер куска (_construction_item) для get_cell_item.
 ## Мультимеш, а не GridMap, — чтобы у каждого здания был свой цвет (BuildingPalette, INSTANCE_CUSTOM).
 ## Поворот — по BuildingInstance.orientation (по часовой, как у дорог).
 
-## Номер «куска» стройплощадки — после всех типов.
+## Номер «куска» стройплощадки — после всех типов (его слой пустой).
 var _construction_item: int = 0
 var _item_for_type: Dictionary[StringName, int] = {}
 var _layers: Array[MultiMeshInstance3D] = []
@@ -25,7 +26,7 @@ func _ready() -> void:
 		_item_for_type[types[item].id] = item
 		_add_layer(BuildingPalette.convert(BuildingMeshes.mesh_for(types[item])))
 	_construction_item = types.size()
-	_add_layer(BuildingMeshes.construction_mesh())
+	_add_layer(ArrayMesh.new())
 	Events.cells_changed.connect(_on_cells_changed)
 	Events.grid_reset.connect(_rebuild)
 	_rebuild()
@@ -136,22 +137,7 @@ func _write_layer(item: int) -> void:
 	var ids: Array = _ids_of[item]
 	var multimesh: MultiMesh = _layers[item].multimesh
 	if item == _construction_item:
-		var total_cells: int = 0
-		for id: int in ids:
-			var b: BuildingInstance = grid.buildings.get(id)
-			if b != null:
-				total_cells += b.size.x * b.size.y
-		multimesh.instance_count = total_cells
-		var idx: int = 0
-		for id: int in ids:
-			var b: BuildingInstance = grid.buildings.get(id)
-			if b == null:
-				continue
-			var basis := Basis(Vector3.UP, -b.orientation * PI * 0.5)
-			for c: Vector2i in b.cells():
-				multimesh.set_instance_transform(idx, Transform3D(basis, grid.grid_to_world(c)))
-				multimesh.set_instance_custom_data(idx, Color())
-				idx += 1
+		multimesh.instance_count = 0
 		return
 	multimesh.instance_count = ids.size()
 	for i: int in ids.size():

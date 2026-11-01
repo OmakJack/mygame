@@ -14,8 +14,21 @@ const CHANGE_CHANCE: float = 0.5
 ## первой ТЭЦ, исчезали бы через 20 минут).
 const DECLINE_HAPPINESS: int = 20
 const DECLINE_TICKS: int = 20
-## Сколько тиков здание стоит стройплощадкой.
-const CONSTRUCTION_TICKS: int = 2
+## Сколько тиков здание стоит стройплощадкой: чем больше здание, тем дольше (как в Cities: Skylines) —
+## CONSTRUCTION_BASE_TICKS + CONSTRUCTION_TICKS_PER_ROOT · √(жители + места). Домик 1×1 — 8 игровых
+## минут, дом 5×1 — 14, многоэтажка 1×1 ур.3 — 19, многоэтажка 7×1 ур.3 — 46.
+const CONSTRUCTION_BASE_TICKS: int = 3
+const CONSTRUCTION_TICKS_PER_ROOT: float = 1.5
+
+
+static func construction_ticks_for(data: BuildingData) -> int:
+	return CONSTRUCTION_BASE_TICKS + roundi(CONSTRUCTION_TICKS_PER_ROOT * sqrt(float(maxi(0, data.population + data.jobs))))
+
+
+## Здание становится стройплощадкой на срок по своему размеру.
+static func start_construction(building: BuildingInstance, data: BuildingData) -> void:
+	building.construction_ticks = construction_ticks_for(data)
+	building.construction_total = building.construction_ticks
 
 
 ## Что мешает зданию подняться на следующий уровень; пусто — может (если есть спрос).
@@ -141,7 +154,7 @@ static func _apply(grid: CityGrid, building: BuildingInstance, data: BuildingDat
 	if utilities.spare_power.get(component, 0) < more_power or utilities.spare_water.get(component, 0) < more_water:
 		return false
 	building.type_id = target.id
-	building.construction_ticks = CONSTRUCTION_TICKS
+	start_construction(building, target)
 	building.unhappy_ticks = 0
 	grid.buildings_version += 1
 	utilities.spare_power[component] -= maxi(0, more_power)

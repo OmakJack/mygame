@@ -21,6 +21,8 @@ var no_water_ticks: int = 0
 var unhappy_ticks: int = 0
 ## Сколько тиков ещё стоит стройплощадкой (не сохраняется: после загрузки — сразу дом).
 var construction_ticks: int = 0
+## Сколько тиков длится вся стройка (Levels.start_construction) — для анимации стройки.
+var construction_total: int = 0
 ## Результат последнего распределения света и воды.
 var powered: bool = false
 var has_water: bool = false
