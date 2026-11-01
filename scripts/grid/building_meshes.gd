@@ -31,6 +31,9 @@ const CONSTRUCTION_PARTS: Array = [
 	[KENNEY_ROADS + "construction-light", 0.8, -0.8, 0, 2.5],
 ]
 
+## Высота меша по типу здания (BadgeVisualizer вешает значок над крышей).
+static var _heights: Dictionary[StringName, float] = {}
+
 
 ## Стройплощадка (фаза 10): земля, фундамент с опорами, заборчики, конусы и фонарь Kenney.
 static func construction_mesh() -> ArrayMesh:
@@ -39,6 +42,13 @@ static func construction_mesh() -> ArrayMesh:
 	for corner: Vector2 in [Vector2(-0.5, -0.45), Vector2(0.5, -0.45), Vector2(-0.5, 0.55), Vector2(0.5, 0.55)]:
 		_add_box(mesh, Vector3(0.1, 0.7, 0.1), Vector3(corner.x, 0.5, corner.y), FOUNDATION_COLOR)
 	return mesh
+
+
+## Высота здания типа (верх меша), метры; меш строится один раз на тип.
+static func height_of(data: BuildingData) -> float:
+	if not _heights.has(data.id):
+		_heights[data.id] = mesh_for(data).get_aabb().end.y
+	return _heights[data.id]
 
 
 ## Меш типа здания в координатах клетки: центр основания — в начале координат, фасад на −Z.

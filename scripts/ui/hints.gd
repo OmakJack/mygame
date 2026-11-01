@@ -43,7 +43,7 @@ static func build() -> Array[String]:
 	if cut_off > 0:
 		hints.append("%d кл. зон не связаны с трассой — дома там не строятся" % cut_off)
 	if zoned > 0 and (utilities.power_supply == 0 or utilities.water_supply == 0):
-		hints.append("Без света и воды город не растёт: поставьте у дороги ТЭЦ и водокачку")
+		hints.append("Нет ТЭЦ или водокачки: без света и воды дома не повышаются и пустеют — поставьте их у дороги")
 	if utilities.unpowered_count > 0:
 		hints.append("Нет света у %d зд.: нужна ТЭЦ или дорога к ней" % utilities.unpowered_count)
 	if utilities.no_water_count > 0:

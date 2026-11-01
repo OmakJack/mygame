@@ -9,19 +9,25 @@ const HAPPINESS_FOR_LEVEL: Array[int] = [0, 0, 45, 60]
 ## Сколько зданий за тик может повыситься или перестроиться, и с каким шансом на каждую попытку.
 const CHANGES_PER_TICK: int = 2
 const CHANGE_CHANCE: float = 0.5
-## Упадок: дом пустеет, если счастье ниже этого дольше DECLINE_TICKS тиков.
+## Упадок: дом пустеет, если счастье ниже этого дольше DECLINE_TICKS тиков. Дом без света или воды
+## от несчастья не пустеет — его срок Simulation.UTILITY_ABANDON_TICKS (иначе дома, выросшие до
+## первой ТЭЦ, исчезали бы через 20 минут).
 const DECLINE_HAPPINESS: int = 20
 const DECLINE_TICKS: int = 20
 ## Сколько тиков здание стоит стройплощадкой.
 const CONSTRUCTION_TICKS: int = 2
 
 
-## Что мешает зданию подняться на следующий уровень; пусто — может (если есть спрос и свет с водой).
+## Что мешает зданию подняться на следующий уровень; пусто — может (если есть спрос).
 static func blockers(grid: CityGrid, building: BuildingInstance, data: BuildingData, land: LandValue,
 		happiness: Happiness) -> PackedStringArray:
 	var result: PackedStringArray = []
 	if data.level >= 3:
 		return result
+	if not building.powered:
+		result.append("нет света")
+	if not building.has_water:
+		result.append("нет воды")
 	var next: int = data.level + 1
 	var value: int = land.building_value(land.land_value, grid, building)
 	if value < LAND_FOR_LEVEL[next]:
@@ -69,6 +75,9 @@ static func decline(grid: CityGrid, happiness: Happiness) -> Array[Vector2i]:
 	var gone: Array[int] = []
 	for building: BuildingInstance in grid.buildings.values():
 		if not happiness.by_building.has(building.id):
+			continue
+		if not building.powered or not building.has_water:
+			building.unhappy_ticks = 0
 			continue
 		if happiness.by_building[building.id] < DECLINE_HAPPINESS:
 			building.unhappy_ticks += 1

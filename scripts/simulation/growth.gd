@@ -3,12 +3,13 @@ extends RefCounted
 ## Рост зданий (как в Cities: Skylines): размер здания задаёт игрок разметкой зоны.
 ## Каждый участок (CityGrid.Lot, его нарезает LotPlanner) — одно здание ровно его размера, фасадом
 ## к дороге. Клетки зоны без участка (старые сохранения, остатки после снятия зоны) растут по одной.
-## Выбирается свободный участок, у компонента дорог которого хватает света и воды; запас сразу уменьшается.
+## Свет и вода росту не нужны (как в SimCity): дом растёт и без них, а над ним висит значок
+## (BadgeVisualizer), пока игрок не проведёт свет и воду. Запас компонента, если хватает, сразу уменьшается.
 ## Фаза 9: жильё не растёт в грязи; жильё и магазины выбирают землю подороже.
-## Если дом во весь участок сейчас не встаёт (спрос слабый — город его «не потянет», не хватает света
-## или воды, часть участка в грязи), на участке ставится дом поменьше — у фасада, а если там грязно,
-## то глубже; остаток участка снова делится на участки (LotPlanner). Иначе один большой дом съедал
-## спрос или участок у заводов стоял пустым целиком, и рост вставал.
+## Если дом во весь участок сейчас не встаёт (спрос слабый — город его «не потянет», часть участка
+## в грязи), на участке ставится дом поменьше — у фасада, а если там грязно, то глубже; остаток участка
+## снова делится на участки (LotPlanner). Иначе один большой дом съедал спрос или участок у заводов
+## стоял пустым целиком, и рост вставал.
 
 ## С такого загрязнения жильё на клетке не растёт.
 const MAX_HOME_POLLUTION: int = 40
@@ -69,8 +70,7 @@ static func grow_one(grid: CityGrid, zone_type: CityGrid.Zone, rng: RandomNumber
 		if component == -1 or (grid.has_entry() and component != entry_comp):
 			continue
 		# Самый большой дом, который сейчас встаёт на участок (во весь участок или у его начала).
-		var part: Array = _fitting_part(grid, land, utilities, component, by_size, rect, dir, size,
-				residential, cells_limit)
+		var part: Array = _fitting_part(grid, land, by_size, rect, dir, size, residential, cells_limit)
 		if part.is_empty():
 			continue
 		var split_lot: int = lot.id if lot != null and part[0] != rect else -1
@@ -98,22 +98,25 @@ static func grow_one(grid: CityGrid, zone_type: CityGrid.Zone, rng: RandomNumber
 	var id: int = grid.place_building(data.id, rect.position, chosen[1])
 	if id == -1:
 		return CityGrid.NO_CELL
-	# Новый дом сразу со светом и водой: запас под него мы только что проверили.
+	# Свет и вода — из запаса компонента, если хватает; нет — дом стоит без них (со значком),
+	# пока следующий пересчёт (Utilities.distribute) не найдёт ему запас.
 	var building: BuildingInstance = grid.buildings[id]
-	building.powered = true
-	building.has_water = true
-	utilities.spare_power[chosen[2]] -= data.power_use
-	utilities.spare_water[chosen[2]] -= data.water_use
+	var component: int = chosen[2]
+	building.powered = utilities.spare_power.get(component, 0) >= data.power_use
+	building.has_water = utilities.spare_water.get(component, 0) >= data.water_use
+	if building.powered:
+		utilities.spare_power[component] = utilities.spare_power.get(component, 0) - data.power_use
+	if building.has_water:
+		utilities.spare_water[component] = utilities.spare_water.get(component, 0) - data.water_use
 	return rect.position
 
 
 ## Самый большой дом для участка rect (размер типа full — вдоль фасада × вглубь): сначала во весь
 ## участок, иначе — поменьше: у фасада с начала участка, потом дальше вдоль и вглубь. Подходит дом,
-## если он не больше cells_limit клеток (1×1 — всегда), жильё не в грязи и у компонента хватает
-## света и воды хоть на один тип. Возвращает [прямоугольник, подходящие типы] или [], если не встаёт ничего.
-static func _fitting_part(grid: CityGrid, land: LandValue, utilities: Utilities, component: int,
-		by_size: Dictionary[Vector2i, Array], rect: Rect2i, dir: int, full: Vector2i, residential: bool,
-		cells_limit: int) -> Array:
+## если он не больше cells_limit клеток (1×1 — всегда) и жильё не в грязи.
+## Возвращает [прямоугольник, подходящие типы] или [], если не встаёт ничего.
+static func _fitting_part(grid: CityGrid, land: LandValue, by_size: Dictionary[Vector2i, Array], rect: Rect2i,
+		dir: int, full: Vector2i, residential: bool, cells_limit: int) -> Array:
 	var sizes: Array[Vector2i] = []
 	for size: Vector2i in by_size:
 		if size.x <= full.x and size.y <= full.y and (size == Vector2i.ONE or size.x * size.y <= cells_limit):
@@ -124,10 +127,7 @@ static func _fitting_part(grid: CityGrid, land: LandValue, utilities: Utilities,
 			return a.x * a.y > b.x * b.y
 		return a.y > b.y)
 	for size: Vector2i in sizes:
-		var options: Array = by_size[size].filter(func(data: BuildingData) -> bool:
-			return _component_fits(utilities, component, data))
-		if options.is_empty():
-			continue
+		var options: Array = by_size[size]
 		for v: int in full.y - size.y + 1:
 			for u: int in full.x - size.x + 1:
 				var part: Rect2i = LotPlanner.part_of(rect, dir, u, v, size.x, size.y)
@@ -196,8 +196,3 @@ static func _best_1x1_dir(grid: CityGrid, cell: Vector2i) -> int:
 		if grid.is_access_road(cell + CityGrid.NEIGHBORS[dir]):
 			return dir
 	return maxi(0, grid.find_nearest_road_dir(cell))
-
-
-static func _component_fits(utilities: Utilities, component: int, data: BuildingData) -> bool:
-	return utilities.spare_power.get(component, 0) >= data.power_use \
-			and utilities.spare_water.get(component, 0) >= data.water_use

@@ -6,8 +6,9 @@ extends Node
 
 ## Через сколько тиков без доступа к дороге дом сносится.
 const ABANDON_TICKS: int = 3
-## Через сколько тиков без света или воды дом сносится (дольше — чтобы игрок успел поставить станцию).
-const UTILITY_ABANDON_TICKS: int = 10
+## Через сколько тиков без света или воды дом сносится: дома растут и без них (со значком над крышей),
+## так что у игрока есть 6 игровых часов (12 минут при ×1), чтобы провести свет и воду.
+const UTILITY_ABANDON_TICKS: int = 6 * GameTime.TICKS_PER_HOUR
 ## Во сколько раз шанс роста больше спроса.
 const GROWTH_CHANCE_FACTOR: float = 0.7
 ## На тике трафик пересчитывается раз в столько тиков (и сразу — при изменении дорог).
@@ -76,7 +77,7 @@ func _refresh_stats() -> void:
 
 
 ## Только дома R/C/I: служебные здания сами не сносятся, а просто не работают.
-## Флаги света и воды — из последнего пересчёта.
+## Флаги света и воды — из последнего пересчёта; стройплощадке они не нужны.
 func _abandon_buildings(grid: CityGrid, changed: Array[Vector2i]) -> void:
 	var abandoned: Array[int] = []
 	for building: BuildingInstance in grid.buildings.values():
@@ -84,8 +85,9 @@ func _abandon_buildings(grid: CityGrid, changed: Array[Vector2i]) -> void:
 		if data == null or data.zone == CityGrid.Zone.NONE:
 			continue
 		building.no_road_ticks = 0 if grid.has_building_road_access(building) else building.no_road_ticks + 1
-		building.no_power_ticks = 0 if building.powered else building.no_power_ticks + 1
-		building.no_water_ticks = 0 if building.has_water else building.no_water_ticks + 1
+		var building_site: bool = building.construction_ticks > 0
+		building.no_power_ticks = 0 if building.powered or building_site else building.no_power_ticks + 1
+		building.no_water_ticks = 0 if building.has_water or building_site else building.no_water_ticks + 1
 		if building.no_road_ticks >= ABANDON_TICKS \
 				or building.no_power_ticks >= UTILITY_ABANDON_TICKS \
 				or building.no_water_ticks >= UTILITY_ABANDON_TICKS:
