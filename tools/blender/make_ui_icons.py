@@ -349,29 +349,41 @@ def icon_school():
     import_glb("kenney/suburban/tree-small", (0.38, -0.36, 0.0), scale=1.05)
 
 
+# Службы — модели Argon (blender/services): 1×1 на квадратной плите, 2×1 — на длинной (здание крупнее).
+SERVICE_PLINTHS = {"health": (0.90, 0.26, 0.24), "fire": (0.92, 0.38, 0.16), "police": (0.24, 0.46, 0.92)}
+
+
+def _service_icon(kind, model, large):
+    if large:
+        add_plinth(SERVICE_PLINTHS[kind], size=(1.75, 1.0, 0.16))
+        import_glb("blender/services/" + model, (0.0, 0.0, 0.0), scale=0.44)
+    else:
+        add_plinth(SERVICE_PLINTHS[kind], size=(1.3, 1.3, 0.16))
+        import_glb("blender/services/" + model, (0.0, 0.0, 0.0), scale=0.66)
+
+
 def icon_health():
-    add_plinth((0.90, 0.26, 0.24), size=(1.4, 1.4, 0.16))
-    import_glb("kenney/commercial/building-a", (-0.12, 0.12, 0.0), scale=1.2, rot_z=math.radians(90))
-    red = make_mat("cross", (0.92, 0.16, 0.16), roughness=0.25, emission=0.25)
-    white = make_mat("pad", (0.98, 0.98, 0.98), roughness=0.3)
-    add_cylinder((-0.12, 0.12, 0.69), 0.24, 0.05, white)
-    add_box((-0.12, 0.12, 0.78), (0.30, 0.10, 0.12), red, bevel=0.02)
-    add_box((-0.12, 0.12, 0.78), (0.10, 0.10, 0.30), red, bevel=0.02)
-    import_glb("kenney/cars/ambulance", (0.34, -0.34, 0.02), scale=0.24, rot_z=math.radians(45))
+    _service_icon("health", "clinic_1x1", False)
+
+
+def icon_health_large():
+    _service_icon("health", "clinic_center_2x1", True)
 
 
 def icon_fire():
-    add_plinth((0.92, 0.38, 0.16), size=(1.4, 1.4, 0.16))
-    import_glb("kenney/industrial/building-l", (-0.14, 0.14, 0.0), scale=0.92)
-    import_glb("kenney/cars/firetruck", (0.34, -0.36, 0.02), scale=0.24, rot_z=math.radians(45))
+    _service_icon("fire", "fire_station_1x1", False)
+
+
+def icon_fire_large():
+    _service_icon("fire", "fire_depot_2x1", True)
 
 
 def icon_police():
-    add_plinth((0.24, 0.46, 0.92), size=(1.4, 1.4, 0.16))
-    import_glb("kenney/commercial/building-h", (-0.14, 0.14, 0.0), scale=1.1, rot_z=math.radians(90))
-    blue = make_mat("beacon", (0.18, 0.48, 0.98), roughness=0.2, emission=0.4)
-    add_box((-0.14, 0.14, 0.95), (0.24, 0.24, 0.08), blue, bevel=0.02)
-    import_glb("kenney/cars/police", (0.34, -0.36, 0.02), scale=0.26, rot_z=math.radians(45))
+    _service_icon("police", "police_station_1x1", False)
+
+
+def icon_police_large():
+    _service_icon("police", "police_precinct_2x1", True)
 
 
 def icon_park_square():
@@ -510,8 +522,11 @@ ICONS = [
     ("wind_turbine_02", icon_wind_large, 96, 1.12),
     ("school_01", icon_school, 96, 1.15),
     ("health_01", icon_health, 96, 1.14),
+    ("health_02", icon_health_large, 96, 1.10),
     ("fire_01", icon_fire, 96, 1.14),
+    ("fire_02", icon_fire_large, 96, 1.10),
     ("police_01", icon_police, 96, 1.14),
+    ("police_02", icon_police_large, 96, 1.10),
     ("park_square", icon_park_square, 96, 1.15),
     ("park_garden", icon_park_garden, 96, 1.15),
     ("park_plaza", icon_park_plaza, 96, 1.15),

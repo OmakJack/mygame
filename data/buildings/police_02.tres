@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/blender/services/police_precinct_2x1.glb" id="1_7ifpj"]
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="2_v3ltj"]
+
+[resource]
+script = ExtResource("2_v3ltj")
+id = &"police_02"
+display_name = "Управление полиции"
+zone = 0
+size = Vector2i(2, 1)
+grows = false
+cost = 450
+upkeep = 14
+power_use = 4
+water_use = 2
+service = 4
+service_radius = 24
+land_value = 12
+model = ExtResource("1_7ifpj")
+placeholder_color = Color(0.25, 0.35, 0.7, 1)
+placeholder_height = 2.6

@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/blender/services/fire_depot_2x1.glb" id="1_grcda"]
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="2_h8tdv"]
+
+[resource]
+script = ExtResource("2_h8tdv")
+id = &"fire_02"
+display_name = "Пожарное депо"
+zone = 0
+size = Vector2i(2, 1)
+grows = false
+cost = 450
+upkeep = 14
+power_use = 4
+water_use = 4
+service = 3
+service_radius = 24
+noise = 8
+land_value = 12
+model = ExtResource("1_grcda")
+placeholder_color = Color(0.85, 0.25, 0.2, 1)
+placeholder_height = 2.6

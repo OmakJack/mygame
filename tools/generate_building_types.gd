@@ -97,13 +97,26 @@ const RETIRED: Dictionary = {
 }
 
 ## Службы и станции: id → [модель, масштаб, цвет вывески, вывеска-крест, загрязнение, шум, бонус к цене земли].
+## Поликлиника, пожарная часть и полиция — модели Argon (assets/models/blender/services, 2026-11-01):
+## эмблемы уже на фасадах, вывеска над крышей не нужна.
 const EXISTING: Dictionary = {
 	"power_plant_01": ["industrial/chimney-large", 1.2, Color(0, 0, 0, 0), false, 70, 20, 0],
 	"water_tower_01": ["industrial/water-tower", 1.0, Color(0, 0, 0, 0), false, 0, 0, 0],
 	"school_01": ["commercial/building-c", 1.4, Color(0.98, 0.8, 0.2), false, 0, 5, 15],
-	"health_01": ["commercial/building-n", 1.4, Color(0.9, 0.15, 0.15), true, 0, 0, 15],
-	"fire_01": ["industrial/building-l", 1.0, Color(0.9, 0.3, 0.1), false, 0, 5, 10],
-	"police_01": ["commercial/building-h", 1.4, Color(0.2, 0.4, 0.9), false, 0, 0, 10],
+	"health_01": ["blender/services/clinic_1x1", 1.0, Color(0, 0, 0, 0), false, 0, 0, 15],
+	"fire_01": ["blender/services/fire_station_1x1", 1.0, Color(0, 0, 0, 0), false, 0, 5, 10],
+	"police_01": ["blender/services/police_station_1x1", 1.0, Color(0, 0, 0, 0), false, 0, 0, 10],
+}
+
+## Большие службы 2×1 (модели Argon): дороже и дороже в содержании, зато радиус в полтора раза больше.
+## id → [название, модель, служба, цена, содержание, радиус, свет, вода, шум, бонус к цене земли, цвет заглушки].
+const LARGE_SERVICES: Dictionary = {
+	"health_02": ["Медцентр", "blender/services/clinic_center_2x1", BuildingData.Service.HEALTH,
+		380, 9, 20, 4, 4, 0, 20, Color(0.95, 0.95, 0.95)],
+	"fire_02": ["Пожарное депо", "blender/services/fire_depot_2x1", BuildingData.Service.FIRE,
+		450, 14, 24, 4, 4, 8, 12, Color(0.85, 0.25, 0.2)],
+	"police_02": ["Управление полиции", "blender/services/police_precinct_2x1", BuildingData.Service.POLICE,
+		450, 14, 24, 4, 2, 0, 12, Color(0.25, 0.35, 0.7)],
 }
 
 ## Ветряки (Argon, tools/blender/make_services_and_wind.py → assets/models/blender/services/parts):
@@ -164,13 +177,35 @@ func _initialize() -> void:
 	for id: String in EXISTING:
 		var data := _load_or_new(id)
 		var entry: Array = EXISTING[id]
-		data.model = load(KENNEY + entry[0] + ".glb")
+		data.model = load(_model_path(entry[0]))
 		data.model_scale = entry[1]
 		data.sign_color = entry[2]
 		data.sign_cross = entry[3]
 		data.pollution = entry[4]
 		data.noise = entry[5]
 		data.land_value = entry[6]
+		_save(data)
+	for id: String in LARGE_SERVICES:
+		var entry: Array = LARGE_SERVICES[id]
+		var data := _load_or_new(id)
+		data.display_name = entry[0]
+		data.zone = CityGrid.Zone.NONE
+		data.grows = false
+		data.size = Vector2i(2, 1)
+		data.model = load(_model_path(entry[1]))
+		data.model_scale = 1.0
+		data.model_turns = 2
+		data.sign_color = Color(0, 0, 0, 0)
+		data.service = entry[2]
+		data.cost = entry[3]
+		data.upkeep = entry[4]
+		data.service_radius = entry[5]
+		data.power_use = entry[6]
+		data.water_use = entry[7]
+		data.noise = entry[8]
+		data.land_value = entry[9]
+		data.placeholder_color = entry[10]
+		data.placeholder_height = 2.6
 		_save(data)
 	for id: String in WIND:
 		var entry: Array = WIND[id]

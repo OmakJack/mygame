@@ -1,6 +1,6 @@
 [gd_resource type="Resource" script_class="BuildingData" format=3]
 
-[ext_resource type="PackedScene" path="res://assets/models/kenney/commercial/building-n.glb" id="1_c21ra"]
+[ext_resource type="PackedScene" path="res://assets/models/blender/services/clinic_1x1.glb" id="1_c21ra"]
 [ext_resource type="Script" path="res://scripts/data/building_data.gd" id="1_data"]
 
 [resource]
@@ -16,8 +16,5 @@ service = 2
 service_radius = 14
 land_value = 15
 model = ExtResource("1_c21ra")
-model_scale = 1.4
-sign_color = Color(0.9, 0.15, 0.15, 1)
-sign_cross = true
 placeholder_color = Color(0.95, 0.95, 0.95, 1)
 placeholder_height = 2.2
