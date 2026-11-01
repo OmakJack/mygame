@@ -26,6 +26,7 @@ const CATEGORY_COLORS: Dictionary[String, Color] = {
 	"services": Color(0.82, 0.30, 0.26),
 	"parks": Color(0.18, 0.62, 0.52),
 	"bulldoze": Color(0.68, 0.34, 0.24),
+	"filters": Color(0.36, 0.42, 0.78),
 }
 
 ## Иконки вкладок категорий.
@@ -35,6 +36,7 @@ const TAB_ICONS: Dictionary[String, String] = {
 	"utilities": "power_plant_01",
 	"services": "health_01",
 	"parks": "park_plaza",
+	"filters": "tool_overlay",
 }
 
 ## Имя → иконка; null — иконки нет (запомнено, чтобы не искать файл на каждом обновлении).

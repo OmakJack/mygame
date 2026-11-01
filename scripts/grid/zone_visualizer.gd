@@ -1,7 +1,7 @@
 class_name ZoneVisualizer
 extends MultiMeshInstance3D
 ## Раскраска клеток: один экземпляр на клетку (номер = CityGrid.index_of), цвет — по слою карты.
-## Слои (клавиша V по кругу): зоны / свет / вода / службы.
+## Слой выбирают во вкладке «Фильтры» (FilterPanel) через Events.overlay_requested; обычный — зоны.
 
 enum Overlay { ZONES, POWER, WATER, SERVICES, TRAFFIC, LAND_VALUE, POLLUTION, NOISE }
 
@@ -86,16 +86,14 @@ func _ready() -> void:
 	cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	Events.cells_changed.connect(_on_cells_changed)
 	Events.grid_reset.connect(_rebuild)
+	Events.overlay_requested.connect(func(mode: int) -> void:
+		if mode != overlay:
+			set_overlay(mode as Overlay))
 	# Свет, вода и службы меняются на каждом пересчёте — перерисовываем слой целиком.
 	Events.stats_changed.connect(func() -> void:
 		if overlay != Overlay.ZONES:
 			_repaint_all())
 	_rebuild()
-
-
-func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed(&"overlay_next"):
-		set_overlay(((overlay + 1) % Overlay.size()) as Overlay)
 
 
 func set_overlay(new_overlay: Overlay) -> void:

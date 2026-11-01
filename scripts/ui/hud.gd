@@ -39,6 +39,8 @@ const DEMANDS: Array[Dictionary] = [
 ]
 ## Размер карточки инструмента (с 3D-иконкой сверху).
 const CARD_SIZE := Vector2(106, 78)
+## Вкладка фильтров карты (свет, вода, пробки…) — FilterPanel.
+const FILTER_TAB := "filters"
 ## Сколько секунд висит сообщение о сохранении.
 const TOAST_SECONDS: float = 2.5
 ## Ширина часов «00:00» с запасом, px.
@@ -54,7 +56,9 @@ var _tab_cards: Dictionary[String, HBoxContainer] = {}
 var _active_tab: String = ""
 var _current_tool: int = BuildTool.Mode.NONE
 var _current_type: StringName = &""
-var _overlay_label := Label.new()
+var _filters := FilterPanel.new()
+## Слой карты сейчас (ZoneVisualizer.Overlay).
+var _overlay: int = ZoneVisualizer.Overlay.ZONES
 var _save_dialog := SaveDialog.new()
 var _new_city_confirm := ConfirmationDialog.new()
 var _toast := PanelContainer.new()
@@ -91,8 +95,7 @@ func _ready() -> void:
 	Events.stats_changed.connect(_refresh_stats)
 	Events.tool_mode_changed.connect(_on_tool_mode_changed)
 	Events.speed_changed.connect(_sync_speed_buttons)
-	Events.overlay_changed.connect(_show_overlay)
-	_show_overlay(ZoneVisualizer.Overlay.ZONES)
+	Events.overlay_changed.connect(func(mode: int) -> void: _overlay = mode)
 	_select_tab("roads")
 	_refresh_stats()
 	_sync_tool_buttons()
@@ -110,9 +113,6 @@ func _decorate_top_bar() -> void:
 	_attach_chip_icon(%PopLabel, "stat_pop")
 	_attach_chip_icon(_rank_label, "stat_rank")
 	_attach_chip_icon(%JobsLabel, "stat_jobs")
-	_attach_chip_icon(%PowerLabel, "stat_power")
-	_attach_chip_icon(%WaterLabel, "stat_water")
-	_attach_chip_icon(%TrafficLabel, "stat_traffic")
 
 
 ## Часы — отдельной надписью постоянной ширины: цифры у шрифта разной ширины, и плашки рядом
@@ -177,10 +177,6 @@ func _refresh_stats() -> void:
 	_show_clock()
 	%PopLabel.text = "Жители: %d" % GameState.population
 	%JobsLabel.text = "Работа: C %d · I %d" % [GameState.jobs_commercial, GameState.jobs_industrial]
-	var utilities: Utilities = GameState.utilities
-	_show_resource(%PowerLabel, "Свет", utilities.power_use, utilities.power_supply, utilities.unpowered_count)
-	_show_resource(%WaterLabel, "Вода", utilities.water_use, utilities.water_supply, utilities.no_water_count)
-	_show_traffic()
 	_show_hints()
 	_show_rank()
 	_sync_locks()
@@ -191,31 +187,6 @@ func _refresh_stats() -> void:
 	for i: int in _demand_bars.size():
 		_demand_bars[i].value = demands[i]
 		_demand_bars[i].tooltip_text = "Спрос %s: %+.2f" % [DEMANDS[i].name, demands[i]]
-
-
-## «Свет 40/100»: потребление / запас; красным, если кому-то не хватило.
-func _show_resource(label: Label, title: String, use: int, supply: int, short_count: int) -> void:
-	label.text = "%s %d/%d" % [title, use, supply]
-	label.tooltip_text = "%s: потребление %d из %d" % [title, use, supply]
-	if short_count > 0:
-		label.tooltip_text += "\nНе хватило: %d зд." % short_count
-	_mark_bad(label, short_count > 0)
-
-
-## «Пробки 3 · до работы 18»: клетки с пробкой и среднее время до работы; красным при пробках.
-func _show_traffic() -> void:
-	var traffic: Traffic = GameState.traffic
-	%TrafficLabel.text = "Пробки %d · до работы %d" % [traffic.jammed_cells, roundi(traffic.average_commute)]
-	var tip: String = "Клеток дорог с пробкой: %d\nСреднее время до работы: %.1f (норма до %d)\nДалеко до работы: %d%% работников"
-	%TrafficLabel.tooltip_text = tip % [traffic.jammed_cells, traffic.average_commute,
-			roundi(Traffic.OK_COMMUTE), roundi(traffic.long_commute_share * 100.0)]
-	if traffic.total_workers > 0.0:
-		var walk: float = traffic.walkers / traffic.total_workers
-		var bike: float = traffic.cyclists / traffic.total_workers
-		%TrafficLabel.tooltip_text += "\nНа работу: на машине %d%%, на велосипеде %d%%, пешком %d%%" % [
-				roundi((1.0 - walk - bike) * 100.0), roundi(bike * 100.0), roundi(walk * 100.0)]
-		%TrafficLabel.tooltip_text += "\nВ пробках люди пересаживаются на велосипед или идут пешком"
-	_mark_bad(%TrafficLabel, traffic.jammed_cells > 0)
 
 
 ## «Посёлок · 230/600»: звание и сколько жителей до следующего; счастье — среднее по жителям.
@@ -402,7 +373,7 @@ func _add_building_card(row: HBoxContainer, category: String, data: BuildingData
 	_service_buttons[type_id] = button
 
 
-## «Снос» и переключатель слоя карты — рядом с вкладками, всегда под рукой.
+## «Снос» и вкладка «Фильтры» — рядом с вкладками, всегда под рукой.
 func _build_bottom_extras() -> void:
 	%Tabs.add_child(VSeparator.new())
 	var bulldoze := _make_card("Снос [B]", "bulldoze", "tool_bulldoze", false)
@@ -412,31 +383,17 @@ func _build_bottom_extras() -> void:
 		_sync_tool_buttons())
 	%Tabs.add_child(bulldoze)
 	_tool_buttons[BuildTool.Mode.BULLDOZE] = bulldoze
-	var overlay := _make_button("", &"Small")
-	overlay.toggle_mode = false
-	overlay.tooltip_text = "Сменить слой карты: зоны, свет, вода, службы, трафик, цена земли, загрязнение, шум"
-	overlay.pressed.connect(func() -> void:
-		var event := InputEventAction.new()
-		event.action = &"overlay_next"
-		event.pressed = true
-		Input.parse_input_event(event))
-	var ov_row := HBoxContainer.new()
-	ov_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	ov_row.set_anchors_preset(Control.PRESET_FULL_RECT)
-	ov_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	ov_row.add_theme_constant_override(&"separation", 6)
-	ov_row.add_child(UiTheme.make_chip_icon("tool_overlay", 20))
-	_overlay_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_overlay_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_overlay_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	ov_row.add_child(_overlay_label)
-	overlay.custom_minimum_size = Vector2(174, 38)
-	overlay.add_child(ov_row)
-	%Tabs.add_child(overlay)
-	# Уникальное имя — чтобы находить надпись как %OverlayLabel, хоть она и создана кодом.
-	_overlay_label.name = "OverlayLabel"
-	_overlay_label.unique_name_in_owner = true
-	_overlay_label.owner = self
+	# Фильтры — такая же вкладка, как остальные: карточки в той же панели, что и инструменты.
+	_filters.visible = false
+	%Tools.add_child(_filters)
+	_tab_cards[FILTER_TAB] = _filters
+	var filters := _make_button("Фильтры [V]", &"Tab")
+	UiTheme.tab_styles(filters, FILTER_TAB)
+	filters.tooltip_text = "Что показать на карте: свет, вода, пробки, службы, цена земли, загрязнение, шум"
+	filters.pressed.connect(func() -> void:
+		_select_tab("" if _active_tab == FILTER_TAB else FILTER_TAB))
+	%Tabs.add_child(filters)
+	_tab_buttons[FILTER_TAB] = filters
 
 
 func _select_tab(id: String) -> void:
@@ -445,6 +402,37 @@ func _select_tab(id: String) -> void:
 		_tab_cards[tab_id].visible = tab_id == id
 		_tab_buttons[tab_id].set_pressed_no_signal(tab_id == id)
 	%ToolPanel.visible = not id.is_empty()
+	# Фильтр виден, пока открыта его вкладка (как в Cities: Skylines): другая вкладка — снова зоны.
+	if id != FILTER_TAB:
+		_request_overlay(ZoneVisualizer.Overlay.ZONES)
+
+
+func _request_overlay(mode: int) -> void:
+	if mode != _overlay:
+		Events.overlay_requested.emit(mode)
+
+
+## Слой под инструмент, как в SimCity: станции — свет или вода, службы — их покрытие,
+## парки — цена земли; дороги и зоны — обычная карта.
+static func _overlay_for(mode: int, type_id: StringName) -> int:
+	var data: BuildingData = BuildingCatalog.get_type(type_id) if mode == BuildTool.Mode.PLACE else null
+	if data == null:
+		return ZoneVisualizer.Overlay.ZONES
+	if data.power_supply > 0:
+		return ZoneVisualizer.Overlay.POWER
+	if data.water_supply > 0:
+		return ZoneVisualizer.Overlay.WATER
+	if data.service != BuildingData.Service.NONE:
+		return ZoneVisualizer.Overlay.SERVICES
+	if data.park != BuildingData.Park.NONE:
+		return ZoneVisualizer.Overlay.LAND_VALUE
+	return ZoneVisualizer.Overlay.ZONES
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed(&"overlay_next"):
+		_select_tab("" if _active_tab == FILTER_TAB else FILTER_TAB)
+		get_viewport().set_input_as_handled()
 
 
 ## Вкладка, где лежит инструмент или здание (для клавиш R, 1–4 и выбора службы).
@@ -466,6 +454,7 @@ func _on_tool_mode_changed(mode: int, type_id: StringName) -> void:
 	var tab: String = _tab_of(mode, type_id)
 	if not tab.is_empty():
 		_select_tab(tab)
+		_request_overlay(_overlay_for(mode, type_id))
 	_sync_tool_buttons()
 
 
@@ -475,10 +464,6 @@ func _sync_tool_buttons() -> void:
 	var placing: bool = _current_tool == BuildTool.Mode.PLACE
 	for type_id: StringName in _service_buttons:
 		_service_buttons[type_id].set_pressed_no_signal(placing and type_id == _current_type)
-
-
-func _show_overlay(overlay: int) -> void:
-	_overlay_label.text = "Слой: %s [V]" % ZoneVisualizer.OVERLAY_NAMES[overlay]
 
 
 ## Цена, содержание, что даёт и потребляет, радиус и с какого населения нужна служба.

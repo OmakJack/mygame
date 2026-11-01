@@ -57,6 +57,8 @@ signal menu_requested
 ## Сменился слой карты (клавиша V): ZoneVisualizer.Overlay.
 @warning_ignore("unused_signal")
 signal overlay_changed(mode: int)
+## Просьба показать слой карты (панель «Фильтры», инструмент): ZoneVisualizer.Overlay.
+signal overlay_requested(mode: int)
 
 ## SimClock сменил скорость (0 — пауза).
 @warning_ignore("unused_signal")
