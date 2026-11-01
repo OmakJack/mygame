@@ -2,3 +2,7 @@
 .godot/
 /android/
 __pycache__/
+
+# Вывод проверок (tests/run.sh): сохранения, снимки, логи
+tests/out/*
+!tests/out/.gdignore

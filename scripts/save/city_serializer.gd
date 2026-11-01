@@ -22,10 +22,12 @@ class LoadResult extends RefCounted:
 	## Игровое время, минуты (GameState.minutes).
 	var minutes: int = GameTime.START_MINUTES
 	var rank: int = -1
+	## Случайность симуляции: [зерно, положение]; пусто — старое сохранение (случайное зерно).
+	var rng_state: Array[int] = []
 
 
 static func to_dict(grid: CityGrid, city_name: String, money: int, tax_rate: int, minutes: int,
-		population: int, rank: int = -1) -> Dictionary:
+		population: int, rank: int = -1, rng: RandomNumberGenerator = null) -> Dictionary:
 	var roads := PackedByteArray()
 	roads.resize(grid.size * grid.size)
 	roads.fill(0)
@@ -44,13 +46,17 @@ static func to_dict(grid: CityGrid, city_name: String, money: int, tax_rate: int
 			"np": building.no_power_ticks,
 			"nw": building.no_water_ticks,
 			"nh": building.unhappy_ticks,
+			"ct": building.construction_ticks,
+			"ctt": building.construction_total,
 		})
 	return {
 		"format": FORMAT,
 		"version": VERSION,
 		"saved_at": Time.get_datetime_string_from_system(),
 		"meta": {"name": city_name, "day": GameTime.day_of(minutes), "population": population, "money": money},
-		"state": {"money": money, "tax_rate": tax_rate, "minutes": minutes, "rank": rank},
+		# Зерно и положение случайности — строками: в JSON числа становятся float и теряют 64-битную точность.
+		"state": {"money": money, "tax_rate": tax_rate, "minutes": minutes, "rank": rank,
+				"rng": [str(rng.seed), str(rng.state)] if rng != null else []},
 		"grid": {
 			"size": grid.size,
 			"next_building_id": grid.next_building_id,
@@ -158,6 +164,9 @@ static func from_dict(data: Variant) -> LoadResult:
 		result.minutes = GameTime.from_old_days(_int(state.get("day"), 0))
 	# Звание (фаза 10): нет поля — −1, Simulation выставит по населению без награды.
 	result.rank = clampi(_int(state.get("rank"), -1), -1, Ranks.NAMES.size() - 1)
+	var rng: Variant = state.get("rng", [])
+	if rng is Array and (rng as Array).size() == 2 and str(rng[0]).is_valid_int() and str(rng[1]).is_valid_int():
+		result.rng_state = [str(rng[0]).to_int(), str(rng[1]).to_int()]
 	var meta: Dictionary = _dict(root.get("meta"))
 	result.name = str(meta.get("name", "Город"))
 	result.grid = grid
@@ -214,6 +223,9 @@ static func _load_building(grid: CityGrid, entry: Dictionary, occupied: Dictiona
 	building.no_power_ticks = maxi(0, _int(entry.get("np"), 0))
 	building.no_water_ticks = maxi(0, _int(entry.get("nw"), 0))
 	building.unhappy_ticks = maxi(0, _int(entry.get("nh"), 0))
+	# Стройплощадка: нет поля — здание готово (старые сохранения).
+	building.construction_ticks = maxi(0, _int(entry.get("ct"), 0))
+	building.construction_total = maxi(building.construction_ticks, _int(entry.get("ctt"), 0))
 	grid.buildings[id] = building
 	for c: Vector2i in cells:
 		occupied[c] = true

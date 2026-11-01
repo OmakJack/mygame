@@ -14,7 +14,6 @@ const GROWTH_CHANCE_FACTOR: float = 0.7
 ## На тике трафик пересчитывается раз в столько тиков (и сразу — при изменении дорог).
 const TRAFFIC_PERIOD: int = 5
 
-var _rng := RandomNumberGenerator.new()
 ## Идёт тик: свой же cells_changed не пересчитываем второй раз.
 var _in_tick: bool = false
 # По чему был посчитан текущий трафик — чтобы не пересчитывать его на каждый клик.
@@ -29,7 +28,6 @@ var _land_buildings_version: int = -1
 
 
 func _ready() -> void:
-	_rng.randomize()
 	Events.sim_tick.connect(_on_sim_tick)
 	Events.cells_changed.connect(_on_cells_changed)
 	Events.grid_reset.connect(_refresh_stats)
@@ -46,7 +44,7 @@ func _on_sim_tick() -> void:
 	changed.append_array(Levels.decline(grid, GameState.happiness))
 	changed.append_array(Levels.tick_construction(grid))
 	_grow(grid, changed)
-	changed.append_array(Levels.step(grid, _rng, GameState.network, GameState.utilities, GameState.land,
+	changed.append_array(Levels.step(grid, GameState.rng, GameState.network, GameState.utilities, GameState.land,
 			GameState.happiness, _demands()))
 	_ticks_since_traffic += 1
 	_update_stats(true)
@@ -108,9 +106,9 @@ func _grow(grid: CityGrid, changed: Array[Vector2i]) -> void:
 			continue
 		var demand: float = demands[CityGrid.zone_category(zone_type)]
 		var chance: float = clampf(demand * GROWTH_CHANCE_FACTOR, 0.0, 1.0)
-		if _rng.randf() >= chance:
+		if GameState.rng.randf() >= chance:
 			continue
-		var cell: Vector2i = Growth.grow_one(grid, zone_type, _rng, GameState.network, GameState.utilities,
+		var cell: Vector2i = Growth.grow_one(grid, zone_type, GameState.rng, GameState.network, GameState.utilities,
 				GameState.land)
 		if cell != CityGrid.NO_CELL:
 			var building: BuildingInstance = grid.get_building_at(cell)

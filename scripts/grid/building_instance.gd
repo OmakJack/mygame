@@ -19,7 +19,7 @@ var no_power_ticks: int = 0
 var no_water_ticks: int = 0
 ## Сколько тиков подряд жителям плохо (фаза 10): после Levels.DECLINE_TICKS дом пустеет.
 var unhappy_ticks: int = 0
-## Сколько тиков ещё стоит стройплощадкой (не сохраняется: после загрузки — сразу дом).
+## Сколько тиков ещё стоит стройплощадкой (сохраняется с 2026-11-01; в старых сохранениях — 0, сразу дом).
 var construction_ticks: int = 0
 ## Сколько тиков длится вся стройка (Levels.start_construction) — для анимации стройки.
 var construction_total: int = 0

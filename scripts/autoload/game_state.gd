@@ -38,8 +38,12 @@ var land := LandValue.new()
 var happiness := Happiness.new()
 ## Звание города (Ranks): не падает; −1 — ещё не выставлено (старое сохранение).
 var rank: int = 0
+## Случайность симуляции (рост, выбор домов, повышения). Зерно и положение — в сохранении:
+## тот же город и те же действия на тех же тиках дают тот же город (баг роста можно повторить).
+var rng := RandomNumberGenerator.new()
 
 
 func _init() -> void:
 	# Создаём сетку в _init, чтобы она была готова до _ready любых узлов сцены.
 	grid = CityGrid.new(CityGrid.GRID_SIZE)
+	rng.randomize()
