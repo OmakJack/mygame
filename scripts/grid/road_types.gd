@@ -15,7 +15,7 @@ const NAMES: Dictionary[Type, String] = {
 const CAPACITY: Dictionary[Type, float] = {Type.STREET: 80.0, Type.AVENUE: 200.0, Type.HIGHWAY: 320.0}
 ## Время проезда клетки без пробки: меньше — быстрее (Traffic, базовая цена клетки).
 const TRAVEL_COST: Dictionary[Type, float] = {Type.STREET: 1.0, Type.AVENUE: 0.8, Type.HIGHWAY: 0.5}
-## Цена клетки и содержание в час, $.
+## Цена клетки и содержание за тик, $ (в интерфейсе — за час).
 const BUILD_COST: Dictionary[Type, int] = {Type.STREET: 10, Type.AVENUE: 30, Type.HIGHWAY: 50}
 const UPKEEP: Dictionary[Type, float] = {Type.STREET: 0.2, Type.AVENUE: 0.5, Type.HIGHWAY: 0.8}
 ## Во сколько раз громче улицы (LandValue).

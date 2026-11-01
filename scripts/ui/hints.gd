@@ -93,7 +93,7 @@ static func build() -> Array[String]:
 	if GameState.money < 0:
 		hints.append("Казна в минусе: поднимите налог или снесите лишнее")
 	elif balance < 0:
-		hints.append("Расходы больше доходов: %+d $/ч" % balance)
+		hints.append("Расходы больше доходов: %+d $/ч" % GameTime.per_hour(balance))
 
 	if hints.size() > MAX_HINTS:
 		hints.resize(MAX_HINTS)

@@ -29,6 +29,7 @@ const SPEEDS: Array[Dictionary] = [
 	{"speed": 0, "name": "Пауза"},
 	{"speed": 1, "name": "×1"},
 	{"speed": 3, "name": "×3"},
+	{"speed": 8, "name": "×8"},
 ]
 ## Полоски спроса: подпись и цвет (как у зон).
 const DEMANDS: Array[Dictionary] = [
@@ -120,14 +121,22 @@ func _make_clock() -> void:
 	_clock_label.custom_minimum_size = Vector2(CLOCK_WIDTH, 0)
 	_clock_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_clock_label.mouse_filter = Control.MOUSE_FILTER_PASS
-	_clock_label.tooltip_text = "Игровое время: час — %d с на ×1, сутки — %d с" % [
-			roundi(SimClock.TICK_SECONDS), roundi(SimClock.TICK_SECONDS * GameTime.HOURS_PER_DAY)]
+	_clock_label.tooltip_text = "Игровое время, как в SimCity: час — %s на ×1, %s на ×3, %s на ×8" % [
+			_duration(SimClock.seconds_per_hour(1)), _duration(SimClock.seconds_per_hour(3)),
+			_duration(SimClock.seconds_per_hour(8))]
 	var top_row: Node = %DayLabel.get_parent()
 	top_row.add_child(_clock_label)
 	top_row.move_child(_clock_label, %DayLabel.get_index() + 1)
 
 
-## Город, сутки и часы; минуты идут между тиками, поэтому обновляем каждый кадр (только если изменилось).
+## «2 мин», «40 с».
+static func _duration(seconds: float) -> String:
+	if seconds >= 60.0:
+		return "%s мин" % String.num(seconds / 60.0, 1).trim_suffix(".0")
+	return "%d с" % roundi(seconds)
+
+
+## Город, сутки и часы; проверяем каждый кадр, текст меняем, только если изменился.
 func _show_clock() -> void:
 	var day_text: String = "%s · День %d" % [GameState.city_name, GameState.day]
 	if %DayLabel.text != day_text:
@@ -160,9 +169,10 @@ func _attach_chip_icon(label: Label, icon_name: String) -> void:
 
 func _refresh_stats() -> void:
 	var balance: int = GameState.income - GameState.expenses
-	%MoneyLabel.text = "$%d (%+d/ч)" % [GameState.money, balance]
+	%MoneyLabel.text = "$%d (%+d/ч)" % [GameState.money, roundi(GameTime.per_hour(balance))]
 	var money_tip: String = "За игровой час:\nдоход +$%d\nсодержание дорог и служб −$%d"
-	%MoneyLabel.tooltip_text = money_tip % [GameState.income, GameState.expenses]
+	%MoneyLabel.tooltip_text = money_tip % [roundi(GameTime.per_hour(GameState.income)),
+			roundi(GameTime.per_hour(GameState.expenses))]
 	_mark_bad(%MoneyLabel, GameState.money < 0)
 	_show_clock()
 	%PopLabel.text = "Жители: %d" % GameState.population
@@ -234,9 +244,9 @@ func _sync_locks() -> void:
 			var rank: int = RoadTypes.UNLOCK_RANK[road_type]
 			var road_locked: bool = BuildTool.is_locked(mode)
 			_tool_buttons[mode].disabled = road_locked
-			var about: String = "%s: пропускает %d поездок, скорость ×%.1f, содержание $%.1f/кл. в час" % [
+			var about: String = "%s: пропускает %d поездок, скорость ×%.1f, содержание $%d/кл. в час" % [
 					RoadTypes.NAMES[road_type], RoadTypes.CAPACITY[road_type], 1.0 / RoadTypes.TRAVEL_COST[road_type],
-					RoadTypes.UPKEEP[road_type]]
+					roundi(GameTime.per_hour(RoadTypes.UPKEEP[road_type]))]
 			if road_type == RoadTypes.Type.HIGHWAY:
 				about += "\nДома к шоссе не подключаются"
 			about += "\nПротяните поверх дороги другого типа — она заменится"
@@ -311,6 +321,8 @@ func _build_speed_buttons() -> void:
 	for entry: Dictionary in SPEEDS:
 		var button := _make_button(entry.name, &"Small")
 		var speed: int = entry.speed
+		if speed > 0:
+			button.tooltip_text = "Игровой час — %s" % _duration(SimClock.seconds_per_hour(speed))
 		button.pressed.connect(func() -> void:
 			SimClock.set_speed(speed)
 			# Повторный клик по активной кнопке не должен её «отжимать».
@@ -471,7 +483,7 @@ func _show_overlay(overlay: int) -> void:
 
 ## Цена, содержание, что даёт и потребляет, радиус и с какого населения нужна служба.
 func _service_tooltip(data: BuildingData) -> String:
-	var lines: PackedStringArray = ["Цена: $%d, содержание: $%d/ч" % [data.cost, data.upkeep]]
+	var lines: PackedStringArray = ["Цена: $%d, содержание: $%d/ч" % [data.cost, roundi(GameTime.per_hour(data.upkeep))]]
 	if data.power_supply > 0:
 		lines.append("Даёт свет: %d" % data.power_supply)
 	if data.water_supply > 0:

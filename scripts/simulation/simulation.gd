@@ -49,7 +49,7 @@ func _on_sim_tick() -> void:
 			GameState.happiness, _demands()))
 	_ticks_since_traffic += 1
 	_update_stats(true)
-	Economy.apply_hour()
+	Economy.apply_tick()
 	if not changed.is_empty():
 		_in_tick = true
 		Events.cells_changed.emit(changed)
@@ -126,7 +126,7 @@ func _demands() -> Dictionary[CityGrid.Zone, float]:
 
 
 ## Пересчитывает всё, что видит UI: сеть, свет и воду, население и рабочие места,
-## трафик (когда пора), покрытие служб, спрос и прогноз денег на час.
+## трафик (когда пора), покрытие служб, спрос и прогноз денег на тик.
 func _update_stats(from_tick: bool = false) -> void:
 	var grid: CityGrid = GameState.grid
 	GameState.network.update(grid)
@@ -176,7 +176,7 @@ func _update_stats(from_tick: bool = false) -> void:
 	GameState.demand_r = Demand.residential(population, jobs_commercial, jobs_industrial, tax_rate, offset)
 	GameState.demand_c = Demand.commercial(population, jobs_commercial, tax_rate)
 	GameState.demand_i = Demand.industrial(population, jobs_industrial, tax_rate)
-	# Прогноз денег на час — тоже здесь, чтобы UI видел его сразу (и на паузе).
+	# Прогноз денег на тик — тоже здесь, чтобы UI видел его сразу (и на паузе).
 	GameState.income = Economy.daily_income(_tax_base(grid), tax_rate)
 	var road_upkeep: float = 0.0
 	for road: Vector2i in grid.road_cells:

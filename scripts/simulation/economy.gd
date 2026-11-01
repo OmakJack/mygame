@@ -1,20 +1,20 @@
 class_name Economy
 extends RefCounted
 ## Деньги: цены, налоги, содержание. Единственное место изменения GameState.money —
-## spend() при строительстве и apply_hour() в тике (1 тик = 1 игровой час). Прогноз income/expenses на час
+## spend() при строительстве и apply_tick() в тике (1 тик = игровая минута). Прогноз income/expenses на тик
 ## считает simulation.gd вместе со статистикой.
 
 const START_MONEY: int = 2000
 ## Цены за реально изменённую клетку. Снос и снятие зоны — бесплатно.
 const ROAD_COST: int = 10
 const ZONE_COST: int = 5
-## Содержание дорог за час, $ за клетку. Служебные здания платят свой BuildingData.upkeep.
+## Содержание дорог за тик, $ за клетку (в интерфейсе — за час, GameTime.per_hour). Служебные здания платят свой BuildingData.upkeep.
 const ROAD_UPKEEP: float = 0.2
 ## Налог, %.
 const DEFAULT_TAX_RATE: int = 9
 const MIN_TAX_RATE: int = 0
 const MAX_TAX_RATE: int = 20
-## Доход за час = налоговая база · налог(%) · TAX_FACTOR. База — жители и рабочие места,
+## Доход за тик = налоговая база · налог(%) · TAX_FACTOR. База — жители и рабочие места,
 ## каждое здание с поправкой land_factor на стоимость земли под ним (фаза 9).
 const TAX_FACTOR: float = 0.015
 ## Мост через воду, $ за клетку (обычная дорога — ROAD_COST).
@@ -48,6 +48,6 @@ static func daily_expenses(road_upkeep: float, service_upkeep: int = 0) -> int:
 	return roundi(road_upkeep) + service_upkeep
 
 
-## Начисляет доход и списывает расходы за час по прогнозу в GameState.
-static func apply_hour() -> void:
+## Начисляет доход и списывает расходы за тик по прогнозу в GameState.
+static func apply_tick() -> void:
 	GameState.money += GameState.income - GameState.expenses

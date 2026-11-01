@@ -17,9 +17,9 @@ var orientation: int
 var no_road_ticks: int = 0
 var no_power_ticks: int = 0
 var no_water_ticks: int = 0
-## Сколько часов (тиков) подряд жителям плохо (фаза 10): после Levels.DECLINE_TICKS дом пустеет.
+## Сколько тиков подряд жителям плохо (фаза 10): после Levels.DECLINE_TICKS дом пустеет.
 var unhappy_ticks: int = 0
-## Сколько часов ещё стоит стройплощадкой (не сохраняется: после загрузки — сразу дом).
+## Сколько тиков ещё стоит стройплощадкой (не сохраняется: после загрузки — сразу дом).
 var construction_ticks: int = 0
 ## Результат последнего распределения света и воды.
 var powered: bool = false

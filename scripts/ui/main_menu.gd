@@ -139,7 +139,7 @@ func _refresh_continue() -> void:
 	_continue_button.visible = has_city or not _at_start
 	if has_city:
 		_continue_button.text = "Продолжить\n%s · день %d, %s" % [GameState.city_name, GameState.day,
-				GameTime.clock(GameState.hours)]
+				GameTime.clock(GameState.minutes)]
 	else:
 		_continue_button.text = "Продолжить"
 

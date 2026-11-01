@@ -8,7 +8,7 @@ var city_name: String = "Новый город"
 var money: int = Economy.START_MONEY
 ## Налог, %. Меняется через Events.tax_rate_requested.
 var tax_rate: int = Economy.DEFAULT_TAX_RATE
-## Доход и расходы за игровой час — прогноз на следующий тик (для UI).
+## Доход и расходы за тик — прогноз на следующий тик (UI показывает их за игровой час).
 var income: int = 0
 var expenses: int = 0
 var population: int = 0
@@ -18,12 +18,12 @@ var jobs_industrial: int = 0
 var demand_r: float = 0.0
 var demand_c: float = 0.0
 var demand_i: float = 0.0
-## Игровое время в целых часах с полуночи первых суток (1 тик = 1 час, считает SimClock).
-var hours: int = GameTime.START_HOUR
-## Номер суток (с 1) — из hours.
+## Игровое время в минутах с полуночи первых суток (1 тик = GameTime.TICK_MINUTES, считает SimClock).
+var minutes: int = GameTime.START_MINUTES
+## Номер суток (с 1) — из minutes.
 var day: int:
 	get:
-		return GameTime.day_of(hours)
+		return GameTime.day_of(minutes)
 ## Связные компоненты дорог (пересчитывает simulation.gd).
 var network := RoadNetwork.new()
 ## Последнее распределение света и воды: итоги по городу и запас по компонентам.

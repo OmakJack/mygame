@@ -7,8 +7,8 @@ const EXTENSION: String = ".city.json"
 const AUTOSAVE: String = "autosave"
 const QUICKSAVE: String = "quicksave"
 ## Автосохранение каждые столько игровых дней.
-## Автосохранение раз в игровые сутки (на ×1 — раз в 48 с).
-const AUTOSAVE_HOURS: int = GameTime.HOURS_PER_DAY
+## Автосохранение раз в 2 игровых часа (на ×1 — раз в 4 мин, на ×8 — в 30 с).
+const AUTOSAVE_MINUTES: int = 2 * GameTime.MINUTES_PER_HOUR
 const DEFAULT_CITY_NAME: String = "Новый город"
 const MAX_FILE_NAME_LENGTH: int = 60
 ## Имена, которые Windows не даёт использовать для файлов.
@@ -24,13 +24,16 @@ var save_dir: String = "user://saves/"
 var with_river: bool = true
 ## Въезд трассы на новой карте (город растёт только связанный с ней). Тесты могут выключить.
 var with_highway: bool = true
-## Игровой час последнего автосохранения (или загрузки / нового города).
-var _last_autosave_hour: int = 0
+## Игровая минута последнего автосохранения (или загрузки / нового города).
+var _last_autosave_minute: int = 0
 
 
 func _ready() -> void:
+	# Отсчёт — от текущего времени: город начинается в 07:00, а не в минуту 0 (иначе автосохранение
+	# сработало бы на первом же тике, ещё до загрузки или нового города).
+	_last_autosave_minute = GameState.minutes
 	Events.sim_tick.connect(_on_sim_tick)
-	Events.grid_reset.connect(func() -> void: _last_autosave_hour = GameState.hours)
+	Events.grid_reset.connect(func() -> void: _last_autosave_minute = GameState.minutes)
 
 
 func _notification(what: int) -> void:
@@ -64,7 +67,7 @@ func load_city(file_id: String) -> bool:
 		return false
 	for warning: String in result.warnings:
 		push_warning("Загрузка «%s»: %s" % [file_id, warning])
-	_apply(result.grid, result.name, result.money, result.tax_rate, result.hours, result.rank)
+	_apply(result.grid, result.name, result.money, result.tax_rate, result.minutes, result.rank)
 	Events.load_done.emit(result.name, result.warnings.size())
 	return true
 
@@ -77,7 +80,7 @@ func new_city() -> void:
 		MapGenerator.add_river(grid, map_seed)
 	if with_highway:
 		MapGenerator.add_highway(grid, map_seed)
-	_apply(grid, DEFAULT_CITY_NAME, Economy.START_MONEY, Economy.DEFAULT_TAX_RATE, GameTime.START_HOUR, 0)
+	_apply(grid, DEFAULT_CITY_NAME, Economy.START_MONEY, Economy.DEFAULT_TAX_RATE, GameTime.START_MINUTES, 0)
 
 
 ## Сохранения: file, name, day, population, money, saved_at, broken. Новые — первыми.
@@ -146,7 +149,7 @@ static func file_id_for(city_name: String) -> String:
 func _write(file_id: String, label: String) -> bool:
 	DirAccess.make_dir_recursive_absolute(save_dir)
 	var data: Dictionary = CitySerializer.to_dict(GameState.grid, GameState.city_name, GameState.money,
-			GameState.tax_rate, GameState.hours, GameState.population, GameState.rank)
+			GameState.tax_rate, GameState.minutes, GameState.population, GameState.rank)
 	var path: String = _path(file_id)
 	var temp_path: String = path + ".tmp"
 	# Сначала во временный файл, потом поверх старого: при сбое старое сохранение цело.
@@ -165,13 +168,13 @@ func _write(file_id: String, label: String) -> bool:
 	return true
 
 
-func _apply(grid: CityGrid, city_name: String, money: int, tax_rate: int, hours: int, rank: int) -> void:
+func _apply(grid: CityGrid, city_name: String, money: int, tax_rate: int, minutes: int, rank: int) -> void:
 	GameState.grid = grid
 	GameState.rank = rank
 	GameState.city_name = city_name
 	GameState.money = money
 	GameState.tax_rate = tax_rate
-	GameState.hours = hours
+	GameState.minutes = minutes
 	# Сеть сверяется со ссылкой на сетку сама; свет, вода и службы пересчитает Simulation.
 	GameState.utilities = Utilities.new()
 	GameState.service_coverage = {}
@@ -180,16 +183,16 @@ func _apply(grid: CityGrid, city_name: String, money: int, tax_rate: int, hours:
 	Events.grid_reset.emit()
 
 
-## Раз в AUTOSAVE_HOURS игровых часов от последнего автосохранения (а не «в полночь»:
+## Раз в AUTOSAVE_MINUTES игровых минут от последнего автосохранения (а не «в полночь»:
 ## иначе после загрузки сохранения, сделанного в 23:50, автосохранение сработало бы сразу).
 func _on_sim_tick() -> void:
-	if GameState.hours - _last_autosave_hour >= AUTOSAVE_HOURS:
+	if GameState.minutes - _last_autosave_minute >= AUTOSAVE_MINUTES:
 		_autosave()
 
 
 func _autosave() -> void:
 	if not is_city_empty() and _write(AUTOSAVE, "Автосохранение"):
-		_last_autosave_hour = GameState.hours
+		_last_autosave_minute = GameState.minutes
 
 
 ## Только имя файла (get_file): даже «../что-то» не выйдет за папку сохранений.

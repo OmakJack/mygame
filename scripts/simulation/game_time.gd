@@ -1,34 +1,45 @@
 class_name GameTime
 extends RefCounted
-## Игровое время (как в CityRT): на часах идут минуты и часы, из 24 часов складываются сутки.
-## Симуляция считает целыми часами — 1 тик = 1 час (GameState.hours, считает SimClock);
-## минуты между тиками нужны только часам на экране.
+## Игровое время (как в SimCity 2013): на часах идут минуты, час на обычной скорости — около
+## 2 реальных минут, сутки — 48 минут. Симуляция считает тиками: 1 тик = TICK_MINUTES игровых
+## минут (GameState.minutes, считает SimClock). Тиков в реальную секунду — столько же, сколько
+## было, когда тик считался днём, поэтому город растёт с прежней скоростью: медленнее идут только часы.
 
-const HOURS_PER_DAY: int = 24
 const MINUTES_PER_HOUR: int = 60
+const HOURS_PER_DAY: int = 24
+const MINUTES_PER_DAY: int = MINUTES_PER_HOUR * HOURS_PER_DAY
+## Игровых минут в одном тике симуляции.
+const TICK_MINUTES: int = 1
+## Тиков в игровом часе: деньги в HUD — «за час» (доход и содержание считаются за тик).
+const TICKS_PER_HOUR: int = MINUTES_PER_HOUR / TICK_MINUTES
 ## Новый город начинается утром.
 const START_HOUR: int = 7
-## Часы на экране меняются шагом в столько минут (на ×1 — три раза в секунду).
-const CLOCK_STEP: int = 10
+const START_MINUTES: int = START_HOUR * MINUTES_PER_HOUR
 
 
 ## Номер суток, с 1.
 @warning_ignore("integer_division")
-static func day_of(hours: int) -> int:
-	return hours / HOURS_PER_DAY + 1
+static func day_of(minutes: int) -> int:
+	return minutes / MINUTES_PER_DAY + 1
 
 
-## Час суток, 0..23.
-static func hour_of(hours: int) -> int:
-	return posmod(hours, HOURS_PER_DAY)
+## «14:05».
+@warning_ignore("integer_division")
+static func clock(minutes: int) -> String:
+	var in_day: int = posmod(minutes, MINUTES_PER_DAY)
+	return "%02d:%02d" % [in_day / MINUTES_PER_HOUR, in_day % MINUTES_PER_HOUR]
 
 
-## «14:20»; fraction — сколько прошло от текущего часа, [0, 1).
-static func clock(hours: int, fraction: float = 0.0) -> String:
-	var minute: int = floori(clampf(fraction, 0.0, 0.999) * MINUTES_PER_HOUR / CLOCK_STEP) * CLOCK_STEP
-	return "%02d:%02d" % [hour_of(hours), minute]
+## Сумма за тик → за игровой час (деньги в интерфейсе).
+static func per_hour(per_tick: float) -> float:
+	return per_tick * TICKS_PER_HOUR
 
 
-## Часы из сохранения до игрового времени: тогда 1 тик был днём — тот же день, утро.
+## Сохранение, где 1 тик был днём: тот же день, утро.
 static func from_old_days(days: int) -> int:
-	return maxi(0, days) * HOURS_PER_DAY + START_HOUR
+	return maxi(0, days) * MINUTES_PER_DAY + START_MINUTES
+
+
+## Сохранение, где 1 тик был часом.
+static func from_old_hours(hours: int) -> int:
+	return maxi(0, hours) * MINUTES_PER_HOUR
