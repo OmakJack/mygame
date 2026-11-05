@@ -182,6 +182,8 @@ func _target_count() -> int:
 	if _paths().is_empty():
 		return 0
 	var drivers: float = maxf(0.0, traffic.total_workers - traffic.walkers - traffic.cyclists)
+	if is_nan(drivers):
+		return 0
 	return mini(MAX_CARS, roundi(drivers / WORKERS_PER_CAR))
 
 
@@ -221,7 +223,8 @@ func _dress(_car: Car) -> void:
 
 
 func _sync_car_count() -> void:
-	var target: int = _target_count()
+	# Не меньше нуля: roundi(NaN) — самое малое целое, и цикл ниже снимал бы машинки с пустого списка вечно.
+	var target: int = maxi(0, _target_count())
 	while _cars.size() > target:
 		_cars.pop_back()
 	while _cars.size() < target:

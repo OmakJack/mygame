@@ -205,9 +205,17 @@ func _add_mood(grid: CityGrid, building: BuildingInstance, data: BuildingData) -
 		return
 	if data.level >= 3:
 		_add("Уровень", "3 — высший")
-		return
-	var blockers: PackedStringArray = Levels.blockers(grid, building, data, GameState.land, GameState.happiness)
-	_add("До ур. %d" % (data.level + 1), "готов" if blockers.is_empty() else ", ".join(blockers), not blockers.is_empty())
+	else:
+		var blockers: PackedStringArray = Levels.blockers(grid, building, data, GameState.land, GameState.happiness)
+		_add("До ур. %d" % (data.level + 1), "готов" if blockers.is_empty() else ", ".join(blockers),
+				not blockers.is_empty())
+	_add_consolidation(grid, building)
+
+
+## Укрупнение (Р4): что мешает или во что дом скоро перестроят вместе с соседями.
+func _add_consolidation(grid: CityGrid, building: BuildingInstance) -> void:
+	_add("Укрупнение", Consolidation.status(grid, building, GameState.land, GameState.demand_by_zone(),
+			GameState.network, GameState.utilities))
 
 
 ## Почему на пустой клетке зоны не строят (Growth.why_not); если ничего не мешает — когда построят.

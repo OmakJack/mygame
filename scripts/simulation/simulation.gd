@@ -1,5 +1,5 @@
 extends Node
-## Порядок одного тика симуляции: упадок и возвращение жильцов (Decay) → рост → пересчёт (сеть, свет и вода, подсчёт,
+## Порядок одного тика симуляции: упадок и возвращение жильцов (Decay) → рост → повышения и укрупнение → пересчёт (сеть, свет и вода, подсчёт,
 ## трафик, службы, спрос, прогноз денег) → деньги → сигналы.
 ## Вне тика (стройка и снос на паузе, налог, новая сетка) тоже пересчитывает всё для UI.
 ## Узлы сцены не ищет: работает с GameState и Events.
@@ -42,6 +42,9 @@ func _on_sim_tick() -> void:
 	_grow(grid, changed)
 	changed.append_array(Levels.step(grid, GameState.rng, GameState.network, GameState.utilities, GameState.land,
 			GameState.happiness, _demands()))
+	# Р4: соседние дома на дорогой земле сливаются в один побольше.
+	changed.append_array(Consolidation.step(grid, GameState.rng, GameState.network, GameState.utilities,
+			GameState.land, _demands()))
 	_ticks_since_traffic += 1
 	_update_stats(true)
 	Economy.apply_tick()

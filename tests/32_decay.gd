@@ -61,8 +61,13 @@ func _initialize() -> void:
 			if b.construction_ticks > 0: sites.append(b.id)
 			else: cut.append(b)
 	check.call("houses cut off (%d, sites %d)" % [cut.size(), sites.size()], cut.size() >= 3)
+	# Дома у промзоны могут опустеть от дыма и без сноса дороги — считаем их отдельно.
+	var others := func() -> int:
+		return g.buildings.values().filter(func(b: BuildingInstance) -> bool:
+				return b.abandoned and not cut.has(b)).size()
 	run.call(1)
-	check.call("road badges", badges.decay_counts() == Vector2i(cut.size(), 0))
+	check.call("road badges (%s, other abandoned %d)" % [badges.decay_counts(), others.call()],
+			badges.decay_counts() == Vector2i(cut.size(), others.call()))
 	check.call("hint no road", " ".join(HN.build()).contains("Без дороги %d зд." % (cut.size() + sites.size())))
 	var victim: BuildingInstance = cut[0]
 	var text: String = await card_text.call(victim.cell)
@@ -79,11 +84,11 @@ func _initialize() -> void:
 	for b in cut: cut_people += BuildingCatalog.get_type(b.type_id).population
 	print("population %d -> %d (cut %d)" % [pop_before, gs.population, cut_people])
 	check.call("nobody lives there", gs.population <= pop_before - cut_people + 30 and cut_people > 0)
-	check.call("abandoned badges", badges.decay_counts() == Vector2i(0, cut.size()))
+	check.call("abandoned badges", badges.decay_counts() == Vector2i(0, cut.size() + others.call()))
 	check.call("dark layer", bvis.get_cell_item(Vector3i(victim.cell.x, 0, victim.cell.y)) >= bvis._abandoned_base
 			and bvis._layers[bvis.get_cell_item(Vector3i(victim.cell.x, 0, victim.cell.y))].material_overlay != null)
 	check.call("no power or water used", gs.utilities.unpowered_count == 0 and gs.utilities.no_water_count == 0)
-	check.call("hint abandoned", " ".join(HN.build()).contains("Заброшено %d зд." % cut.size()))
+	check.call("hint abandoned", " ".join(HN.build()).contains("Заброшено %d зд." % (cut.size() + others.call())))
 	text = await card_text.call(victim.cell)
 	check.call("card abandoned", text.contains("заброшено") and text.contains("Не въезжают") and text.contains("нет дороги")
 			and not text.contains("Счастье"))
@@ -111,11 +116,14 @@ func _initialize() -> void:
 
 	# Сохранение: брошенные остаются брошенными.
 	victim.recover_ticks = 7
+	var abandoned_ids: Array = g.buildings.values().filter(func(b: BuildingInstance) -> bool: return b.abandoned).map(
+			func(b: BuildingInstance) -> int: return b.id)
 	check.call("save", sm.save_city("Упадок"))
 	check.call("load", sm.load_city(sm.file_id_for("Упадок")))
 	g = gs.grid
 	var loaded: Array = g.buildings.values().filter(func(b: BuildingInstance) -> bool: return b.abandoned)
-	check.call("abandoned saved", loaded.size() == cut.size() and g.buildings[victim.id].recover_ticks == 7)
+	check.call("abandoned saved", loaded.map(func(b: BuildingInstance) -> int: return b.id) == abandoned_ids
+			and g.buildings[victim.id].recover_ticks == 7)
 	victim = g.buildings[victim.id]
 
 	# Бульдозер сносит брошенный дом, зона остаётся.

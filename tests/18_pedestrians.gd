@@ -26,6 +26,11 @@ func _initialize() -> void:
 	check.call("highway — cars only", TR.mode_shares(40.0, 5.0, true) == Vector3(1.0, 0.0, 0.0))
 	var sum: Vector3 = TR.mode_shares(9.0, 7.0, false)
 	check.call("shares sum to 1", is_equal_approx(sum.x + sum.y + sum.z, 1.0))
+	# Долгая поездка в пробке: exp(−104) во float32 — ноль; раньше доли были 0/0 = NaN и вешали машинки.
+	var stuck: Vector3 = TR.mode_shares(416.6, 57.0, false)
+	var stuck_near: Vector3 = TR.mode_shares(416.6, 10.0, false)
+	check.call("long jam — no NaN (%s, %s)" % [stuck, stuck_near], stuck == Vector3(1.0, 0.0, 0.0)
+			and not is_nan(stuck_near.x) and stuck_near.y + stuck_near.z > 0.99)
 
 	# Город с пробкой: те же дома и работа — нагрузка на дорогу меньше потока работников.
 	var g := CityGrid.new(32)

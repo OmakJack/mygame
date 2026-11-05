@@ -104,10 +104,13 @@ static func decline(grid: CityGrid, happiness: Happiness) -> Array[Vector2i]:
 
 
 ## Стройплощадки: минус тик; возвращает клетки, где стройка закончилась (показать дом).
+## Готовые здания стареют на тик (age_ticks).
 static func tick_construction(grid: CityGrid) -> Array[Vector2i]:
 	var done: Array[Vector2i] = []
 	for building: BuildingInstance in grid.buildings.values():
-		if building.construction_ticks > 0:
+		if building.construction_ticks == 0:
+			building.age_ticks += 1
+		else:
 			building.construction_ticks -= 1
 			if building.construction_ticks == 0:
 				done.append_array(building.cells())

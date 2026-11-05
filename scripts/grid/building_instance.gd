@@ -23,6 +23,8 @@ var unhappy_ticks: int = 0
 var construction_ticks: int = 0
 ## Сколько тиков длится вся стройка (Levels.start_construction) — для анимации стройки.
 var construction_total: int = 0
+## Сколько тиков здание стоит готовым (Levels.tick_construction): укрупняют только обжитые дома (Consolidation).
+var age_ticks: int = 0
 ## Здание брошено (Decay): жителей и работы нет, налогов и света с водой не берёт, темнеет.
 var abandoned: bool = false
 ## Сколько тиков подряд причина упадка исправлена — после Decay.RECOVER_TICKS въезжают снова.

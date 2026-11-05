@@ -64,16 +64,21 @@ var cyclists: float = 0.0
 
 ## Доли способов добраться до работы: Vector3(машина, велосипед, пешком).
 ## car_time — время на машине с пробками; length — длина пути в клетках; highway — путь идёт по шоссе.
+## Веса — от самого быстрого способа (у него exp(0) = 1): иначе на долгой поездке в пробке exp(−104)
+## во float32 у Vector3 становится нулём, доли — 0/0 = NaN, и NaN растекался по загрузке дорог.
 static func mode_shares(car_time: float, length: float, highway: bool) -> Vector3:
-	if highway:
+	if highway or is_nan(car_time):
 		return Vector3(1.0, 0.0, 0.0)
-	var car: float = exp(-car_time / MODE_SPREAD)
-	var bike: float = exp(-(length * BIKE_COST + BIKE_EXTRA) / MODE_SPREAD) if length <= BIKE_MAX else 0.0
-	var walk: float = exp(-length * WALK_COST / MODE_SPREAD) if length <= WALK_MAX else 0.0
+	var bike_time: float = length * BIKE_COST + BIKE_EXTRA if length <= BIKE_MAX else INF
+	var walk_time: float = length * WALK_COST if length <= WALK_MAX else INF
+	var fastest: float = minf(car_time, minf(bike_time, walk_time))
+	if is_inf(fastest):
+		return Vector3(1.0, 0.0, 0.0)
+	var car: float = exp(-(car_time - fastest) / MODE_SPREAD)
+	var bike: float = exp(-(bike_time - fastest) / MODE_SPREAD) if bike_time < INF else 0.0
+	var walk: float = exp(-(walk_time - fastest) / MODE_SPREAD) if walk_time < INF else 0.0
 	var sum: float = car + bike + walk
-	if sum <= 0.0:
-		return Vector3(1.0, 0.0, 0.0)
-	return Vector3(car, bike, walk) / sum
+	return Vector3(car / sum, bike / sum, walk / sum)
 
 
 ## Время поездки по способу: машина — car_time, велосипед и пешком — по длине пути.

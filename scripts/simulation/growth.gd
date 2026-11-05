@@ -113,11 +113,9 @@ static func grow_one(grid: CityGrid, zone_type: CityGrid.Zone, rng: RandomNumber
 	var data: BuildingData = _pick_type(best.options, best.depth, rng)
 	var dir: int = best.dir
 	var front: Array[Vector2i] = best.front
-	var building_rect: Rect2i = _rect_inward(front, dir, data.size.y)
-	var id: int = grid.place_building(data.id, building_rect.position, dir)
+	var id: int = build_lot(grid, data, front, dir, best.depth)
 	if id == -1:
 		return CityGrid.NO_CELL
-	grid.add_lot(_rect_inward(front, dir, best.depth), dir)
 	# Свет и вода — из запаса компонента, если хватает; нет — дом стоит без них (со значком),
 	# пока следующий пересчёт (Utilities.distribute) не найдёт ему запас.
 	var building: BuildingInstance = grid.buildings[id]
@@ -128,7 +126,16 @@ static func grow_one(grid: CityGrid, zone_type: CityGrid.Zone, rng: RandomNumber
 		utilities.spare_power[component] = utilities.spare_power.get(component, 0) - data.power_use
 	if building.has_water:
 		utilities.spare_water[component] = utilities.spare_water.get(component, 0) - data.water_use
-	return building_rect.position
+	return building.cell
+
+
+## Ставит дом data у клеток фасада front (улица — в сторону dir) и участок от улицы на depth клеток вглубь:
+## дом у улицы, позади — двор. Номер дома или −1. Общее для роста и укрупнения (Consolidation).
+static func build_lot(grid: CityGrid, data: BuildingData, front: Array[Vector2i], dir: int, depth: int) -> int:
+	var id: int = grid.place_building(data.id, _rect_inward(front, dir, data.size.y).position, dir)
+	if id != -1:
+		grid.add_lot(_rect_inward(front, dir, depth), dir)
+	return id
 
 
 ## Общее для оценки мест за один рост: работающие службы [клетка, радиус], дома [клетка, жители], трафик.
