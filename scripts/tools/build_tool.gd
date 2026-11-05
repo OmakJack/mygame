@@ -187,13 +187,9 @@ func _update_drag(end: Vector2i) -> void:
 			# Показываем только клетки, где зона реально изменится.
 			var grid: CityGrid = GameState.grid
 			var zone_type: CityGrid.Zone = MODE_ZONES[mode]
+			# Красить можно только полосу у дороги (CityGrid.in_strip) — остальное отсеивает can_zone.
 			_drag_cells = _rect_cells(_drag_start, _drag_end).filter(
 				func(cell: Vector2i) -> bool: return grid.can_zone(cell, zone_type))
-			# Разметка зоны — сразу и нарезка на участки: показываем будущие здания разными оттенками.
-			if zone_type != CityGrid.Zone.NONE:
-				_drag_cells = _affordable(_drag_cells)
-				_show_lots(grid, zone_type)
-				return
 		Mode.PLACE:
 			# Здание ставится на участок с углом в клетке, где отпустили мышь.
 			var valid: bool = _can_place(_drag_end)
@@ -277,7 +273,6 @@ func _apply() -> void:
 		_apply_place(grid)
 		return
 	var changed: Array[Vector2i] = []
-	var touched_lots: Dictionary[int, CityGrid.Lot] = {}
 	for cell: Vector2i in _drag_cells:
 		var cost: int = _cell_cost(cell)
 		# Деньги могли измениться с момента превью — проверяем ещё раз.
@@ -289,15 +284,15 @@ func _apply() -> void:
 			Mode.ROAD, Mode.ROAD_AVENUE, Mode.ROAD_HIGHWAY:
 				did_change = grid.set_road(cell, MODE_ROADS[mode])
 			Mode.BULLDOZE:
-				var existing: BuildingInstance = grid.get_building_at(cell)
+				# Клик по двору сносит дом участка — перерисовать надо и дом, и двор.
+				var existing: BuildingInstance = grid.get_building_or_yard(cell)
 				if existing != null:
 					freed_cells = existing.cells()
+					var lot: CityGrid.Lot = grid.get_lot(existing.cell)
+					if lot != null:
+						freed_cells.append_array(lot.cells())
 				did_change = grid.bulldoze(cell)
 			Mode.ZONE_R, Mode.ZONE_C, Mode.ZONE_I, Mode.DEZONE, Mode.ZONE_R_HIGH, Mode.ZONE_C_HIGH, Mode.ZONE_O:
-				# Участок, который перекрашивают, запоминаем до смены зоны (решим после).
-				var lot: CityGrid.Lot = grid.get_lot(cell)
-				if lot != null:
-					touched_lots[lot.id] = lot
 				did_change = grid.set_zone(cell, MODE_ZONES[mode])
 		if did_change:
 			Economy.spend(cost)
@@ -305,60 +300,8 @@ func _apply() -> void:
 				changed.append_array(freed_cells)
 			else:
 				changed.append(cell)
-	if MODE_ZONES.has(mode) and MODE_ZONES[mode] != CityGrid.Zone.NONE and not changed.is_empty():
-		_make_lots(grid, changed, touched_lots)
 	if not changed.is_empty():
 		Events.cells_changed.emit(changed)
-
-
-## Участки после разметки (как в Cities: Skylines): участок с домом, перекрашенный целиком
-## (смена плотности), остаётся — дом перестроится того же размера; задетый частично — распадается.
-## Свободные размеченные клетки нарезаются на новые участки (LotPlanner).
-func _make_lots(grid: CityGrid, changed: Array[Vector2i], touched: Dictionary[int, CityGrid.Lot]) -> void:
-	var changed_set: Dictionary[Vector2i, bool] = {}
-	for cell: Vector2i in changed:
-		changed_set[cell] = true
-	var kept: Dictionary[Vector2i, bool] = {}
-	for lot: CityGrid.Lot in touched.values():
-		var whole: bool = true
-		for cell: Vector2i in lot.cells():
-			if not changed_set.has(cell):
-				whole = false
-		if whole and grid.get_building_at(lot.rect.position) != null:
-			for cell: Vector2i in lot.cells():
-				kept[cell] = true
-		else:
-			grid.dissolve_lot(lot.id)
-	var free: Array[Vector2i] = []
-	for cell: Vector2i in changed:
-		if not kept.has(cell) and grid.get_building_at(cell) == null:
-			free.append(cell)
-	for plan: Array in LotPlanner.plan(grid, free, MODE_ZONES[mode]):
-		grid.add_lot(plan[0], plan[1])
-
-
-## Превью разметки: будущие участки — чередующимися оттенками цвета зоны.
-func _show_lots(grid: CityGrid, zone_type: CityGrid.Zone) -> void:
-	var free: Array[Vector2i] = _drag_cells.filter(
-		func(cell: Vector2i) -> bool: return grid.get_building_at(cell) == null)
-	var cells: Array[Vector2i] = []
-	var colors: Array[Color] = []
-	var base: Color = CURSOR_COLORS[mode]
-	var index: int = 0
-	for plan: Array in LotPlanner.plan(grid, free, zone_type):
-		var rect: Rect2i = plan[0]
-		var shade: Color = base.lightened(0.35) if index % 2 == 0 else base.darkened(0.15)
-		for y: int in range(rect.position.y, rect.end.y):
-			for x: int in range(rect.position.x, rect.end.x):
-				cells.append(Vector2i(x, y))
-				colors.append(shade)
-		index += 1
-	# Клетки под домами (смена плотности) — обычным цветом.
-	for cell: Vector2i in _drag_cells:
-		if grid.get_building_at(cell) != null:
-			cells.append(cell)
-			colors.append(base)
-	preview.show_colored(cells, colors)
 
 
 ## Ставит служебное здание: стирает зону участка, фасад к дороге, списывает цену.

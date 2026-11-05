@@ -82,13 +82,19 @@ func _refresh() -> void:
 	for child: Node in _rows.get_children():
 		child.queue_free()
 	var land: LandValue = GameState.land
-	var building: BuildingInstance = grid.get_building_at(cell)
+	# Клик по двору — карточка его дома.
+	var building: BuildingInstance = grid.get_building_or_yard(cell)
 	var data: BuildingData = BuildingCatalog.get_type(building.type_id) if building != null else null
 	if data != null:
 		_title.text = data.display_name
 		_subtitle.text = _kind(data) + (" · заброшено" if building.abandoned else "")
 		_icon.texture = UiTheme.icon(_building_icon(data))
-		if data.area() > 1:
+		var lot: CityGrid.Lot = grid.get_lot(building.cell)
+		if lot != null and lot.rect.size != building.size:
+			var lot_size: Vector2i = lot.building_size()
+			_add("Участок", "%d×%d, дом %d×%d, двор %d кл." % [lot_size.x, lot_size.y, data.size.x, data.size.y,
+					lot_size.x * lot_size.y - data.area()])
+		elif data.area() > 1:
 			_add("Участок", "%d×%d (%d кл.)" % [data.size.x, data.size.y, data.area()])
 		if building.abandoned:
 			_add_abandoned(grid, building, data)
@@ -137,10 +143,10 @@ func _refresh() -> void:
 		_title.text = "Пустой участок"
 		var zone: CityGrid.Zone = grid.get_zone(cell)
 		_subtitle.text = _zone_name(zone)
-		var lot: CityGrid.Lot = grid.get_lot(cell)
-		if lot != null:
-			var lot_size: Vector2i = lot.building_size()
-			_add("Участок", "%d×%d — здание на %d кл." % [lot_size.x, lot_size.y, lot_size.x * lot_size.y])
+		if zone != CityGrid.Zone.NONE and not grid.in_strip(cell):
+			_add("Не строят", "далеко от дороги", true)
+		elif zone != CityGrid.Zone.NONE and grid.get_strip_depth(cell) > 1:
+			_add("Строят", "с улицы, участком вглубь")
 		_icon.texture = UiTheme.icon(_zone_icon(zone))
 	if not grid.is_water(cell) or grid.is_road(cell):
 		var value: int = land.building_value(land.land_value, grid, building) if building != null \

@@ -124,6 +124,7 @@ func _initialize() -> void:
 	var base := 0.0
 	for b: BuildingInstance in city.buildings.values():
 		var d: BuildingData = BuildingCatalog.get_type(b.type_id)
+		if b.abandoned: continue  # брошенные налогов не платят (Decay)
 		base += (d.population + d.jobs) * E.land_factor(gs.land.building_value(gs.land.land_value, city, b))
 	check.call("income uses land value", gs.income == E.daily_income(base, gs.tax_rate))
 	# Парк поднимает доход.

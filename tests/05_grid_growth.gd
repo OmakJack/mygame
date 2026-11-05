@@ -43,7 +43,8 @@ func _initialize() -> void:
 			for y in g.size:
 				for x in g.size:
 					var i: int = g.index_of(Vector2i(x,y))
-					if g.tile_type[i] == CityGrid.Tile.EMPTY and g.zone[i] == z:
+					# Свободная земля зоны: пусто и не двор (застройщик по месту).
+					if g.tile_type[i] == CityGrid.Tile.EMPTY and g.zone[i] == z and g.lot_at[i] == -1:
 						brute[Vector2i(x,y)] = true
 			if brute.size() != g.zoned_empty_cells[z].size(): return false
 			for c in brute:

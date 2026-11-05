@@ -36,14 +36,17 @@ func _initialize() -> void:
 	for i in 2000:
 		if BuildingCatalog.pick_weighted(options, rng).preferred: hits += 1
 	check.call("pack chosen ~75%% (%.0f%%)" % (hits / 20.0), absf(hits / 2000.0 - 0.75) < 0.04)
-	# 4 клетки многоэтажек — один участок 4×1.
+	# 4 клетки многоэтажек у улицы: застройщик может поставить один дом 4×1 (тип ширины 4 есть).
 	var g := CityGrid.new(32)
 	for x in range(2, 30): g.set_road(Vector2i(x, 10))
-	var cells: Array[Vector2i] = []
 	for x in range(5, 9):
 		g.set_zone(Vector2i(x, 9), CityGrid.Zone.RESIDENTIAL_HIGH)
-		cells.append(Vector2i(x, 9))
-	var plans: Array = LotPlanner.plan(g, cells, CityGrid.Zone.RESIDENTIAL_HIGH)
-	check.call("4 cells of apartments → one 4x1 lot", plans.size() == 1 and (plans[0][0] as Rect2i).size == Vector2i(4, 1))
+	var GR: GDScript = load("res://scripts/simulation/growth.gd")
+	var by_width: Dictionary[int, Array] = {}
+	for data: BuildingData in BuildingCatalog.growable_types(CityGrid.Zone.RESIDENTIAL_HIGH):
+		if not by_width.has(data.size.x): by_width[data.size.x] = []
+		by_width[data.size.x].append(data)
+	var plan: Dictionary = GR.plan_at(g, null, CityGrid.Zone.RESIDENTIAL_HIGH, Vector2i(6, 9), by_width, 4.0)
+	check.call("4 cells of apartments → one 4x1 plan", not plan.is_empty() and plan.front.size() == 4 and plan.depth == 1)
 	print("ALL OK" if fails.is_empty() else "FAIL: " + ", ".join(fails))
 	quit()

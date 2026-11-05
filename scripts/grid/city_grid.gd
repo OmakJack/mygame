@@ -10,6 +10,10 @@ enum Zone { NONE, RESIDENTIAL, COMMERCIAL, INDUSTRIAL, RESIDENTIAL_HIGH, COMMERC
 const GRID_SIZE: int = 64
 ## Размер клетки в мире, метры.
 const CELL_SIZE: float = 2.0
+## Глубина полосы зоны от дороги, клеток (как в Cities: Skylines).
+const STRIP_DEPTH: int = 4
+## «Полосы нет» в strip_dir.
+const NO_STRIP: int = 255
 
 ## Сторона карты в клетках.
 var size: int
@@ -18,11 +22,13 @@ var size: int
 var tile_type: PackedByteArray
 var zone: PackedByteArray
 var building_at: PackedInt32Array
-## Участок клетки (как в Cities: Skylines): номер в lots или −1. Участок задаёт игрок разметкой зоны:
-## на нём вырастает ровно одно здание его размера (LotPlanner делит большое выделение на участки).
+## Участок клетки: номер в lots или −1. Участок появляется вместе с домом (застройщик, Growth):
+## от улицы вглубь полосы, дом — у улицы, остальное — двор. Снесли дом — участок распадается.
 var lot_at: PackedInt32Array
 var lots: Dictionary[int, Lot] = {}
 var next_lot_id: int = 0
+## Растёт при каждом новом и распавшемся участке — по нему перерисовываются дворы (YardVisualizer).
+var lots_version: int = 0
 ## Вода (фаза 9): 1 — вода, 0 — суша. Отдельный слой: дорога-мост лежит поверх воды, после сноса вода остаётся.
 var water: PackedByteArray
 ## Тип дороги на клетке (RoadTypes.Type, фаза 11): 0 — нет дороги, 1 — улица, 2 — проспект, 3 — шоссе.
@@ -33,6 +39,11 @@ var road_type: PackedByteArray
 var entry: Vector2i = Vector2i(-1, -1)
 var entry_dir: int = 0
 var highway_cells: Dictionary[Vector2i, bool] = {}
+## Полоса зоны (застройщик по месту, Р1): у клетки суши — своя улица, ближайшая дорога с доступом
+## по прямой не дальше STRIP_DEPTH. strip_dir — сторона на улицу 0..3 = N/E/S/W (NO_STRIP — полосы нет),
+## strip_depth — расстояние до неё (1 — у самой дороги). Производные от дорог: не сохраняются.
+var strip_dir: PackedByteArray
+var strip_depth: PackedByteArray
 
 # Кэши, чтобы не сканировать всю карту.
 var buildings: Dictionary[int, BuildingInstance] = {}
@@ -42,7 +53,7 @@ var next_building_id: int = 0
 var roads_version: int = 0
 ## Растёт при каждой постройке и сносе здания — по нему пересчитывается трафик.
 var buildings_version: int = 0
-## Пустые клетки с зоной, по зонам R/C/I: Vector2i → true. Клетка здесь ⇔ EMPTY и зона не NONE.
+## Свободная земля зон: Vector2i → true. Клетка здесь ⇔ EMPTY, зона не NONE и не двор (нет участка).
 ## Обновляется только внутри CityGrid (_update_zoned_cache). Внутренний словарь без типа:
 ## Godot не поддерживает вложенные типизированные словари.
 var zoned_empty_cells: Dictionary[Zone, Dictionary] = {
@@ -88,6 +99,10 @@ func _init(p_size: int = GRID_SIZE) -> void:
 	water.fill(0)
 	road_type.resize(count)
 	road_type.fill(0)
+	strip_dir.resize(count)
+	strip_dir.fill(NO_STRIP)
+	strip_depth.resize(count)
+	strip_depth.fill(0)
 
 
 func is_in_bounds(cell: Vector2i) -> bool:
@@ -214,7 +229,9 @@ func set_road(cell: Vector2i, type: int = RoadTypes.Type.STREET) -> bool:
 	var i: int = index_of(cell)
 	road_type[i] = type
 	if tile_type[i] == Tile.ROAD:
+		# Улица ↔ шоссе: доступ к дороге меняется — и полосы вокруг.
 		roads_version += 1
+		_update_strips_near(cell)
 		return true
 	tile_type[i] = Tile.ROAD
 	_dissolve_lot_at(cell)
@@ -222,6 +239,7 @@ func set_road(cell: Vector2i, type: int = RoadTypes.Type.STREET) -> bool:
 	road_cells[cell] = true
 	roads_version += 1
 	_update_zoned_cache(cell)
+	_update_strips_near(cell)
 	return true
 
 
@@ -233,6 +251,7 @@ func remove_road(cell: Vector2i) -> bool:
 	road_type[index_of(cell)] = 0
 	road_cells.erase(cell)
 	roads_version += 1
+	_update_strips_near(cell)
 	return true
 
 
@@ -244,6 +263,10 @@ func bulldoze(cell: Vector2i) -> bool:
 	var building_id: int = building_at[index_of(cell)]
 	if building_id != -1:
 		return remove_building(building_id)
+	# Двор сносится вместе с домом.
+	var owner: BuildingInstance = get_building_or_yard(cell)
+	if owner != null:
+		return remove_building(owner.id)
 	return remove_road(cell)
 
 
@@ -283,8 +306,8 @@ func can_zone(cell: Vector2i, zone_type: Zone) -> bool:
 	# На воде зон нет; снять зону с воды нечего.
 	if water[i] == 1:
 		return false
-	# Снять зону можно всегда, поставить — только рядом с дорогой.
-	return zone_type == Zone.NONE or has_road_access(cell)
+	# Снять зону можно всегда, поставить — только на полосу у дороги.
+	return zone_type == Zone.NONE or in_strip(cell)
 
 
 static func _same_density_family(a: Zone, b: Zone) -> bool:
@@ -297,16 +320,82 @@ static func _same_density_family(a: Zone, b: Zone) -> bool:
 func set_zone(cell: Vector2i, zone_type: Zone) -> bool:
 	if not can_zone(cell, zone_type):
 		return false
-	if zone_type == Zone.NONE:
+	var i: int = index_of(cell)
+	# Двор перекрасили в другую зону (или сняли) — участок распадается, дом остаётся без двора.
+	# Смена плотности (R ↔ R высокая) двор не трогает: дом перестроится на том же участке.
+	if lot_at[i] != -1 and tile_type[i] == Tile.EMPTY and (zone_type == Zone.NONE or zone[i] == Zone.NONE
+			or not _same_density_family(zone[i] as Zone, zone_type)):
 		_dissolve_lot_at(cell)
-	zone[index_of(cell)] = zone_type
+	zone[i] = zone_type
 	_update_zoned_cache(cell)
 	return true
+
+
+# --- Полосы зон ---
+
+## Есть ли у клетки полоса зоны (можно размечать, может вырасти дом).
+func in_strip(cell: Vector2i) -> bool:
+	return is_in_bounds(cell) and strip_dir[index_of(cell)] != NO_STRIP
+
+
+## Сторона на улицу полосы клетки 0..3 = N/E/S/W или −1 — полосы нет.
+func get_strip_dir(cell: Vector2i) -> int:
+	if not is_in_bounds(cell):
+		return -1
+	var dir: int = strip_dir[index_of(cell)]
+	return -1 if dir == NO_STRIP else dir
+
+
+## Расстояние клетки до её улицы (1 — у самой дороги) или 0 — полосы нет.
+func get_strip_depth(cell: Vector2i) -> int:
+	return strip_depth[index_of(cell)] if is_in_bounds(cell) else 0
+
+
+## Пересчитывает полосы всей карты (загрузка).
+func rebuild_strips() -> void:
+	for y: int in size:
+		for x: int in size:
+			_compute_strip(Vector2i(x, y))
+
+
+## Дорога на cell появилась или исчезла: пересчёт клеток, до которых от неё ≤ STRIP_DEPTH по прямой.
+func _update_strips_near(cell: Vector2i) -> void:
+	_compute_strip(cell)
+	for dir: int in 4:
+		for k: int in range(1, STRIP_DEPTH + 1):
+			var c: Vector2i = cell + NEIGHBORS[dir] * k
+			if not is_in_bounds(c):
+				break
+			_compute_strip(c)
+
+
+## Полоса клетки: ближайшая дорога с доступом по прямой в 4 стороны, не дальше STRIP_DEPTH.
+## Луч обрывается на любой дороге (шоссе загораживает), воде и краю карты. При равном расстоянии —
+## меньшая сторона (N, E, S, W): углы кварталов делятся «лесенкой».
+func _compute_strip(cell: Vector2i) -> void:
+	var i: int = index_of(cell)
+	var best_dir: int = NO_STRIP
+	var best_depth: int = 0
+	if tile_type[i] != Tile.ROAD and water[i] == 0:
+		for dir: int in 4:
+			var limit: int = STRIP_DEPTH if best_dir == NO_STRIP else best_depth - 1
+			for k: int in range(1, limit + 1):
+				var c: Vector2i = cell + NEIGHBORS[dir] * k
+				if not is_in_bounds(c) or water[index_of(c)] == 1:
+					break
+				if road_cells.has(c):
+					if _is_land_road(c):
+						best_dir = dir
+						best_depth = k
+					break
+	strip_dir[i] = best_dir
+	strip_depth[i] = best_depth
 
 
 # --- Участки ---
 
 ## Участок под одно здание: прямоугольник клеток и сторона фасада (к дороге, 0..3 = N/E/S/W).
+## Дом стоит у фасада, остальные клетки участка — его двор.
 class Lot extends RefCounted:
 	var id: int
 	var rect: Rect2i
@@ -345,22 +434,50 @@ func add_lot(rect: Rect2i, dir: int) -> int:
 				dissolve_lot(old)
 	var id: int = next_lot_id
 	next_lot_id += 1
+	lots_version += 1
 	lots[id] = Lot.new(id, rect, dir)
 	for y: int in range(rect.position.y, rect.end.y):
 		for x: int in range(rect.position.x, rect.end.x):
 			lot_at[index_of(Vector2i(x, y))] = id
+			_update_zoned_cache(Vector2i(x, y))
 	return id
 
 
-## Убирает участок: клетки остаются с зоной, но без участка (растут одиночными домами).
+## Убирает участок: клетки двора снова свободная земля зоны.
 func dissolve_lot(id: int) -> void:
 	var lot: Lot = lots.get(id)
 	if lot == null:
 		return
+	lots.erase(id)
+	lots_version += 1
 	for cell: Vector2i in lot.cells():
 		if is_in_bounds(cell) and lot_at[index_of(cell)] == id:
 			lot_at[index_of(cell)] = -1
-	lots.erase(id)
+			_update_zoned_cache(cell)
+
+
+## Дом участка или null (участок без дома бывает только между постановкой дома и add_lot).
+func building_on_lot(lot: Lot) -> BuildingInstance:
+	for cell: Vector2i in lot.cells():
+		if is_in_bounds(cell) and building_at[index_of(cell)] != -1:
+			return buildings.get(building_at[index_of(cell)])
+	return null
+
+
+## Здание на клетке или дом, чей это двор; null — ни того, ни другого.
+func get_building_or_yard(cell: Vector2i) -> BuildingInstance:
+	if not is_in_bounds(cell):
+		return null
+	var building: BuildingInstance = buildings.get(building_at[index_of(cell)])
+	if building != null:
+		return building
+	var lot: Lot = get_lot(cell)
+	return building_on_lot(lot) if lot != null else null
+
+
+## Двор ли это: клетка участка без здания.
+func is_yard(cell: Vector2i) -> bool:
+	return is_in_bounds(cell) and lot_at[index_of(cell)] != -1 and building_at[index_of(cell)] == -1
 
 
 func _dissolve_lot_at(cell: Vector2i) -> void:
@@ -452,7 +569,7 @@ func _update_zoned_cache(cell: Vector2i) -> void:
 	for cells: Dictionary in zoned_empty_cells.values():
 		cells.erase(cell)
 	var i: int = index_of(cell)
-	if tile_type[i] == Tile.EMPTY and zone[i] != Zone.NONE:
+	if tile_type[i] == Tile.EMPTY and zone[i] != Zone.NONE and lot_at[i] == -1:
 		zoned_empty_cells[zone[i] as Zone][cell] = true
 
 
@@ -472,6 +589,8 @@ func place_building(type_id: StringName, cell: Vector2i, orientation: int, clear
 	buildings[id] = building
 	buildings_version += 1
 	for c: Vector2i in building.cells():
+		# Служба на чужом дворе: участок того дома распадается (застройщик ставит дом до участка).
+		_dissolve_lot_at(c)
 		var i: int = index_of(c)
 		if clear_zone:
 			zone[i] = Zone.NONE
@@ -481,7 +600,8 @@ func place_building(type_id: StringName, cell: Vector2i, orientation: int, clear
 	return id
 
 
-## Убирает здание. Все его клетки снова пустые, зона остаётся. Возвращает true, если здание было.
+## Убирает здание вместе с его участком (двор снова свободен — застройщик решит заново).
+## Клетки снова пустые, зона остаётся. Возвращает true, если здание было.
 func remove_building(instance_id: int) -> bool:
 	var building: BuildingInstance = buildings.get(instance_id)
 	if building == null:
@@ -493,6 +613,8 @@ func remove_building(instance_id: int) -> bool:
 		var i: int = index_of(c)
 		tile_type[i] = Tile.EMPTY
 		building_at[i] = -1
+	_dissolve_lot_at(building.cell)
+	for c: Vector2i in occupied:
 		_update_zoned_cache(c)
 	return true
 
@@ -537,17 +659,23 @@ func rebuild_caches() -> void:
 		max_id = maxi(max_id, building.id)
 	next_building_id = maxi(next_building_id, max_id + 1)
 	buildings_version += 1
+	# Участок живёт только с домом: без дома — прочь (двор снова свободная земля).
+	lot_at.fill(-1)
+	var max_lot: int = -1
+	for lot: Lot in lots.values():
+		max_lot = maxi(max_lot, lot.id)
+		if building_on_lot(lot) == null:
+			lots.erase(lot.id)
+			continue
+		for cell: Vector2i in lot.cells():
+			if is_in_bounds(cell):
+				lot_at[index_of(cell)] = lot.id
+	next_lot_id = maxi(next_lot_id, max_lot + 1)
+	lots_version += 1
 	for cells: Dictionary in zoned_empty_cells.values():
 		cells.clear()
 	for y: int in size:
 		for x: int in size:
 			_update_zoned_cache(Vector2i(x, y))
-	lot_at.fill(-1)
-	var max_lot: int = -1
-	for lot: Lot in lots.values():
-		for cell: Vector2i in lot.cells():
-			if is_in_bounds(cell):
-				lot_at[index_of(cell)] = lot.id
-		max_lot = maxi(max_lot, lot.id)
-	next_lot_id = maxi(next_lot_id, max_lot + 1)
+	rebuild_strips()
 	roads_version += 1

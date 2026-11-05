@@ -40,26 +40,16 @@ func _initialize() -> void:
 	var back = CS.from_dict(JSON.parse_string(JSON.stringify(d2)))
 	check.call("saved with rotation", back.ok and back.grid.get_building_at(Vector2i(20, 16)) != null and back.grid.get_building_at(Vector2i(20, 16)).size == Vector2i(1, 7))
 
-	# Рост: длинная полоса многоэтажек вдоль улицы — бывают участки 5–7 клеток, фасадом к дороге.
+	# Рост (застройщик): длинная полоса многоэтажек вдоль улицы при сильном спросе — бывают дома
+	# в 4–7 клеток, все фасадом к дороге.
 	var big := 0
 	var total := 0
 	var facing_road := true
 	for run in 12:
 		var gg := CityGrid.new(32)
 		for x in range(2, 30): gg.set_road(Vector2i(x, 10))
-		var strip: Array[Vector2i] = []
 		for x in range(3, 29):
 			gg.set_zone(Vector2i(x, 9), CityGrid.Zone.RESIDENTIAL_HIGH)
-			strip.append(Vector2i(x, 9))
-		# Участки — как от инструмента: полоса режется кусками по 1..7 клеток (случайной длины).
-		var rng_cut := RandomNumberGenerator.new()
-		rng_cut.seed = run * 7 + 1
-		var at := 0
-		while at < strip.size():
-			var piece_len: int = mini(rng_cut.randi_range(1, 7), strip.size() - at)
-			for plan in LotPlanner.plan(gg, strip.slice(at, at + piece_len), CityGrid.Zone.RESIDENTIAL_HIGH):
-				gg.add_lot(plan[0], plan[1])
-			at += piece_len
 		var net := RoadNetwork.new()
 		net.update(gg)
 		var util := Utilities.new()
@@ -68,11 +58,11 @@ func _initialize() -> void:
 		var rng := RandomNumberGenerator.new()
 		rng.seed = run
 		for k in 6:
-			var cell: Vector2i = GR.grow_one(gg, CityGrid.Zone.RESIDENTIAL_HIGH, rng, net, util)
+			var cell: Vector2i = GR.grow_one(gg, CityGrid.Zone.RESIDENTIAL_HIGH, rng, net, util, null, 1.0)
 			if cell == CityGrid.NO_CELL: continue
 			var bb: BuildingInstance = gg.get_building_at(cell)
 			total += 1
-			if bb.size.x * bb.size.y >= 5: big += 1
+			if bb.size.x * bb.size.y >= 4: big += 1
 			for fc in bb.front_cells():
 				if not gg.is_road(fc + CityGrid.NEIGHBORS[bb.orientation]): facing_road = false
 	check.call("big lots grow (%d of %d)" % [big, total], big > 0)

@@ -37,6 +37,17 @@ const NO_ACCESS_DIM: float = 0.45
 const NO_ACCESS_ALPHA: float = 0.25
 ## Через участок — чуть темнее: видно, на какие здания поделена разметка.
 const LOT_SHADE: float = 0.22
+## Двор за домом (клетки участка без здания, YardVisualizer): газон у жилья, асфальт парковки у магазинов
+## и офисов, утоптанная площадка у промзоны.
+const YARD_LAWN := Color(0.26, 0.5, 0.18, 0.35)
+const YARD_COURT := Color(0.42, 0.6, 0.32, 0.55)
+const YARD_PARKING := Color(0.3, 0.31, 0.33, 0.92)
+const YARD_GRAVEL := Color(0.55, 0.5, 0.41, 0.88)
+## Полоса зоны (куда можно красить) — видна, пока выбран инструмент зоны: у дороги ярче, вглубь бледнее,
+## клетки через одну чуть светлее — читается сетка, как в Cities: Skylines.
+const STRIP_COLOR := Color(1.0, 1.0, 1.0, 0.2)
+const STRIP_FADE_PER_DEPTH: float = 0.03
+const STRIP_CHECKER: float = 0.04
 
 const CLEAR := Color(0, 0, 0, 0)
 const SERVED := Color(0.2, 0.85, 0.3, 0.75)
@@ -66,6 +77,8 @@ const POLLUTION_COLOR := Color(0.45, 0.3, 0.15)
 const NOISE_COLOR := Color(0.95, 0.45, 0.85)
 
 var overlay: Overlay = Overlay.ZONES
+## Выбран инструмент зоны — показываем свободные клетки полос.
+var _show_strips: bool = false
 
 ## Слой служб: клетка → битовая маска покрывающих служб (пересчитывается при перерисовке).
 var _service_mask := PackedByteArray()
@@ -93,6 +106,7 @@ func _ready() -> void:
 	Events.stats_changed.connect(func() -> void:
 		if overlay != Overlay.ZONES:
 			_repaint_all())
+	Events.tool_mode_changed.connect(_on_tool_mode_changed)
 	_rebuild()
 
 
@@ -126,14 +140,22 @@ func _repaint_all() -> void:
 			_update_cell(Vector2i(x, y))
 
 
+func _on_tool_mode_changed(mode: int, _type_id: StringName) -> void:
+	var show: bool = BuildTool.MODE_ZONES.has(mode) and BuildTool.MODE_ZONES[mode] != CityGrid.Zone.NONE
+	if show != _show_strips:
+		_show_strips = show
+		if overlay == Overlay.ZONES:
+			_repaint_all()
+
+
 func _on_cells_changed(cells: Array[Vector2i]) -> void:
 	if cells.is_empty() or overlay != Overlay.ZONES:
 		# Остальные слои перерисуются целиком по stats_changed.
 		return
-	# Доступ к дороге мог измениться у соседей в радиусе ROAD_ACCESS_RANGE.
+	# Полосы могли измениться у соседей в радиусе STRIP_DEPTH (новая или снесённая дорога).
 	# Перекрашиваем либо общий прямоугольник, либо квадрат вокруг каждой клетки — что меньше
 	# (рост в разных углах карты дал бы прямоугольник на всю карту).
-	var r: int = CityGrid.ROAD_ACCESS_RANGE
+	var r: int = CityGrid.STRIP_DEPTH
 	var area := Rect2i(cells[0], Vector2i.ZERO)
 	for cell: Vector2i in cells:
 		area = area.expand(cell)
@@ -183,17 +205,41 @@ func _zone_color(cell: Vector2i) -> Color:
 	var grid: CityGrid = GameState.grid
 	var zone_type: CityGrid.Zone = grid.get_zone(cell)
 	var color: Color = ZONE_COLORS[zone_type]
-	if zone_type != CityGrid.Zone.NONE and not grid.has_road_access(cell):
+	if zone_type == CityGrid.Zone.NONE:
+		if _show_strips and grid.in_strip(cell) and not grid.is_road(cell) and grid.get_building_at(cell) == null:
+			color = STRIP_COLOR
+			color.a -= STRIP_FADE_PER_DEPTH * (grid.get_strip_depth(cell) - 1)
+			if (cell.x + cell.y) % 2 == 0:
+				color.a += STRIP_CHECKER
+		return color
+	if not grid.in_strip(cell):
 		color = color.darkened(NO_ACCESS_DIM)
 		color.a = NO_ACCESS_ALPHA
-	elif zone_type != CityGrid.Zone.NONE and grid.get_building_at(cell) != null:
+	elif grid.get_building_at(cell) != null:
 		color.a = BUILT_ALPHA
-	elif zone_type != CityGrid.Zone.NONE:
+	elif grid.is_yard(cell):
+		color = _yard_color(grid, cell, color)
+	else:
 		# Участки (размер будущего здания) — чередующимися оттенками, чтобы было видно, где какой.
 		var lot: CityGrid.Lot = grid.get_lot(cell)
 		if lot != null and lot.id % 2 == 1:
 			color = color.darkened(LOT_SHADE)
 	return color
+
+
+func _yard_color(grid: CityGrid, cell: Vector2i, fallback: Color) -> Color:
+	var building: BuildingInstance = grid.get_building_or_yard(cell)
+	var data: BuildingData = BuildingCatalog.get_type(building.type_id) if building != null else null
+	if data == null:
+		return fallback
+	match data.zone:
+		CityGrid.Zone.RESIDENTIAL:
+			return YARD_LAWN
+		CityGrid.Zone.RESIDENTIAL_HIGH:
+			return YARD_COURT
+		CityGrid.Zone.INDUSTRIAL:
+			return YARD_GRAVEL
+	return YARD_PARKING
 
 
 ## Свет (power = true) или вода: станции, здания со ресурсом и без, дороги с запасом.

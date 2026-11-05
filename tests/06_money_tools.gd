@@ -31,7 +31,8 @@ func _initialize() -> void:
 	drag.call(tool.Mode.ZONE_R, Vector2i(5,17), Vector2i(39,19))
 	drag.call(tool.Mode.ZONE_I, Vector2i(5,21), Vector2i(39,23))
 	drag.call(tool.Mode.ZONE_C, Vector2i(41,18), Vector2i(43,22))
-	check.call("zones cost %d" % gs.money, gs.money == 1640 - (105 + 105 + 9) * 5)  # C: 6 клеток дальше 3 от дороги
+	# C за концом дороги: полоса — только по прямой от дороги (3 клетки), наискосок не красится.
+	check.call("zones cost %d" % gs.money, gs.money == 1640 - (105 + 105 + 3) * 5)
 	# Нехватка денег: 25 $ — дорога по старой (бесплатно) + 2 новые клетки.
 	var saved: int = gs.money
 	gs.money = 25

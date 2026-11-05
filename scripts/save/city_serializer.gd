@@ -137,11 +137,14 @@ static func from_dict(data: Variant) -> LoadResult:
 		if not problem.is_empty():
 			result.warnings.append(problem)
 	grid.rebuild_caches()
-	# Участки: [x, y, ширина, глубина по сетке, сторона фасада]; нет поля — клетки растут по одной.
+	# Участки: [x, y, ширина, глубина по сетке, сторона фасада]; нет поля — участков нет.
+	# Участок без дома (старые сохранения: его нарезала разметка) молча отбрасывается — застройщик нарежет заново.
 	var raw_lots: Variant = grid_data.get("lots", [])
 	if raw_lots is Array:
 		var skipped: int = 0
 		for entry_lot: Variant in raw_lots:
+			if _is_empty_lot(grid, entry_lot):
+				continue
 			if not _load_lot(grid, entry_lot):
 				skipped += 1
 		if skipped > 0:
@@ -183,13 +186,26 @@ static func _lots_to_list(grid: CityGrid) -> Array:
 	return list
 
 
-## Участок из сохранения: все клетки на карте и с зоной, размер до 7 клеток. false — пропущен.
+## Участок из сохранения без единого здания на нём (до застройщика по месту участки резала разметка).
+static func _is_empty_lot(grid: CityGrid, entry: Variant) -> bool:
+	if not entry is Array or (entry as Array).size() != 5:
+		return false
+	var rect := Rect2i(_int(entry[0], -1), _int(entry[1], -1), _int(entry[2], 0), _int(entry[3], 0))
+	for y: int in range(rect.position.y, rect.end.y):
+		for x: int in range(rect.position.x, rect.end.x):
+			if grid.is_in_bounds(Vector2i(x, y)) and grid.get_building_at(Vector2i(x, y)) != null:
+				return false
+	return true
+
+
+## Участок из сохранения: все клетки на карте и с зоной, не больше 7 × STRIP_DEPTH клеток (дом и двор).
+## false — пропущен.
 static func _load_lot(grid: CityGrid, entry: Variant) -> bool:
 	if not entry is Array or (entry as Array).size() != 5:
 		return false
 	var rect := Rect2i(_int(entry[0], -1), _int(entry[1], -1), _int(entry[2], 0), _int(entry[3], 0))
 	var dir: int = _int(entry[4], -1)
-	if rect.size.x < 1 or rect.size.y < 1 or rect.size.x * rect.size.y > 14 or dir < 0 or dir > 3:
+	if rect.size.x < 1 or rect.size.y < 1 or rect.size.x * rect.size.y > Growth.MAX_RUN * CityGrid.STRIP_DEPTH or dir < 0 or dir > 3:
 		return false
 	for y: int in range(rect.position.y, rect.end.y):
 		for x: int in range(rect.position.x, rect.end.x):

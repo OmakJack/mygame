@@ -38,7 +38,7 @@ static func build() -> Array[String]:
 	var cut_off: int = 0
 	for cells: Dictionary in grid.zoned_empty_cells.values():
 		for cell: Vector2i in cells:
-			if grid.has_road_access(cell) and not GameState.network.reaches_highway(grid, cell):
+			if grid.in_strip(cell) and not GameState.network.reaches_highway(grid, cell):
 				cut_off += 1
 	if cut_off > 0:
 		hints.append("%d кл. зон не связаны с трассой — дома там не строятся" % cut_off)
