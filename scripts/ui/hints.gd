@@ -97,6 +97,10 @@ static func build() -> Array[String]:
 		hints.append("Дома рядом с заводами: %d — жильё лучше подальше от промзоны" % dirty_homes)
 	elif dirty_zone > 0:
 		hints.append("Жильё не растёт у заводов: %d кл. жилой зоны в загрязнении" % dirty_zone)
+	# Застройщик (Р3) не ставит жильё, где «счастье места» ниже Growth.MIN_HOME_MOOD (шум, дешёвая земля).
+	var poor_spots: int = _poor_home_spots(grid, land)
+	if poor_spots > 0 and GameState.demand_by_zone()[CityGrid.Zone.RESIDENTIAL] > 0.0:
+		hints.append("Жильё не строят на шумных местах: %d кл. у улицы — тише улица, парк или служба рядом (клик: почему)" % poor_spots)
 	var unhappy: int = 0
 	for mood: int in GameState.happiness.by_building.values():
 		if mood < Levels.DECLINE_HAPPINESS:
@@ -139,3 +143,19 @@ static func _first_step(grid: CityGrid, utilities: Utilities, zoned: int) -> Str
 	if zoned == 0:
 		return "Шаг 3: разметьте у дороги жилую [1] и промышленную [3] зоны"
 	return ""
+
+
+## Сколько свободных клеток жилья у самой улицы застройщик обходит: чисто, но «место» ниже MIN_HOME_MOOD.
+static func _poor_home_spots(grid: CityGrid, land: LandValue) -> int:
+	var context: Dictionary = {}
+	var count: int = 0
+	for zone_type: CityGrid.Zone in [CityGrid.Zone.RESIDENTIAL, CityGrid.Zone.RESIDENTIAL_HIGH]:
+		for cell: Vector2i in grid.zoned_empty_cells[zone_type]:
+			if grid.get_strip_depth(cell) != 1 or land.value_at(land.pollution, grid, cell) >= DIRTY_HOME:
+				continue
+			if context.is_empty():
+				context = Growth.place_context(grid, GameState.traffic)
+			var cells: Array[Vector2i] = [cell]
+			if Happiness.score_of(Growth.home_factors(grid, cells, land, context)) < Growth.MIN_HOME_MOOD:
+				count += 1
+	return count

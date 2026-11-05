@@ -7,7 +7,10 @@ extends RefCounted
 ## дом — у улицы фасадом к ней, позади — двор (CityGrid.Lot). Каждый дом смотрит на свою улицу.
 ## Свет и вода росту не нужны (как в SimCity): дом растёт и без них, а над ним висит значок
 ## (BadgeVisualizer), пока игрок не проведёт свет и воду. Запас компонента, если хватает, сразу уменьшается.
-## Фаза 9: жильё не растёт в грязи; жильё и магазины выбирают землю подороже.
+## Р3 — желанность места по зоне (как в SimCity 4): жильё встаёт там, где жителям будет хорошо
+## («счастье места» — как Happiness, но без налога, дороги до работы, света и воды), и не встаёт там, где
+## сразу пустело бы; магазины — где рядом покупатели и поток машин; промзона — на дешёвой земле подальше
+## от жилья; офисы — на дорогой земле у служб. Почему клетка пустует — why_not (карточка «Инфо»).
 
 ## С такого загрязнения жильё на клетке не растёт.
 const MAX_HOME_POLLUTION: int = 40
@@ -38,12 +41,27 @@ const SPLIT_PENALTY: float = 0.4
 const VALUE_PER_PENALTY: float = 4.0
 ## Доля домов глубиной 2, когда участок позволяет (иначе — глубиной 1, двор длиннее).
 const DEEP_SHARE: float = 0.6
+## Жильё не встаёт, если «счастье места» ниже этого: между порогом упадка (Levels.DECLINE_HAPPINESS = 20)
+## и заселения брошенных (Decay.RECOVER_HAPPINESS = 35) — новый дом не пустеет сразу.
+const MIN_HOME_MOOD: int = 30
+## Магазины: покупатели — жители в радиусе CUSTOMER_RADIUS (по Манхэттену), не больше CUSTOMERS_CAP,
+## очки — CUSTOMER_WEIGHT · √жителей (первые покупатели важнее: 9 жителей — +7.5, 100 — +25);
+## поток — загрузка улицы у фасада (0..1.5).
+const CUSTOMER_RADIUS: int = 6
+const CUSTOMERS_CAP: int = 150
+const CUSTOMER_WEIGHT: float = 2.5
+const PASSING_WEIGHT: float = 12.0
+## Промзона: чем дешевле земля, тем лучше; жители в радиусе INDUSTRY_HOME_RADIUS — минус
+## INDUSTRY_HOME_WEIGHT · √жителей (не к домам).
+const INDUSTRY_HOME_RADIUS: int = 4
+const INDUSTRY_HOME_WEIGHT: float = 2.5
 
 
 ## Ставит один дом на зону zone_type. Возвращает левую верхнюю клетку дома или NO_CELL, если места нет.
-## demand — спрос категории зоны (0..1): чем выше, тем шире дома.
+## demand — спрос категории зоны (0..1): чем выше, тем шире дома. Без land — без желанности (проверки).
 static func grow_one(grid: CityGrid, zone_type: CityGrid.Zone, rng: RandomNumberGenerator,
-		network: RoadNetwork, utilities: Utilities, land: LandValue = null, demand: float = 0.5) -> Vector2i:
+		network: RoadNetwork, utilities: Utilities, land: LandValue = null, demand: float = 0.5,
+		traffic: Traffic = null) -> Vector2i:
 	var types: Array[BuildingData] = BuildingCatalog.growable_types(zone_type)
 	if types.is_empty():
 		return CityGrid.NO_CELL
@@ -67,6 +85,7 @@ static func grow_one(grid: CityGrid, zone_type: CityGrid.Zone, rng: RandomNumber
 		return CityGrid.NO_CELL
 
 	var use_value: bool = land != null and zone_type != CityGrid.Zone.INDUSTRIAL
+	var context: Dictionary = place_context(grid, traffic) if land != null else {}
 	var best: Dictionary = {}
 	var best_score: float = -INF
 	for sample: int in mini(VALUE_SAMPLES, frontage.size()):
@@ -79,7 +98,12 @@ static func grow_one(grid: CityGrid, zone_type: CityGrid.Zone, rng: RandomNumber
 		var plan: Dictionary = plan_at(grid, land, zone_type, cell, by_width, target)
 		if plan.is_empty():
 			continue
-		var score: float = -plan.penalty * VALUE_PER_PENALTY + (value if use_value else 0.0)
+		var score: float = -plan.penalty * VALUE_PER_PENALTY
+		if land != null:
+			var place: Array = place_score(grid, zone_type, plan.front, plan.dir, land, context)
+			if not place[1].is_empty():
+				continue
+			score += place[0]
 		if score > best_score:
 			best_score = score
 			best = plan
@@ -105,6 +129,133 @@ static func grow_one(grid: CityGrid, zone_type: CityGrid.Zone, rng: RandomNumber
 	if building.has_water:
 		utilities.spare_water[component] = utilities.spare_water.get(component, 0) - data.water_use
 	return building_rect.position
+
+
+## Общее для оценки мест за один рост: работающие службы [клетка, радиус], дома [клетка, жители], трафик.
+static func place_context(grid: CityGrid, traffic: Traffic) -> Dictionary:
+	var homes: Array[Array] = []
+	for building: BuildingInstance in grid.buildings.values():
+		var data: BuildingData = BuildingCatalog.get_type(building.type_id)
+		if data != null and data.population > 0 and not building.abandoned:
+			homes.append([building.cell, data.population])
+	return {"services": Happiness._active_services(grid), "homes": homes, "traffic": traffic}
+
+
+## Желанность места для зоны: [очки, причина отказа или ""] по клеткам фасада cells (улица — в сторону dir).
+static func place_score(grid: CityGrid, zone_type: CityGrid.Zone, cells: Array[Vector2i], dir: int,
+		land: LandValue, context: Dictionary) -> Array:
+	var value: float = _average(grid, land.land_value, cells)
+	var pollution: float = _average(grid, land.pollution, cells)
+	match zone_type:
+		CityGrid.Zone.RESIDENTIAL, CityGrid.Zone.RESIDENTIAL_HIGH:
+			if pollution >= MAX_HOME_POLLUTION:
+				return [0.0, "загрязнение %d — жильё не строят от %d" % [roundi(pollution), MAX_HOME_POLLUTION]]
+			var factors: Array[Array] = home_factors(grid, cells, land, context)
+			var mood: int = Happiness.score_of(factors)
+			if mood < MIN_HOME_MOOD:
+				return [float(mood), "место на %d из %d: %s" % [mood, MIN_HOME_MOOD, _worst(factors)]]
+			return [float(mood), ""]
+		CityGrid.Zone.COMMERCIAL, CityGrid.Zone.COMMERCIAL_HIGH:
+			var passing: float = 0.0
+			var traffic: Traffic = context.get("traffic")
+			if traffic != null:
+				for cell: Vector2i in cells:
+					var road: Vector2i = cell + CityGrid.NEIGHBORS[dir]
+					if grid.is_in_bounds(road):
+						passing += clampf(traffic.load_ratio(grid, grid.index_of(road)), 0.0, 1.5)
+				passing /= cells.size()
+			var customers: int = mini(_residents_near(cells, context, CUSTOMER_RADIUS), CUSTOMERS_CAP)
+			return [value * 0.5 + sqrt(customers) * CUSTOMER_WEIGHT + passing * PASSING_WEIGHT - pollution * 0.3, ""]
+		CityGrid.Zone.INDUSTRIAL:
+			return [(LandValue.BASE_VALUE * 2.0 - value) * 0.3
+					- sqrt(_residents_near(cells, context, INDUSTRY_HOME_RADIUS)) * INDUSTRY_HOME_WEIGHT, ""]
+	# Офисы: дорогая земля, службы рядом, без дыма.
+	var covered: int = 0
+	for cell: Vector2i in cells:
+		covered += _services_covering(cell, context)
+	return [value + covered * 4.0 / cells.size() - pollution * 0.5, ""]
+
+
+## Слагаемые «счастья места» для жилья (как Happiness.factors без налога, дороги до работы, света и воды).
+static func home_factors(grid: CityGrid, cells: Array[Vector2i], land: LandValue, context: Dictionary) -> Array[Array]:
+	var covered: float = 0.0
+	for cell: Vector2i in cells:
+		covered += _services_covering(cell, context)
+	covered /= cells.size()
+	return [
+		["Службы рядом", covered * Happiness.PER_SERVICE],
+		["Цена земли", (_average(grid, land.land_value, cells) - LandValue.BASE_VALUE) * Happiness.LAND_WEIGHT],
+		["Загрязнение", -_average(grid, land.pollution, cells) * Happiness.POLLUTION_WEIGHT],
+		["Шум", -_average(grid, land.noise, cells) * Happiness.NOISE_WEIGHT],
+	]
+
+
+## Почему на пустой клетке зоны не строят (пусто — построят, когда дойдёт очередь). Для карточки «Инфо».
+static func why_not(grid: CityGrid, cell: Vector2i, network: RoadNetwork, land: LandValue, traffic: Traffic,
+		demands: Dictionary[CityGrid.Zone, float]) -> PackedStringArray:
+	var result: PackedStringArray = []
+	var zone_type: CityGrid.Zone = grid.get_zone(cell)
+	if zone_type == CityGrid.Zone.NONE or not grid.zoned_empty_cells[zone_type].has(cell):
+		return result
+	if not grid.in_strip(cell):
+		return PackedStringArray(["далеко от дороги: дом строят в 4 клетках от неё по прямой"])
+	var dir: int = grid.get_strip_dir(cell)
+	# Участок растёт от улицы: клетка в глубине ждёт, пока застроят её фасад.
+	var front: Vector2i = cell + CityGrid.NEIGHBORS[dir] * (grid.get_strip_depth(cell) - 1)
+	for k: int in range(1, grid.get_strip_depth(cell)):
+		var c: Vector2i = cell + CityGrid.NEIGHBORS[dir] * k
+		if not grid.zoned_empty_cells[zone_type].has(c) or grid.get_strip_dir(c) != dir:
+			return PackedStringArray(["нет выхода на улицу: между клеткой и дорогой занято"])
+	var road: Vector2i = front + CityGrid.NEIGHBORS[dir]
+	if grid.has_entry() and network.component_of.get(road, -1) != network.component_of.get(grid.entry, -2):
+		result.append("улица не связана с трассой")
+	if demands.get(CityGrid.zone_category(zone_type), 0.0) <= 0.0:
+		result.append("нет спроса")
+	if land != null:
+		var cells: Array[Vector2i] = [front]
+		var place: Array = place_score(grid, zone_type, cells, dir, land, place_context(grid, traffic))
+		if not place[1].is_empty():
+			result.append(place[1])
+	return result
+
+
+static func _average(grid: CityGrid, layer: PackedByteArray, cells: Array[Vector2i]) -> float:
+	if layer.size() != grid.size * grid.size or cells.is_empty():
+		return 0.0
+	var sum: float = 0.0
+	for cell: Vector2i in cells:
+		sum += layer[grid.index_of(cell)] if grid.is_in_bounds(cell) else 0
+	return sum / cells.size()
+
+
+## Сколько работающих служб покрывают клетку.
+static func _services_covering(cell: Vector2i, context: Dictionary) -> int:
+	var covered: int = 0
+	for source: Array in context.get("services", []):
+		var at: Vector2i = source[0]
+		if absi(at.x - cell.x) + absi(at.y - cell.y) <= source[1]:
+			covered += 1
+	return covered
+
+
+## Сколько жителей в домах не дальше radius (по Манхэттену) от середины клеток.
+static func _residents_near(cells: Array[Vector2i], context: Dictionary, radius: int) -> int:
+	var mid: Vector2i = cells[cells.size() / 2]
+	var people: int = 0
+	for home: Array in context.get("homes", []):
+		var at: Vector2i = home[0]
+		if absi(at.x - mid.x) + absi(at.y - mid.y) <= radius:
+			people += home[1]
+	return people
+
+
+## Самое большое минусовое слагаемое: «шум −17».
+static func _worst(factors: Array[Array]) -> String:
+	var worst: Array = factors[0]
+	for factor: Array in factors:
+		if factor[1] < worst[1]:
+			worst = factor
+	return "%s %d" % [String(worst[0]).to_lower(), roundi(worst[1])]
 
 
 ## План застройщика для фасадной клетки cell: {front — клетки фасада участка вдоль улицы, dir — сторона

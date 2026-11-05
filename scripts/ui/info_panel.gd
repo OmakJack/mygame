@@ -143,10 +143,8 @@ func _refresh() -> void:
 		_title.text = "Пустой участок"
 		var zone: CityGrid.Zone = grid.get_zone(cell)
 		_subtitle.text = _zone_name(zone)
-		if zone != CityGrid.Zone.NONE and not grid.in_strip(cell):
-			_add("Не строят", "далеко от дороги", true)
-		elif zone != CityGrid.Zone.NONE and grid.get_strip_depth(cell) > 1:
-			_add("Строят", "с улицы, участком вглубь")
+		if zone != CityGrid.Zone.NONE:
+			_add_why_not(grid, cell, zone, land)
 		_icon.texture = UiTheme.icon(_zone_icon(zone))
 	if not grid.is_water(cell) or grid.is_road(cell):
 		var value: int = land.building_value(land.land_value, grid, building) if building != null \
@@ -210,6 +208,24 @@ func _add_mood(grid: CityGrid, building: BuildingInstance, data: BuildingData) -
 		return
 	var blockers: PackedStringArray = Levels.blockers(grid, building, data, GameState.land, GameState.happiness)
 	_add("До ур. %d" % (data.level + 1), "готов" if blockers.is_empty() else ", ".join(blockers), not blockers.is_empty())
+
+
+## Почему на пустой клетке зоны не строят (Growth.why_not); если ничего не мешает — когда построят.
+## У жилья — «место для жилья»: счастье будущих жильцов, от MIN_HOME_MOOD застройщик строит.
+func _add_why_not(grid: CityGrid, cell: Vector2i, zone: CityGrid.Zone, land: LandValue) -> void:
+	var reasons: PackedStringArray = Growth.why_not(grid, cell, GameState.network, land, GameState.traffic,
+			GameState.demand_by_zone())
+	for i: int in reasons.size():
+		_add("Не строят" if i == 0 else "", reasons[i], true)
+	if CityGrid.is_residential(zone) and grid.in_strip(cell):
+		var front: Vector2i = cell + CityGrid.NEIGHBORS[grid.get_strip_dir(cell)] * (grid.get_strip_depth(cell) - 1)
+		var cells: Array[Vector2i] = [front]
+		var mood: int = Happiness.score_of(Growth.home_factors(grid, cells, land, Growth.place_context(grid,
+				GameState.traffic)))
+		_add("Место для жилья", "%d (строят от %d)" % [mood, Growth.MIN_HOME_MOOD], mood < Growth.MIN_HOME_MOOD)
+	if reasons.is_empty():
+		_add("Строят", "у улицы, участком вглубь — когда дойдёт очередь" if grid.get_strip_depth(cell) > 1
+				else "когда дойдёт очередь")
 
 
 func _add(label_text: String, value_text: String, bad: bool = false) -> void:

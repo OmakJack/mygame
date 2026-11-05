@@ -147,7 +147,9 @@ func _initialize() -> void:
 	# Рост без запаса идёт — дом без света и воды.
 	var empty_util := Utilities.new()
 	var rng := RandomNumberGenerator.new()
-	var grown: Vector2i = Growth.grow_one(g, CityGrid.Zone.RESIDENTIAL, rng, gs.network, empty_util)
+	# Growth тянет Happiness → Economy (автозагрузки) — только через load().
+	var grown: Vector2i = load("res://scripts/simulation/growth.gd").grow_one(g, CityGrid.Zone.RESIDENTIAL, rng,
+			gs.network, empty_util)
 	var grown_b: BuildingInstance = g.get_building_at(grown) if grown != CityGrid.NO_CELL else null
 	check.call("no capacity still grows", g.zoned_empty_cells[CityGrid.Zone.RESIDENTIAL].is_empty()
 			or (grown_b != null and not grown_b.powered and not grown_b.has_water))

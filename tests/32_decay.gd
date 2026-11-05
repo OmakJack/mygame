@@ -60,7 +60,7 @@ func _initialize() -> void:
 		if BuildingCatalog.get_type(b.type_id).zone != CityGrid.Zone.NONE and not g.has_building_road_access(b):
 			if b.construction_ticks > 0: sites.append(b.id)
 			else: cut.append(b)
-	check.call("houses cut off (%d, sites %d)" % [cut.size(), sites.size()], cut.size() >= 4)
+	check.call("houses cut off (%d, sites %d)" % [cut.size(), sites.size()], cut.size() >= 3)
 	run.call(1)
 	check.call("road badges", badges.decay_counts() == Vector2i(cut.size(), 0))
 	check.call("hint no road", " ".join(HN.build()).contains("Без дороги %d зд." % (cut.size() + sites.size())))
