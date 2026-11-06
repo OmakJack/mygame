@@ -41,9 +41,11 @@ static func compute(grid: CityGrid, land: LandValue, traffic: Traffic, tax_rate:
 
 
 ## Слагаемые счастья дома: [подпись, прибавка]. Для карточки «Инфо» и для счёта.
+## services — работающие службы (_active_services), посчитанные один раз на город; null — посчитать здесь.
+## (Пустой список — «служб нет», а не «не передали»: иначе город без служб перебирал все здания на каждый дом.)
 static func factors(grid: CityGrid, building: BuildingInstance, data: BuildingData, land: LandValue,
-		traffic: Traffic, tax_rate: int, services: Array = []) -> Array[Array]:
-	if services.is_empty():
+		traffic: Traffic, tax_rate: int, services: Variant = null) -> Array[Array]:
+	if services == null:
 		services = _active_services(grid)
 	var result: Array[Array] = []
 	var covered: int = 0

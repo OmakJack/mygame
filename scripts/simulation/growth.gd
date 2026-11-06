@@ -59,9 +59,11 @@ const INDUSTRY_HOME_WEIGHT: float = 2.5
 
 ## Ставит один дом на зону zone_type. Возвращает левую верхнюю клетку дома или NO_CELL, если места нет.
 ## demand — спрос категории зоны (0..1): чем выше, тем шире дома. Без land — без желанности (проверки).
+## context — place_context, общий для попыток одного тика (пусто — посчитать здесь и дописать в него);
+## новый дом с жителями дописывается в его «homes», чтобы следующая попытка видела покупателей.
 static func grow_one(grid: CityGrid, zone_type: CityGrid.Zone, rng: RandomNumberGenerator,
 		network: RoadNetwork, utilities: Utilities, land: LandValue = null, demand: float = 0.5,
-		traffic: Traffic = null) -> Vector2i:
+		traffic: Traffic = null, context: Dictionary = {}) -> Vector2i:
 	var types: Array[BuildingData] = BuildingCatalog.growable_types(zone_type)
 	if types.is_empty():
 		return CityGrid.NO_CELL
@@ -85,7 +87,8 @@ static func grow_one(grid: CityGrid, zone_type: CityGrid.Zone, rng: RandomNumber
 		return CityGrid.NO_CELL
 
 	var use_value: bool = land != null and zone_type != CityGrid.Zone.INDUSTRIAL
-	var context: Dictionary = place_context(grid, traffic) if land != null else {}
+	if land != null and context.is_empty():
+		context.merge(place_context(grid, traffic))
 	var best: Dictionary = {}
 	var best_score: float = -INF
 	for sample: int in mini(VALUE_SAMPLES, frontage.size()):
@@ -126,6 +129,8 @@ static func grow_one(grid: CityGrid, zone_type: CityGrid.Zone, rng: RandomNumber
 		utilities.spare_power[component] = utilities.spare_power.get(component, 0) - data.power_use
 	if building.has_water:
 		utilities.spare_water[component] = utilities.spare_water.get(component, 0) - data.water_use
+	if data.population > 0 and context.has("homes"):
+		context["homes"].append([building.cell, data.population])
 	return building.cell
 
 

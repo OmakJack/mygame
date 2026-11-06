@@ -19,6 +19,13 @@ const LOW_COVERAGE: float = 0.5
 const LONG_COMMUTE_HINT: float = 0.25
 ## С этого загрязнения жилой участок считается «у завода» (как запрет роста жилья).
 const DIRTY_HOME: int = Growth.MAX_HOME_POLLUTION
+## Р5: с такого спроса категории без свободной зоны у улиц — подсказка разметить ещё (иначе рост стоит молча).
+const LAND_HINT_DEMAND: float = 0.3
+const LAND_HINTS: Dictionary[CityGrid.Zone, String] = {
+	CityGrid.Zone.RESIDENTIAL: "Жилью нужна земля: спрос %d%%, а свободной жилой зоны у улиц нет — разметьте ещё [1]",
+	CityGrid.Zone.COMMERCIAL: "Магазинам нужна земля: спрос %d%%, а свободной коммерческой зоны у улиц нет — разметьте ещё [2]",
+	CityGrid.Zone.INDUSTRIAL: "Заводам нужна земля: спрос %d%%, а свободной промзоны у улиц нет — разметьте ещё [3]",
+}
 
 
 static func build() -> Array[String]:
@@ -42,6 +49,10 @@ static func build() -> Array[String]:
 				cut_off += 1
 	if cut_off > 0:
 		hints.append("%d кл. зон не связаны с трассой — дома там не строятся" % cut_off)
+	var demands: Dictionary[CityGrid.Zone, float] = GameState.demand_by_zone()
+	for category: CityGrid.Zone in LAND_HINTS:
+		if demands[category] >= LAND_HINT_DEMAND and not has_free_frontage(grid, GameState.network, category):
+			hints.append(LAND_HINTS[category] % roundi(demands[category] * 100.0))
 	if zoned > 0 and utilities.power_supply == 0 and utilities.water_supply == 0:
 		hints.append("Нет ТЭЦ или водокачки: без света и воды дома не повышаются и пустеют — поставьте их у дороги")
 	elif zoned > 0 and utilities.power_supply == 0:
@@ -119,6 +130,17 @@ static func build() -> Array[String]:
 	if hints.size() > MAX_HINTS:
 		hints.resize(MAX_HINTS)
 	return hints
+
+
+## Есть ли у категории зон (R, C или I) свободная клетка у самой улицы, связанной с трассой, — там застройщик может строить.
+static func has_free_frontage(grid: CityGrid, network: RoadNetwork, category: CityGrid.Zone) -> bool:
+	for zone_type: CityGrid.Zone in grid.zoned_empty_cells:
+		if CityGrid.zone_category(zone_type) != category:
+			continue
+		for cell: Vector2i in grid.zoned_empty_cells[zone_type]:
+			if grid.get_strip_depth(cell) == 1 and network.reaches_highway(grid, cell):
+				return true
+	return false
 
 
 static func _has_parks(grid: CityGrid) -> bool:
