@@ -50,6 +50,10 @@ signal cell_inspected(cell: Vector2i)
 @warning_ignore("unused_signal")
 signal rank_changed(rank: int)
 
+## Советник просит показать место на карте: камера плавно летит к клетке (RTSCamera).
+@warning_ignore("unused_signal")
+signal camera_focus_requested(cell: Vector2i)
+
 ## Кнопка «Меню» в HUD просит открыть главное меню (как Esc).
 @warning_ignore("unused_signal")
 signal menu_requested

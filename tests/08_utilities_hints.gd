@@ -25,10 +25,7 @@ func _initialize() -> void:
 		tool._dragging = true; tool._drag_start = cell
 		tool._update_drag(cell); tool._apply(); tool._end_drag()
 	var hints_text := func() -> String:
-		var parts: PackedStringArray = []
-		for l in hud.get_node("%Hints").get_children():
-			if not l.is_queued_for_deletion(): parts.append(l.text)
-		return "|".join(parts)
+		return "|".join(hud._advisor.texts())
 	var tick := func(n: int) -> void:
 		for i in n: ev.sim_tick.emit()
 	check.call("catalog", BuildingCatalog.buildable_types().size() == 14 and hud._service_buttons.size() == 14)

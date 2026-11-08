@@ -42,6 +42,28 @@ static func coverage(grid: CityGrid, population: int) -> Dictionary[BuildingData
 	return result
 
 
+## Клетки домов с жителями вне радиуса работающих зданий службы (не больше limit) — куда смотреть советнику.
+static func uncovered_homes(grid: CityGrid, service: BuildingData.Service, limit: int) -> Array[Vector2i]:
+	var sources: Array = []
+	var homes: Array[BuildingInstance] = []
+	for building: BuildingInstance in grid.buildings.values():
+		var data: BuildingData = BuildingCatalog.get_type(building.type_id)
+		if data == null:
+			continue
+		if data.population > 0 and not building.abandoned:
+			homes.append(building)
+		if data.service == service and is_active(grid, building, data):
+			for c: Vector2i in building.cells():
+				sources.append([c, data.service_radius])
+	var result: Array[Vector2i] = []
+	for home: BuildingInstance in homes:
+		if not _is_building_covered(home, sources):
+			result.append(home.cell)
+			if result.size() >= limit:
+				break
+	return result
+
+
 ## Здание службы работает: есть дорога, свет и вода.
 static func is_active(grid: CityGrid, building: BuildingInstance, data: BuildingData) -> bool:
 	return data.service != BuildingData.Service.NONE and building.powered and building.has_water \

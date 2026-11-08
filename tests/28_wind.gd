@@ -95,9 +95,7 @@ func _initialize() -> void:
 		g.set_zone(Vector2i(x, 19), CityGrid.Zone.RESIDENTIAL)
 	ev.grid_reset.emit()
 	await process_frame
-	var hints := ""
-	for l in hud.get_node("%Hints").get_children():
-		if not l.is_queued_for_deletion(): hints += l.text + "|"
+	var hints: String = "|".join(hud._advisor.texts())
 	print("hints: ", hints)
 	check.call("hint about water only", hints.contains("водокачку") and not hints.contains("ТЭЦ"))
 

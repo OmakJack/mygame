@@ -12,11 +12,18 @@ extends Node3D
 @export var zoom_step: float = 5.0
 ## Скорость сглаживания зума (чем больше, тем быстрее; не зависит от FPS).
 @export var zoom_smoothing: float = 10.0
+## Советник показывает место: с такого расстояния камера смотрит на него (если стояла дальше).
+@export var focus_distance: float = 26.0
+## Скорость полёта к месту (как zoom_smoothing).
+@export var focus_smoothing: float = 6.0
 
 var _distance: float = 40.0
 var _target_distance: float = 40.0
 ## Открыто окно поверх игры (сохранения, подтверждение) — клавиши не для камеры.
 var _modal_open: bool = false
+## Куда летит камера по просьбе советника; летит, пока _focusing (WASD прерывает).
+var _focus_target := Vector3.ZERO
+var _focusing: bool = false
 
 @onready var _camera: Camera3D = $Camera3D
 
@@ -29,6 +36,14 @@ func _ready() -> void:
 	Events.modal_changed.connect(func(open: bool) -> void: _modal_open = open)
 	# Новая карта может быть меньше — не оставляем камеру за её краем.
 	Events.grid_reset.connect(_clamp_to_map)
+	Events.camera_focus_requested.connect(focus_on_cell)
+
+
+## Плавно показать клетку: точка камеры летит к ней, камера приближается до focus_distance.
+func focus_on_cell(cell: Vector2i) -> void:
+	_focus_target = GameState.grid.grid_to_world(cell)
+	_focusing = true
+	_target_distance = minf(_target_distance, focus_distance)
 
 
 func _process(delta: float) -> void:
@@ -42,6 +57,14 @@ func _process(delta: float) -> void:
 		# Движение относительно поворота камеры. Чем дальше камера — тем быстрее.
 		var dir: Vector3 = basis * Vector3(input.x, 0.0, input.y)
 		position += dir * move_speed * (_distance / 40.0) * delta
+		_focusing = false
+		_clamp_to_map()
+	elif _focusing:
+		if position.distance_to(_focus_target) < 0.05:
+			position = _focus_target
+			_focusing = false
+		else:
+			position = position.lerp(_focus_target, 1.0 - exp(-focus_smoothing * delta))
 		_clamp_to_map()
 
 	var turn: float = 0.0 if typing else Input.get_axis(&"cam_rotate_right", &"cam_rotate_left")

@@ -1,7 +1,7 @@
 class_name Hud
 extends CanvasLayer
-## Интерфейс: двухрядная верхняя панель с 3D-иконками показателей, подсказки,
-## нижняя док-панель с вкладками и 3D-карточками инструментов.
+## Интерфейс: двухрядная верхняя панель с 3D-иконками показателей и кнопкой «Советник» (Advisor —
+## список проблем с местами на карте), нижняя док-панель с вкладками и 3D-карточками инструментов.
 ## Состояние напрямую не меняет: только сигналы Events и публичные SimClock.set_speed() / SaveManager.
 
 ## Вкладки инструментов. Инструменты — режимы BuildTool; здания — служебные из каталога
@@ -67,6 +67,8 @@ var _new_city_confirm := ConfirmationDialog.new()
 var _toast := PanelContainer.new()
 var _toast_label := Label.new()
 var _info := InfoPanel.new()
+## Советник: кнопка со счётчиком в верхней панели, список проблем и строчка о новой — вместо плашки подсказок.
+var _advisor := Advisor.new()
 ## Плашка звания (фаза 10) — создаётся кодом рядом с «Жителями»; счастье — в плашке «Жители».
 var _rank_label := Label.new()
 ## Игровые часы рядом с днём.
@@ -85,6 +87,7 @@ func _ready() -> void:
 	_make_clock()
 	_build_demand_bars()
 	_build_speed_buttons()
+	_build_advisor()
 	_build_tabs()
 	_build_bottom_extras()
 	_build_city_controls()
@@ -180,7 +183,7 @@ func _refresh_stats() -> void:
 	_show_clock()
 	%PopLabel.text = "Жители: %d" % GameState.population
 	%JobsLabel.text = "Работа: C %d · I %d" % [GameState.jobs_commercial, GameState.jobs_industrial]
-	_show_hints()
+	_advisor.refresh()
 	_show_rank()
 	_sync_locks()
 	%TaxLabel.text = "Налог %d%%" % GameState.tax_rate
@@ -266,15 +269,25 @@ func _mark_bad(label: Label, bad: bool) -> void:
 		label.remove_theme_color_override(&"font_color")
 
 
-func _show_hints() -> void:
-	for child: Node in %Hints.get_children():
-		child.queue_free()
-	var hints: Array[String] = Hints.build()
-	for text: String in hints:
-		var label := Label.new()
-		label.text = "• " + text
-		%Hints.add_child(label)
-	%HintsPanel.visible = not hints.is_empty()
+## Кнопка «Советник» — слева, сразу за часами: список и строчка открываются под ней, у левого края,
+## и не закрывают карточку «Инфо» (она справа).
+func _build_advisor() -> void:
+	var top_row: Node = _clock_label.get_parent()
+	top_row.add_child(_advisor.button)
+	top_row.move_child(_advisor.button, _clock_label.get_index() + 1)
+	_advisor.anchor_bar = $Root/Margin/Layout/TopBar
+	$Root.add_child(_advisor)
+	$Root.add_child(_advisor.bubble)
+	_advisor.entry_opened.connect(_on_advisor_entry)
+
+
+## «Показать» в советнике: слой карты записи (через вкладку «Фильтры») или её вкладка построек.
+func _on_advisor_entry(entry: Hints.Entry) -> void:
+	if entry.overlay >= 0:
+		_select_tab(FILTER_TAB)
+		_request_overlay(entry.overlay)
+	elif not entry.tab.is_empty():
+		_select_tab(entry.tab)
 
 
 func _build_demand_bars() -> void:
