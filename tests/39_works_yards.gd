@@ -1,7 +1,8 @@
 extends SceneTree
-## Дворы заводов (YardVisualizer.Works): один вид на участок за бетонным забором — склад (ряды контейнеров
-## у задней границы, ярусами), погрузка (грузовики у цеха), баки, зелёный двор; вещи — только на клетках
-## двора своего вида; земля двора — по виду; доли видов. До 2026-11-08 — контейнеры вразнобой на 70 % клеток.
+## Дворы заводов (YardVisualizer.Works): один вид на участок — склад (ряды контейнеров у задней границы,
+## ярусами), погрузка (грузовики у цеха), баки — за бетонным забором; зелёный двор; у большинства — просто
+## трава без забора; вещи — только на клетках двора своего вида; земля двора — по виду; доли видов.
+## До 2026-11-08 — контейнеры вразнобой на 70 % клеток.
 
 func _initialize() -> void:
 	root.size = Vector2i(1600, 900)
@@ -57,8 +58,26 @@ func _initialize() -> void:
 				has_yard = true
 		if has_yard:
 			kinds[YV.works_kind(lot)] = kinds.get(YV.works_kind(lot), 0) + 1
-	check.call("all four kinds of factory yard on the street %s" % [kinds], kinds.size() == 4)
-	check.call("concrete walls around factory yards", counts.walls > 0 and counts.fence == 0)
+	var furnished: int = 0
+	var factories: int = 0
+	for kind in kinds:
+		factories += kinds[kind]
+		if kind in YV.WALLED: furnished += kinds[kind]
+	check.call("all five kinds of factory yard on the street %s" % [kinds], kinds.size() == 5)
+	check.call("not every factory has a furnished yard (%d of %d)" % [furnished, factories],
+			furnished > 0 and furnished * 2 < factories)
+	# Бетонный забор — только у обставленных дворов: с одной из сторон бруса — двор склада, погрузки или баков.
+	var walls_ok: bool = counts.walls > 0 and counts.fence == 0
+	for i in yards._walls.multimesh.instance_count:
+		var t: Transform3D = yards._walls.multimesh.get_instance_transform(i)
+		var normal: Vector3 = t.basis.z.normalized()
+		var walled := false
+		for sign in [-1.0, 1.0]:
+			var cell: Vector2i = g.world_to_grid(t.origin + normal * 0.3 * sign)
+			var lot: CityGrid.Lot = g.get_lot(cell)
+			if lot != null and g.is_yard(cell) and YV.works_kind(lot) in YV.WALLED: walled = true
+		if not walled: walls_ok = false
+	check.call("concrete walls only around furnished yards", walls_ok)
 	check.call("far fewer containers than one per yard cell (%d on %d cells)" % [counts.containers, yard_cells],
 			counts.containers > 0 and counts.containers < yard_cells)
 
@@ -71,7 +90,7 @@ func _initialize() -> void:
 				if lot == null or not g.is_yard(cell) or not YV.works_kind(lot) in allowed:
 					return false
 		return true
-	check.call("containers only in storage and loading yards", placed_right.call(yards._containers,
+	check.call("nothing in plain yards; containers only in storage and loading yards", placed_right.call(yards._containers,
 			[YV.Works.STORAGE, YV.Works.LOADING]))
 	check.call("trucks only in storage and loading yards", counts.trucks > 0 and placed_right.call(yards._trucks,
 			[YV.Works.STORAGE, YV.Works.LOADING]))
@@ -96,7 +115,7 @@ func _initialize() -> void:
 	var ground_ok: bool = true
 	var colors: Dictionary = ZV.get_script_constant_map()
 	var expect: Dictionary = {YV.Works.STORAGE: colors.YARD_GRAVEL, YV.Works.LOADING: colors.YARD_CONCRETE,
-			YV.Works.TANKS: colors.YARD_TANKS, YV.Works.GREEN: colors.YARD_LAWN}
+			YV.Works.TANKS: colors.YARD_TANKS, YV.Works.GREEN: colors.YARD_LAWN, YV.Works.PLAIN: colors.YARD_LAWN}
 	for lot: CityGrid.Lot in g.lots.values():
 		for c: Vector2i in lot.cells():
 			if g.is_yard(c) and g.get_zone(c) == CityGrid.Zone.INDUSTRIAL \
@@ -105,12 +124,12 @@ func _initialize() -> void:
 	check.call("yard ground by kind", ground_ok)
 
 	# Вид — от участка, доли — как WORKS_SHARES.
-	var tally: Array[int] = [0, 0, 0, 0]
+	var tally: Array[int] = [0, 0, 0, 0, 0]
 	for y in 50:
 		for x in 40:
 			tally[YV.works_kind(CityGrid.Lot.new(0, Rect2i(x * 3, y * 4, 2, 4), 0))] += 1
 	var shares_ok: bool = true
-	for k in 4:
+	for k in 5:
 		if absf(tally[k] / 2000.0 - YV.WORKS_SHARES[k]) > 0.04: shares_ok = false
 	check.call("kind shares %s" % [tally], shares_ok)
 	var lot_a := CityGrid.Lot.new(1, Rect2i(7, 9, 2, 4), 2)

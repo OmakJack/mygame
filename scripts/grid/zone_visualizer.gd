@@ -39,7 +39,7 @@ const NO_ACCESS_ALPHA: float = 0.25
 const LOT_SHADE: float = 0.22
 ## Двор за домом (клетки участка без здания, YardVisualizer): газон у жилья, асфальт парковки у магазинов
 ## и офисов; у промзоны — по виду двора (YardVisualizer.works_kind): склад — утоптанная площадка, погрузка —
-## бетон, баки — тёмный гравий, зелёный двор — газон.
+## бетон, баки — тёмный гравий, зелёный и пустой двор — газон.
 const YARD_LAWN := Color(0.26, 0.5, 0.18, 0.35)
 const YARD_COURT := Color(0.42, 0.6, 0.32, 0.55)
 const YARD_PARKING := Color(0.3, 0.31, 0.33, 0.92)
@@ -246,7 +246,7 @@ func _yard_color(grid: CityGrid, cell: Vector2i, fallback: Color) -> Color:
 					return YARD_CONCRETE
 				YardVisualizer.Works.TANKS:
 					return YARD_TANKS
-				YardVisualizer.Works.GREEN:
+				YardVisualizer.Works.GREEN, YardVisualizer.Works.PLAIN:
 					return YARD_LAWN
 			return YARD_GRAVEL
 	return YARD_PARKING

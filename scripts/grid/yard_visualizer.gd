@@ -3,8 +3,9 @@ extends Node3D
 ## Дворы за домами (застройщик по месту, Р2): клетки участка позади дома. Только визуал.
 ## Жильё — газон (тон земли рисует ZoneVisualizer), низкий светлый штакетник по краю двора, деревья и клумбы;
 ## многоэтажки — двор-сквер с деревьями без забора; магазины и офисы — парковка с разметкой
-## и машинами; промзона — двор одного вида на участок за бетонным забором (Works: склад — ряды контейнеров
-## у задней границы, погрузка — бетон с грузовиками задом к цеху, баки, зелёный двор с деревьями; до 2026-11-08
+## и машинами; промзона — двор одного вида на участок (Works: склад — ряды контейнеров у задней границы,
+## погрузка — бетон с грузовиками задом к цеху, баки — эти три за бетонным забором; зелёный двор с деревьями;
+## у большинства — просто трава за цехом; до 2026-11-08
 ## — контейнеры вразнобой на 70 % клеток, и промзона превращалась в контейнерную стоянку).
 ## Модели — Kenney (suburban, industrial, cars).
 ## Расстановка детерминированная по клетке; пересобирается, когда меняются участки или дома
@@ -51,9 +52,13 @@ const STRIPE_HEIGHT: float = 0.012
 const HOME_TREE_SHARE: float = 0.55
 const HOME_PLANTER_SHARE: float = 0.25
 const COURT_TREE_SHARE: float = 0.8
-## Двор завода — один вид на участок (works_kind): доли видов по порядку Works.
-enum Works { STORAGE, LOADING, TANKS, GREEN }
-const WORKS_SHARES: Array[float] = [0.35, 0.3, 0.15, 0.2]
+## Двор завода — один вид на участок (works_kind): доли видов по порядку Works. PLAIN — просто трава за цехом,
+## без забора и вещей: обставленный двор (склад, погрузка, баки) за забором — меньше чем у половины заводов
+## (Андрей: «не каждый завод должен это иметь»). Зелёный двор — деревья, тоже без забора.
+enum Works { STORAGE, LOADING, TANKS, GREEN, PLAIN }
+const WORKS_SHARES: Array[float] = [0.18, 0.17, 0.08, 0.12, 0.45]
+## Виды двора за бетонным забором.
+const WALLED: Array[Works] = [Works.STORAGE, Works.LOADING, Works.TANKS]
 const TRUCK_SCALE: float = 0.4
 ## Баки — цилиндры из кода, как силосы на зданиях заводов: радиус и высота корпуса, м; пояс и крыша-конус.
 const TANK_SIZE := Vector2(0.36, 0.8)
@@ -241,11 +246,11 @@ static func works_kind(lot: CityGrid.Lot) -> Works:
 		sum += WORKS_SHARES[kind]
 		if roll < sum:
 			return kind as Works
-	return Works.GREEN
+	return Works.PLAIN
 
 
-## Двор завода: бетонный забор по краю и вещи рядами по виду двора (works_kind). Ряды считаются от цеха:
-## первый ряд двора — у здания, задний — у дальней границы участка.
+## Двор завода: вещи рядами по виду двора (works_kind), у обставленного — бетонный забор по краю; пустой
+## (PLAIN) — ничего. Ряды считаются от цеха: первый ряд двора — у здания, задний — у дальней границы участка.
 func _works_yard(grid: CityGrid, lot: CityGrid.Lot, works: Dictionary, fenced: Dictionary[Vector3i, bool]) -> void:
 	var street: Vector2i = CityGrid.NEIGHBORS[lot.dir]
 	var toward := Vector3(street.x, 0.0, street.y)
@@ -264,12 +269,13 @@ func _works_yard(grid: CityGrid, lot: CityGrid.Lot, works: Dictionary, fenced: D
 		var depth: int = -(cell.x * street.x + cell.y * street.y)
 		near = mini(near, depth)
 		far = maxi(far, depth)
-	if yard.is_empty():
-		return
 	var kind: Works = works_kind(lot)
+	if yard.is_empty() or kind == Works.PLAIN:
+		return
 	var containers: Array[Array] = works.containers
 	for cell: Vector2i in yard:
-		_fence_cell(grid, lot, cell, works.walls, fenced, WALL_HEIGHT)
+		if kind in WALLED:
+			_fence_cell(grid, lot, cell, works.walls, fenced, WALL_HEIGHT)
 		var center: Vector3 = grid.grid_to_world(cell)
 		var depth: int = -(cell.x * street.x + cell.y * street.y)
 		var lateral: int = cell.x * side.x + cell.y * side.y
