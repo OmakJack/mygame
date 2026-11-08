@@ -138,7 +138,8 @@ static func _plan_change(grid: CityGrid, building: BuildingInstance, data: Build
 			return &"redevelop"
 		return BuildingCatalog.pick_weighted(rezoned_options, rng)
 	if data.level < 3 and blockers(grid, building, data, land, happiness).is_empty():
-		var options: Array[BuildingData] = BuildingCatalog.level_types(data.zone, data.level + 1, data.size)
+		# Следующая стадия того же дома (семейство), а не случайный дом того же размера.
+		var options: Array[BuildingData] = BuildingCatalog.next_level_types(data)
 		if not options.is_empty():
 			return BuildingCatalog.pick_weighted(options, rng)
 	return null

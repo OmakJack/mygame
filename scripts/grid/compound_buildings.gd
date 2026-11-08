@@ -1,7 +1,8 @@
 class_name CompoundBuildings
 extends RefCounted
 ## Многоклеточные участки (2..7 клеток), собранные из моделей Kenney на общем основании:
-## усадьбы и таунхаусы с садами (R), торговые дворики и рынки (C), промбазы с контейнерами и баками (I).
+## торговые дворики и рынки (C), промбазы с контейнерами и баками (I). Жилые участки из нескольких домиков
+## (усадьбы, таунхаусы) заменены одним домом (ProceduralHouses), их id остались там — для сохранений.
 ## Вход участка смотрит на −Z; ширина — вдоль X, глубина — вдоль Z.
 
 const SUB := "res://assets/models/kenney/suburban/"
@@ -9,7 +10,6 @@ const COM := "res://assets/models/kenney/commercial/"
 const IND := "res://assets/models/kenney/industrial/"
 const ROADS := "res://assets/models/kenney/roads/"
 
-const GRASS := Color(0.42, 0.65, 0.33)
 const PAVING := Color(0.78, 0.75, 0.69)
 const CONCRETE := Color(0.56, 0.56, 0.54)
 const BASE_HEIGHT: float = 0.025
@@ -37,107 +37,7 @@ static func types() -> Array[BuildingData]:
 ## Описание участков: [модель, x, z, поворот_90, масштаб, макс_размер].
 static func _specs() -> Array[Dictionary]:
 	var list: Array[Dictionary] = []
-	# --- ЖИЛАЯ ЗОНА (R): от 2 до 6 клеток, уровни 1..3 ---
-	var r_houses: Array[Array] = [
-		["a", "b", "c", "d"],
-		["g", "h", "i", "k"],
-		["o", "p", "r", "t"],
-	]
-	for lvl: int in [1, 2, 3]:
-		var h: Array = r_houses[lvl - 1]
-		var hs: float = 1.08 + lvl * 0.04
-		# 2×1 (2 кл.) — коттедж с садом и дорожкой (2 варианта на уровень)
-		list.append({
-			"id": "res_lot_2x1_%d_a" % lvl, "zone": CityGrid.Zone.RESIDENTIAL, "level": lvl,
-			"size": Vector2i(2, 1), "name": "Дом с садом", "base": GRASS,
-			"parts": [
-				[SUB + "building-type-" + h[0], -0.95, 0.05, 2, hs, 1.68],
-				[SUB + "path-stones-long", -0.95, -0.72, 0, 1.6, 0.9],
-				[SUB + "tree-large", 1.05, 0.35, 0, 2.3, 1.3],
-				[SUB + "tree-small", 0.55, -0.35, 1, 2.0, 1.0],
-				[SUB + "planter", 1.25, -0.45, 0, 1.7, 0.9],
-			],
-		})
-		list.append({
-			"id": "res_lot_2x1_%d_b" % lvl, "zone": CityGrid.Zone.RESIDENTIAL, "level": lvl,
-			"size": Vector2i(2, 1), "name": "Дуплекс", "base": GRASS,
-			"parts": [
-				[SUB + "building-type-" + h[1], -0.95, 0.08, 2, hs, 1.62],
-				[SUB + "building-type-" + h[2], 0.95, 0.08, 2, hs, 1.62],
-				[SUB + "tree-small", 0.0, 0.55, 0, 2.1, 1.0],
-				[SUB + "planter", 0.0, -0.58, 0, 1.6, 0.85],
-			],
-		})
-		# 3×1 (3 кл.) — ряд из трёх коттеджей / усадьба с садом
-		list.append({
-			"id": "res_lot_3x1_%d_a" % lvl, "zone": CityGrid.Zone.RESIDENTIAL, "level": lvl,
-			"size": Vector2i(3, 1), "name": "Таунхаусы", "base": GRASS,
-			"parts": [
-				[SUB + "building-type-" + h[0], -1.95, 0.08, 2, hs, 1.62],
-				[SUB + "building-type-" + h[1], 0.0, 0.08, 2, hs, 1.62],
-				[SUB + "building-type-" + h[2], 1.95, 0.08, 2, hs, 1.62],
-				[SUB + "tree-small", -0.98, -0.62, 0, 1.9, 0.85],
-				[SUB + "tree-small", 0.98, -0.62, 2, 1.9, 0.85],
-			],
-		})
-		list.append({
-			"id": "res_lot_3x1_%d_b" % lvl, "zone": CityGrid.Zone.RESIDENTIAL, "level": lvl,
-			"size": Vector2i(3, 1), "name": "Усадьба", "base": GRASS,
-			"parts": [
-				[SUB + "building-type-" + h[3], 0.0, 0.1, 2, hs + 0.08, 1.75],
-				[SUB + "path-long", 0.0, -0.68, 0, 1.7, 0.9],
-				[SUB + "tree-large", -2.0, 0.25, 0, 2.5, 1.35],
-				[SUB + "tree-small", -1.45, -0.45, 1, 2.1, 1.0],
-				[SUB + "planter", -2.2, -0.45, 0, 1.8, 0.9],
-				[SUB + "tree-large", 2.05, 0.3, 2, 2.4, 1.35],
-				[SUB + "planter", 1.65, -0.45, 0, 1.8, 0.9],
-			],
-		})
-		# 2×2 (4 кл.) — дворик с двумя домами и садом
-		list.append({
-			"id": "res_lot_2x2_%d" % lvl, "zone": CityGrid.Zone.RESIDENTIAL, "level": lvl,
-			"size": Vector2i(2, 2), "name": "Жилой дворик", "base": GRASS,
-			"parts": [
-				[SUB + "building-type-" + h[1], -0.98, -0.92, 2, hs, 1.68],
-				[SUB + "building-type-" + h[3], 0.98, -0.92, 2, hs, 1.68],
-				[SUB + "building-type-" + h[0], -0.98, 0.98, 3, hs * 0.95, 1.55],
-				[SUB + "tree-large", 0.95, 0.95, 0, 2.6, 1.45],
-				[SUB + "tree-small", 0.35, 1.35, 1, 2.2, 1.05],
-				[SUB + "planter", 0.95, 0.15, 0, 2.0, 1.0],
-				[SUB + "path-stones-long", 0.0, -0.2, 0, 1.8, 1.0],
-			],
-		})
-		# 5×1 (5 кл.) — зелёная жилая линия вдоль улицы
-		list.append({
-			"id": "res_lot_5x1_%d" % lvl, "zone": CityGrid.Zone.RESIDENTIAL, "level": lvl,
-			"size": Vector2i(5, 1), "name": "Коттеджный ряд", "base": GRASS,
-			"parts": [
-				[SUB + "building-type-" + h[0], -3.9, 0.08, 2, hs, 1.62],
-				[SUB + "building-type-" + h[2], -1.95, 0.08, 2, hs, 1.62],
-				[SUB + "tree-large", 0.0, 0.25, 0, 2.5, 1.35],
-				[SUB + "planter", 0.0, -0.5, 0, 2.0, 1.0],
-				[SUB + "building-type-" + h[1], 1.95, 0.08, 2, hs, 1.62],
-				[SUB + "building-type-" + h[3], 3.9, 0.08, 2, hs, 1.62],
-				[SUB + "tree-small", -2.92, -0.62, 1, 1.9, 0.85],
-				[SUB + "tree-small", 2.92, -0.62, 3, 1.9, 0.85],
-			],
-		})
-		# 3×2 (6 кл.) — загородное подворье вокруг сада
-		list.append({
-			"id": "res_lot_3x2_%d" % lvl, "zone": CityGrid.Zone.RESIDENTIAL, "level": lvl,
-			"size": Vector2i(3, 2), "name": "Жилое подворье", "base": GRASS,
-			"parts": [
-				[SUB + "building-type-" + h[3], 0.0, -0.95, 2, hs + 0.06, 1.72],
-				[SUB + "building-type-" + h[0], -1.98, -0.92, 2, hs, 1.64],
-				[SUB + "building-type-" + h[1], 1.98, -0.92, 2, hs, 1.64],
-				[SUB + "building-type-" + h[2], -1.98, 0.98, 3, hs * 0.95, 1.55],
-				[SUB + "building-type-" + h[0], 1.98, 0.98, 1, hs * 0.95, 1.55],
-				[SUB + "tree-large", -0.55, 0.95, 0, 2.6, 1.4],
-				[SUB + "tree-large", 0.65, 1.05, 2, 2.4, 1.35],
-				[SUB + "planter", 0.0, 0.25, 0, 2.2, 1.1],
-			],
-		})
-
+	# Жильё (R) — не отсюда: с 2026-11-08 большой участок — один дом (ProceduralHouses), а не россыпь домиков.
 	# --- КОММЕРЦИЯ (C): 2×1 и 3×2 (остальные размеры — из Blender GLB) ---
 	var c_shops: Array[Array] = [
 		["a", "e"],

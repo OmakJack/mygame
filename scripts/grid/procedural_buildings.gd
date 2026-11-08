@@ -2,7 +2,8 @@ class_name ProceduralBuildings
 extends RefCounted
 ## Многоэтажки и офисы, которые строит код (слой 2 разнообразия): у Kenney нет жилых многоэтажек,
 ## а башен мало. Каждый тип — свой вид: этажность, размеры, цвет, рисунок окон, уступы, крыша.
-## Вид задаётся зерном из id, поэтому в сохранениях тип всегда выглядит одинаково.
+## Вид задаётся зерном семейства (тип без уровня): стиль, цвет и основание те же на всех уровнях, этажей больше —
+## повышение растит дом, а не подменяет его (BuildingData.family). В сохранениях тип всегда выглядит одинаково.
 ## Окна рисует шейдер фасада (FACADE_SHADER) по UV в метрах — без текстур.
 ## Типы не лежат в data/buildings: BuildingCatalog добавляет их при загрузке (types()).
 
@@ -52,10 +53,11 @@ void vertex() {
 void fragment() {
 	int style = int(UV2.x + 0.5);
 	float floor_h = UV2.y;
-	vec2 g = vec2(UV.x / %f, UV.y / floor_h);
+	// Дома (ProceduralHouses): окна реже, рамы светлые, на первом этаже — те же окна, без витрин.
+	vec2 g = vec2(UV.x / (style >= 5 ? 0.46 : %f), UV.y / floor_h);
 	vec2 f = fract(g);
 	vec3 wall = COLOR.rgb;
-	if (custom.a > 0.5 && style < 3) {
+	if (custom.a > 0.5 && (style < 3 || style >= 5)) {
 		wall *= WALLS[clamp(int(custom.b * 8.0 + 0.5), 0, 5)];
 	}
 	float lit = hash(floor(g) + vec2(UV2.x * 7.0, 0.0));
@@ -63,7 +65,16 @@ void fragment() {
 	vec3 frame = vec3(0.3, 0.31, 0.34);
 	bool win = false;
 	bool slab = false;
-	if (g.y < 1.0) {
+	if (style == 6) {
+		win = false;
+	} else if (style == 5) {
+		win = f.x > 0.3 && f.x < 0.7 && f.y > 0.32 && f.y < 0.78;
+		slab = !win && f.x > 0.24 && f.x < 0.76 && f.y > 0.26 && f.y < 0.84;
+		if (slab) {
+			wall = vec3(0.95, 0.94, 0.9);
+			slab = false;
+		}
+	} else if (g.y < 1.0) {
 		// Первый этаж: витрины во всю ширину.
 		win = f.y > 0.12 && f.y < 0.8 && f.x > 0.08;
 		wall = wall * 0.7;
@@ -99,56 +110,59 @@ static func types() -> Array[BuildingData]:
 	var result: Array[BuildingData] = []
 	for level: int in [1, 2, 3]:
 		for n: int in APARTMENT_VARIANTS:
-			result.append(_type("res_gen_%d_%d" % [level, n], CityGrid.Zone.RESIDENTIAL_HIGH, level, "Многоэтажка"))
+			result.append(_type("res_gen_%d_%d" % [level, n], CityGrid.Zone.RESIDENTIAL_HIGH, level, "Многоэтажка",
+					"res_gen_%d" % n))
 		for n: int in OFFICE_VARIANTS:
-			result.append(_type("off_gen_%d_%d" % [level, n], CityGrid.Zone.OFFICE, level, "Офис"))
+			result.append(_type("off_gen_%d_%d" % [level, n], CityGrid.Zone.OFFICE, level, "Офис", "off_gen_%d" % n))
 		# Многоклеточные жилые комплексы, торговые пассажи и бизнес-центры (2..7 клеток).
 		for n: int in 2:
-			result.append(_lot_type("res_wide_2x1_%d_%d" % [level, n], CityGrid.Zone.RESIDENTIAL_HIGH,
-					level, Vector2i(2, 1), "Широкий дом %d" % (n + 1)))
-			result.append(_lot_type("res_court_2x2_%d_%d" % [level, n], CityGrid.Zone.RESIDENTIAL_HIGH,
-					level, Vector2i(2, 2), "Жилой двор %d" % (n + 1)))
-			result.append(_lot_type("com_wide_2x1_%d_%d" % [level, n], CityGrid.Zone.COMMERCIAL_HIGH,
-					level, Vector2i(2, 1), "Универмаг %d" % (n + 1)))
-			result.append(_lot_type("com_wide_3x1_%d_%d" % [level, n], CityGrid.Zone.COMMERCIAL_HIGH,
-					level, Vector2i(3, 1), "Пассаж %d" % (n + 1)))
-			result.append(_lot_type("off_wide_2x1_%d_%d" % [level, n], CityGrid.Zone.OFFICE,
-					level, Vector2i(2, 1), "Деловой дом %d" % (n + 1)))
-			result.append(_lot_type("off_wide_3x1_%d_%d" % [level, n], CityGrid.Zone.OFFICE,
-					level, Vector2i(3, 1), "Башни-близнецы %d" % (n + 1)))
-			result.append(_lot_type("off_plaza_2x2_%d_%d" % [level, n], CityGrid.Zone.OFFICE,
-					level, Vector2i(2, 2), "Бизнес-плаза %d" % (n + 1)))
-		result.append(_lot_type("off_blvd_5x1_%d" % level, CityGrid.Zone.OFFICE,
-				level, Vector2i(5, 1), "Деловой квартал"))
-		result.append(_lot_type("off_campus_3x2_%d" % level, CityGrid.Zone.OFFICE,
-				level, Vector2i(3, 2), "Бизнес-кампус"))
-		result.append(_lot_type("off_hq_7x1_%d" % level, CityGrid.Zone.OFFICE,
-				level, Vector2i(7, 1), "Штаб-квартира"))
+			result.append(_lot_type("res_wide_2x1", n, CityGrid.Zone.RESIDENTIAL_HIGH, level, Vector2i(2, 1),
+					"Широкий дом %d" % (n + 1)))
+			result.append(_lot_type("res_court_2x2", n, CityGrid.Zone.RESIDENTIAL_HIGH, level, Vector2i(2, 2),
+					"Жилой двор %d" % (n + 1)))
+			result.append(_lot_type("com_wide_2x1", n, CityGrid.Zone.COMMERCIAL_HIGH, level, Vector2i(2, 1),
+					"Универмаг %d" % (n + 1)))
+			result.append(_lot_type("com_wide_3x1", n, CityGrid.Zone.COMMERCIAL_HIGH, level, Vector2i(3, 1),
+					"Пассаж %d" % (n + 1)))
+			result.append(_lot_type("off_wide_2x1", n, CityGrid.Zone.OFFICE, level, Vector2i(2, 1),
+					"Деловой дом %d" % (n + 1)))
+			result.append(_lot_type("off_wide_3x1", n, CityGrid.Zone.OFFICE, level, Vector2i(3, 1),
+					"Башни-близнецы %d" % (n + 1)))
+			result.append(_lot_type("off_plaza_2x2", n, CityGrid.Zone.OFFICE, level, Vector2i(2, 2),
+					"Бизнес-плаза %d" % (n + 1)))
+		result.append(_lot_type("off_blvd_5x1", -1, CityGrid.Zone.OFFICE, level, Vector2i(5, 1), "Деловой квартал"))
+		result.append(_lot_type("off_campus_3x2", -1, CityGrid.Zone.OFFICE, level, Vector2i(3, 2), "Бизнес-кампус"))
+		result.append(_lot_type("off_hq_7x1", -1, CityGrid.Zone.OFFICE, level, Vector2i(7, 1), "Штаб-квартира"))
 	return result
 
 
-static func _type(id: String, zone_type: CityGrid.Zone, level: int, name: String) -> BuildingData:
+static func _type(id: String, zone_type: CityGrid.Zone, level: int, name: String, family: String) -> BuildingData:
 	var data := BuildingData.new()
 	data.id = StringName(id)
+	data.family = StringName(family)
 	data.display_name = "%s %s · ур. %d" % [name, id.get_slice("_", 3), level]
 	data.grows = true
 	LevelStats.apply(data, zone_type, level)
-	data.mesh = build(id, zone_type == CityGrid.Zone.OFFICE, level)
+	data.mesh = build(family, zone_type == CityGrid.Zone.OFFICE, level)
 	return data
 
 
-static func _lot_type(id: String, zone_type: CityGrid.Zone, level: int, plot_size: Vector2i,
+## Многоклеточный тип: id — «основа_уровень_вариант» (variant −1 — «основа_уровень»), семейство — без уровня.
+static func _lot_type(base: String, variant: int, zone_type: CityGrid.Zone, level: int, plot_size: Vector2i,
 		title: String) -> BuildingData:
+	var id: String = "%s_%d_%d" % [base, level, variant] if variant >= 0 else "%s_%d" % [base, level]
+	var family: String = "%s_%d" % [base, variant] if variant >= 0 else base
 	var data := BuildingData.new()
 	data.id = StringName(id)
+	data.family = StringName(family)
 	data.display_name = "%s · ур. %d" % [title, level]
 	data.grows = true
 	LevelStats.apply(data, zone_type, level, plot_size)
-	data.mesh = build_lot(id, zone_type, level, plot_size)
+	data.mesh = build_lot(family, zone_type, level, plot_size)
 	return data
 
 
-## Меш здания по id: фасад окнами, первый этаж, крыша и детали. Вход — на −Z.
+## Меш здания по ключу (семейство — вид, level — этажность): фасад окнами, первый этаж, крыша и детали. Вход — на −Z.
 static func build(id: String, office: bool, level: int) -> ArrayMesh:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(id)

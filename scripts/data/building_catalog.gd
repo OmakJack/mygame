@@ -48,6 +48,19 @@ static func level_types(zone_type: CityGrid.Zone, level: int,
 	return result
 
 
+## Типы следующего уровня для повышения дома типа data — дом растёт, а не подменяется чужим:
+## у семейства — следующая стадия того же семейства; у модели без стадий (Kenney, Gemini — один вид на все уровни)
+## — дома с семействами: старый дом перестраивают в больший, дальше он растёт уже сам.
+## Нет таких — любые типы следующего уровня того же размера (как раньше).
+static func next_level_types(data: BuildingData) -> Array[BuildingData]:
+	var options: Array[BuildingData] = level_types(data.zone, data.level + 1, data.size)
+	var staged: Array[BuildingData] = []
+	for option: BuildingData in options:
+		if option.family != &"" and (data.family == &"" or option.family == data.family):
+			staged.append(option)
+	return staged if not staged.is_empty() else options
+
+
 ## Доля выбора «предпочтительных» типов (пак Gemini), если такие есть среди вариантов.
 const PREFERRED_SHARE: float = 0.75
 
@@ -93,6 +106,9 @@ static func _ensure_loaded() -> void:
 	for data: BuildingData in ProceduralBuildings.types():
 		_types[data.id] = data
 	for data: BuildingData in CompoundBuildings.types():
+		_types[data.id] = data
+	# Жилые дома в стадиях по уровням (одно здание на участок).
+	for data: BuildingData in ProceduralHouses.types():
 		_types[data.id] = data
 	_sorted.assign(_types.values())
 	_sorted.sort_custom(func(a: BuildingData, b: BuildingData) -> bool: return a.id < b.id)

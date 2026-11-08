@@ -26,6 +26,9 @@ enum Park { NONE, SQUARE, GARDEN, PLAZA }
 ## Из архитектурного пака Gemini: такие дома выбираются в BuildingCatalog.PREFERRED_SHARE случаев,
 ## если есть подходящий по размеру и уровню, — новых домов в городе большинство.
 @export var preferred: bool = false
+## Семейство: один дом в стадиях по уровням (ProceduralHouses, ProceduralBuildings). Повышение берёт
+## следующую стадию того же семейства — дом растёт со своим стилем. Пусто — модель без стадий (Kenney, Gemini).
+@export var family: StringName
 ## Растёт ли сам на зоне. false — тип только для служб, сохранений или будущих уровней
 ## (например, многоэтажки), рост его не выбирает.
 @export var grows: bool = true
