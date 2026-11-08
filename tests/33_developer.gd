@@ -230,8 +230,9 @@ func _initialize() -> void:
 	ev.cells_changed.emit(all_cells)
 	var counts: Dictionary = yards.counts()
 	print("yards: ", counts)
-	check.call("yards drawn: fences, trees, parking, containers", counts.fence > 0 and counts.trees > 0
-			and counts.stripes > 0 and counts.containers > 0)
+	check.call("yards drawn: fences, trees, parking, factory yards behind concrete walls", counts.fence > 0
+			and counts.trees > 0 and counts.stripes > 0 and counts.walls > 0
+			and counts.containers + counts.trucks + counts.tanks + counts.trees > 0)
 	var yard_cell: Vector2i = Vector2i(-1, -1)
 	for lot: CityGrid.Lot in city.lots.values():
 		for c in lot.cells():

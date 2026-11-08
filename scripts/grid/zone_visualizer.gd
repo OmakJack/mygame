@@ -38,11 +38,14 @@ const NO_ACCESS_ALPHA: float = 0.25
 ## Через участок — чуть темнее: видно, на какие здания поделена разметка.
 const LOT_SHADE: float = 0.22
 ## Двор за домом (клетки участка без здания, YardVisualizer): газон у жилья, асфальт парковки у магазинов
-## и офисов, утоптанная площадка у промзоны.
+## и офисов; у промзоны — по виду двора (YardVisualizer.works_kind): склад — утоптанная площадка, погрузка —
+## бетон, баки — тёмный гравий, зелёный двор — газон.
 const YARD_LAWN := Color(0.26, 0.5, 0.18, 0.35)
 const YARD_COURT := Color(0.42, 0.6, 0.32, 0.55)
 const YARD_PARKING := Color(0.3, 0.31, 0.33, 0.92)
 const YARD_GRAVEL := Color(0.55, 0.5, 0.41, 0.88)
+const YARD_CONCRETE := Color(0.6, 0.6, 0.58, 0.9)
+const YARD_TANKS := Color(0.47, 0.45, 0.4, 0.88)
 ## Полоса зоны (куда можно красить) — видна, пока выбран инструмент зоны: у дороги ярче, вглубь бледнее,
 ## клетки через одну чуть светлее — читается сетка, как в Cities: Skylines.
 const STRIP_COLOR := Color(1.0, 1.0, 1.0, 0.2)
@@ -238,6 +241,13 @@ func _yard_color(grid: CityGrid, cell: Vector2i, fallback: Color) -> Color:
 		CityGrid.Zone.RESIDENTIAL_HIGH:
 			return YARD_COURT
 		CityGrid.Zone.INDUSTRIAL:
+			match YardVisualizer.works_kind(grid.get_lot(cell)):
+				YardVisualizer.Works.LOADING:
+					return YARD_CONCRETE
+				YardVisualizer.Works.TANKS:
+					return YARD_TANKS
+				YardVisualizer.Works.GREEN:
+					return YARD_LAWN
 			return YARD_GRAVEL
 	return YARD_PARKING
 
