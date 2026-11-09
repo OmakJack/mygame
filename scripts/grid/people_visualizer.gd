@@ -20,15 +20,14 @@ const PEOPLE_SCALE: float = 0.22
 const WORKERS_PER_PERSON: float = 0.7
 const MAX_WALKERS: int = 200
 const MAX_CYCLISTS: int = 120
-## Скорость, клеток в секунду на ×1 (машины — TrafficVisualizer.SPEED).
-const WALK_SPEED: float = 0.45
-const BIKE_SPEED: float = 1.3
-## Сдвиг от оси дороги: тротуар Kenney — у края клетки (±0.9 м), велосипеды — край асфальта.
-const SIDEWALK_OFFSET: float = 0.84
-const BIKE_LANE_OFFSET: float = 0.56
-## Ходьба: подпрыгивание и сколько шагов на клетку.
+## Скорость, м в секунду на ×1 (машины — TrafficVisualizer.SPEED).
+const WALK_SPEED: float = 0.9
+const BIKE_SPEED: float = 2.6
+## Велосипеды — у края асфальта: на столько ближе к оси, чем край, м.
+const BIKE_EDGE: float = 0.16
+## Ходьба: подпрыгивание и сколько шагов на метр.
 const STEP_HEIGHT: float = 0.012
-const STEPS_PER_CELL: float = 6.0
+const STEPS_PER_METER: float = 3.0
 
 
 func _load_layers() -> void:
@@ -65,17 +64,12 @@ func _speed() -> float:
 	return BIKE_SPEED if cyclists else WALK_SPEED
 
 
-func _lane_offset() -> float:
-	return BIKE_LANE_OFFSET if cyclists else SIDEWALK_OFFSET
-
-
-## По тротуару (середина между асфальтом и краем) и у края асфальта — по ширине дороги клетки.
-func _lane_offset_at(grid: CityGrid, index: int) -> float:
-	var road_type: int = grid.road_type[index] if index < grid.road_type.size() else 0
-	if not RoadTypes.HALF_WIDTH.has(road_type) or road_type == RoadTypes.Type.STREET:
-		return _lane_offset()
-	var asphalt: float = RoadTypes.ASPHALT_HALF[road_type]
-	return asphalt - (RoadTypes.ASPHALT_HALF[RoadTypes.Type.STREET] - BIKE_LANE_OFFSET) if cyclists 			else (asphalt + RoadTypes.HALF_WIDTH[road_type]) * 0.5
+## Пешеходы — по середине тротуара, велосипеды — у края асфальта, по ширине дороги.
+func _offset(type: int, _lane: int) -> float:
+	var asphalt: float = RoadTypes.ASPHALT_HALF.get(type, RoadTypes.ASPHALT_HALF[RoadTypes.Type.STREET])
+	if cyclists:
+		return asphalt - BIKE_EDGE
+	return (asphalt + RoadTypes.HALF_WIDTH.get(type, RoadTypes.HALF_WIDTH[RoadTypes.Type.STREET])) * 0.5
 
 
 ## Пешеходы и велосипедисты не стоят в очереди и на светофорах (пока нет переходов).
@@ -91,7 +85,7 @@ func _slowdown(_ratio: float) -> float:
 func _bob(car: Car) -> float:
 	if cyclists:
 		return 0.0
-	return absf(sin(car.progress * PI * STEPS_PER_CELL)) * STEP_HEIGHT
+	return absf(sin(car.distance * PI * STEPS_PER_METER)) * STEP_HEIGHT
 
 
 ## Свой цвет одежды (рамы): тон и насыщенность акцента палитры.

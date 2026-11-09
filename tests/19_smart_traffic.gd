@@ -1,5 +1,6 @@
 extends SceneTree
-## Умный трафик: светофоры, дистанция, полосы, парковка у цели, выбор пути с учётом перекрёстков;
+## Умный трафик: светофоры, дистанция, полосы, повороты дугой (маршрут по графу, этап C2), выбор пути
+## с учётом перекрёстков;
 ## деревья по всему полю.
 
 func _initialize() -> void:
@@ -57,35 +58,67 @@ func _initialize() -> void:
 	for x in range(10, 40): city.set_road(Vector2i(x, 20))
 	for z in range(15, 26): city.set_road(Vector2i(25, z))
 	var tv: Node = main.get_node("TrafficVisualizer")
+	city.roads.sync(city)
 	tv._check_roads()
+	var graph: RoadGraph = city.roads
 	var path := PackedInt32Array()
 	for x in range(10, 40): path.append(city.index_of(Vector2i(x, 20)))
 	var CarClass = tv.Car
-	var front = CarClass.new(); front.path = path; front.progress = 5.3; front.forward = true; front.speed = 1.0
-	var back = CarClass.new(); back.path = path; back.progress = 4.9; back.forward = true; back.speed = 1.0
+	var make := func(cells: PackedInt32Array, d: float) -> Variant:
+		var car = CarClass.new(); car.path = cells; car.forward = true; car.speed = 1.0
+		car.route = tv._route_for(car, city); car.distance = d
+		return car
+	var front = make.call(path, 10.6)
+	var back = make.call(path, 9.8)
 	tv._cars.clear(); tv._cars.append(front); tv._cars.append(back)
-	tv._fill_occupancy(city)
-	var free_back: float = tv._free_ahead(back, city, 4)
-	check.call("keeps distance (%.2f)" % free_back, free_back < 0.4 - tv.MIN_GAP + 0.01)
-	# Красный: машина перед перекрёстком (клетка 25 — перекрёсток, k = 14) стоит у стоп-линии.
-	var stopper = CarClass.new(); stopper.path = path; stopper.forward = true; stopper.progress = 14.2; stopper.speed = 1.0
+	tv._fill_occupancy()
+	var free_back: float = tv._free_ahead(back, city)
+	check.call("keeps distance (%.2f)" % free_back, absf(free_back - (0.8 - tv.MIN_GAP)) < 0.01)
+	# Едут справа от оси: на восток — южнее середины улицы.
+	check.call("drives on the right (%.2f)" % (back.route.point_at(3.0).y - 41.0),
+			is_equal_approx(back.route.point_at(3.0).y - 41.0, RoadGeometry.lane_offsets(1)[0]))
+	# Красный: перед перекрёстком (25, 20) — стоп-линия до «зебры», по фазе своего подхода (ось E–W).
+	var junction: int = graph.node_near(Vector2(51, 41), 0.1)
+	var leg: RoadRoute.Leg = null
+	for l: RoadRoute.Leg in back.route.legs:
+		if l.stop >= 0.0: leg = l; break
+	check.call("stop line at the junction", leg != null and leg.light_node == junction)
+	var stop_gap: float = back.route.point_at(leg.stop).distance_to(graph.nodes[junction].pos) if leg != null else 0.0
+	check.call("stop line before the zebra (%.2f m)" % stop_gap,
+			stop_gap >= RoadRoute.trim(graph, city, junction, leg.light_segment) + RoadGeometry.ZEBRA_LENGTH)
+	check.call("approach along the street is the E–W phase", TrafficLights.approach_group(graph, junction, leg.light_segment) == 1)
+	var stopper = make.call(path, leg.stop - 0.5)
 	tv._cars.clear(); tv._cars.append(stopper)
-	tv._fill_occupancy(city)
+	tv._fill_occupancy()
 	var red_time := -1.0
 	for i in 200:
-		if not TrafficLights.is_green(Vector2i(25, 20), 1, i * 0.05): red_time = i * 0.05; break
+		if not TrafficLights.approach_green(graph, junction, leg.light_segment, i * 0.05): red_time = i * 0.05; break
 	TrafficLights.time = red_time
-	var free_red: float = tv._free_ahead(stopper, city, 14)
-	check.call("stops at red (%.2f)" % free_red, is_equal_approx(free_red, tv.STOP_LINE - 0.2))
+	var free_red: float = tv._free_ahead(stopper, city)
+	check.call("stops at red (%.2f)" % free_red, is_equal_approx(free_red, 0.5))
 	var green_time := -1.0
 	for i in 200:
-		if TrafficLights.is_green(Vector2i(25, 20), 1, i * 0.05): green_time = i * 0.05; break
+		if TrafficLights.approach_green(graph, junction, leg.light_segment, i * 0.05): green_time = i * 0.05; break
 	TrafficLights.time = green_time
-	check.call("goes on green", tv._free_ahead(stopper, city, 14) == INF)
-	# Полосы: на проспекте две, на улице одна.
-	city.set_road(Vector2i(30, 20), 2)
-	var lane_car = CarClass.new(); lane_car.lane = 1
-	check.call("two lanes on avenue", tv._lane_for(lane_car, city, city.index_of(Vector2i(30, 20))) == tv.MULTI_LANES[1] and tv._lane_for(lane_car, city, city.index_of(Vector2i(12, 20))) == tv.LANE_OFFSET)
+	check.call("goes on green", tv._free_ahead(stopper, city) == INF)
+	# Поворот на перекрёстке: дуга без изломов, справа от узла, по дороге.
+	var turn := PackedInt32Array()
+	for x in range(18, 26): turn.append(city.index_of(Vector2i(x, 20)))
+	for z in range(21, 26): turn.append(city.index_of(Vector2i(25, z)))
+	var turner = make.call(turn, 0.0)
+	var smooth := true
+	var on_road := true
+	var closest := INF
+	var d := 0.2
+	while d < turner.route.length() - 0.2:
+		if turner.route.dir_at(d).angle_to(turner.route.dir_at(d + 0.25)) > deg_to_rad(25.0): smooth = false
+		if not city.is_road(RoadGraph.cell_of(turner.route.point_at(d))): on_road = false
+		closest = minf(closest, turner.route.point_at(d).distance_to(graph.nodes[junction].pos))
+		d += 0.1
+	check.call("right turn is a smooth arc on the road", smooth and on_road and closest > 0.3)
+	# Полосы: на проспекте две, на улице одна (по разметке).
+	check.call("two lanes on avenue", tv._offset(2, 1) == RoadGeometry.lane_offsets(2)[1]
+			and tv._offset(2, 0) == RoadGeometry.lane_offsets(2)[0] and tv._offset(1, 1) == RoadGeometry.lane_offsets(1)[0])
 	# Пешеходы правилам не подчиняются.
 	check.call("people ignore car rules", not main.get_node("Walkers")._obeys_rules() and tv._obeys_rules())
 

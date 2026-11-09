@@ -2,31 +2,31 @@ class_name TrafficVisualizer
 extends MultiMeshInstance3D
 ## Машинки на дорогах — только визуал: на симуляцию не влияют и не сохраняются.
 ## Каждая едет по пути из выборки GameState.traffic.sample_paths (из дома на работу или обратно),
-## у цели «паркуется» и берёт новую поездку. Внутри клетки — квадратичная кривая Безье
-## от середины входного ребра к середине выходного (на прямой — прямая, на повороте — дуга).
-## Правила (умный трафик): держат дистанцию до машины впереди в своей полосе и плавно тормозят
-## и разгоняются; стоят на красный у перекрёстка (TrafficLights); на проспектах и шоссе — две
-## полосы в каждую сторону.
+## у цели «паркуется» и берёт новую поездку. С этапа C2 путь клеток превращается в маршрут по графу
+## дорог (RoadRoute): по кривым отрезков на своей полосе справа, в узлах — дугой поворота.
+## Правила (умный трафик): держат дистанцию до машины впереди в своей полосе (и на въезде в следующий
+## отрезок), плавно тормозят и разгоняются; стоят на красный у стоп-линии подхода (TrafficLights);
+## на проспектах и шоссе — две полосы в каждую сторону (RoadGeometry.lane_offsets).
 ## Пешеходы и велосипедисты (PeopleVisualizer) — тот же код без правил: переопределяют _paths,
-## _target_count, _speed, _lane_offset, _slowdown, _obeys_rules, _load_layers, _dress и _bob.
+## _target_count, _speed, _offset, _slowdown, _obeys_rules, _load_layers, _dress и _bob.
 
 const MAX_CARS: int = 300
 ## Сколько работников «изображает» одна машинка (≈ сколько людей в машине).
 const WORKERS_PER_CAR: float = 1.3
-## Скорость, клеток в секунду на ×1.
-const SPEED: float = 2.0
-## Сдвиг на правую полосу от оси дороги, метры (асфальт Kenney ×2 — полуширина ~0.8 м).
-const LANE_OFFSET: float = 0.3
+## Скорость, м в секунду на ×1 (клетка — 2 м).
+const SPEED: float = 4.0
 ## На загруженной клетке машинка медленнее в (1 + JAM_SLOWDOWN · загрузка) раз (загрузка до 2).
 const JAM_SLOWDOWN: float = 0.7
-## Полосы проспекта и шоссе (две в каждую сторону): сдвиг от оси, метры.
-const MULTI_LANES: Array[float] = [0.3, 0.62]
-## Дистанция до машины впереди, доля клетки (машина ~0.7 м из 2 м).
-const MIN_GAP: float = 0.5
-## Стоп-линия перед перекрёстком: доля клетки, дальше которой на красный не заезжают.
-const STOP_LINE: float = 0.8
+## Дистанция до машины впереди (между центрами), м: машина ~0.7 м.
+const MIN_GAP: float = 1.0
+## Насколько вперёд смотреть на машины и светофоры следующих отрезков, м.
+const LOOK_AHEAD: float = 4.0
 ## Разгон и торможение: доля полной скорости в секунду.
 const ACCEL: float = 2.5
+## Маршрут короче — поездку не берём, м.
+const MIN_ROUTE: float = 0.5
+## Стоит на месте дольше (затор по кругу, «пробка намертво») — уезжает с карты и берёт новую поездку, с.
+const STUCK_TIME: float = 30.0
 ## Модели машин (Kenney Car Kit) и их вес при выборе. По одному MultiMesh на модель.
 ## Полиция — вес 0.25 из 9.25, около 3 % машин.
 const CAR_MODELS: Dictionary[String, float] = {
@@ -45,7 +45,7 @@ const CAR_MODELS: Dictionary[String, float] = {
 const CAR_MODEL_SCALE: float = 0.28
 ## Поворот моделей: у Kenney перед машины на +Z, у нас «вперёд» — −Z.
 const CAR_MODEL_TURNS: int = 2
-## Верх асфальта (дороги Kenney — 0..0.02).
+## Верх асфальта (RoadGeometry.ASPHALT_Y).
 const ROAD_TOP: float = 0.02
 ## Заглушка, если моделей нет: коробочка своего цвета.
 const CAR_SIZE := Vector3(0.45, 0.3, 0.8)
@@ -53,15 +53,18 @@ const CAR_COLORS: Array[Color] = [
 	Color(0.85, 0.2, 0.2), Color(0.2, 0.45, 0.85), Color(0.95, 0.85, 0.3),
 	Color(0.9, 0.9, 0.9), Color(0.25, 0.25, 0.28), Color(0.3, 0.7, 0.4),
 ]
+## Больше маршрутов в запасе не держим (выборки путей — до сотни с небольшим).
+const MAX_ROUTES: int = 2000
 
 
-## Одна машинка: путь (индексы клеток), продвижение в клетках, направление, модель.
+## Одна машинка: путь (индексы клеток), маршрут по графу и сколько по нему проехано.
 class Car extends RefCounted:
 	var path := PackedInt32Array()
-	## От 0 до path.size(): целая часть — номер клетки, дробная — доля пути по ней.
-	var progress: float = 0.0
 	## true — от дома к работе, false — обратно.
 	var forward: bool = true
+	var route: RoadRoute = null
+	## Пройдено по маршруту, м.
+	var distance: float = 0.0
 	## Номер слоя (модели) в _layers.
 	var model: int = 0
 	var color := Color.WHITE
@@ -71,6 +74,8 @@ class Car extends RefCounted:
 	var lane: int = 0
 	## Текущая скорость, доля полной (разгон и торможение — ACCEL).
 	var speed: float = 1.0
+	## Сколько стоит на месте, с игрового времени.
+	var stuck: float = 0.0
 
 
 var _cars: Array[Car] = []
@@ -81,7 +86,10 @@ var _weights := PackedFloat32Array()
 var _rng := RandomNumberGenerator.new()
 var _seen_grid: CityGrid = null
 var _seen_roads_version: int = -1
-## Кто где едет в этом кадре: ключ «клетка · направление · полоса» → продвижения по клетке (0..1).
+var _seen_graph_version: int = -1
+## Маршруты по путям: hash([путь, туда или обратно, полоса]) → RoadRoute; новая версия графа — заново.
+var _routes: Dictionary[int, RoadRoute] = {}
+## Кто где едет в этом кадре: ключ очереди участка (RoadRoute.Leg.key) → координаты вдоль отрезка.
 var _occupancy: Dictionary[int, PackedFloat32Array] = {}
 
 
@@ -111,23 +119,23 @@ func _load_layers() -> void:
 
 
 func _process(delta: float) -> void:
-	GameState.grid.roads.sync(GameState.grid)
+	var grid: CityGrid = GameState.grid
+	grid.roads.sync(grid)
 	_check_roads()
 	_sync_car_count()
-	var grid: CityGrid = GameState.grid
 	var step: float = _speed() * SimClock.speed * delta
 	var counts := PackedInt32Array()
 	counts.resize(_layers.size())
 	counts.fill(0)
 	if step > 0.0 and _obeys_rules():
-		_fill_occupancy(grid)
+		_fill_occupancy()
 	for car: Car in _cars:
 		if step > 0.0:
 			_advance(car, grid, step, delta * SimClock.speed)
 		var layer: MultiMesh = _layers[car.model].multimesh
 		var index: int = counts[car.model]
 		counts[car.model] += 1
-		layer.set_instance_transform(index, _car_transform(car, grid))
+		layer.set_instance_transform(index, _car_transform(car))
 		if layer.use_colors:
 			layer.set_instance_color(index, car.color)
 		if layer.use_custom_data:
@@ -146,7 +154,7 @@ func visible_car_count() -> int:
 
 ## Положение i-й машинки (для проверок).
 func car_origin(i: int) -> Vector3:
-	return _car_transform(_cars[i], GameState.grid).origin
+	return _car_transform(_cars[i]).origin
 
 
 static func _new_multimesh(mesh: Mesh, colored: bool) -> MultiMesh:
@@ -193,14 +201,15 @@ func _paths() -> Array[PackedInt32Array]:
 	return GameState.traffic.sample_paths
 
 
-## Скорость, клеток в секунду на ×1.
+## Скорость, м в секунду на ×1.
 func _speed() -> float:
 	return SPEED
 
 
-## Сдвиг от оси дороги вправо, метры (обычная улица; проспект и шоссе — MULTI_LANES).
-func _lane_offset() -> float:
-	return LANE_OFFSET
+## Сдвиг вправо от оси на дороге типа type, м: машины — середина своей полосы.
+func _offset(type: int, lane: int) -> float:
+	var lanes: PackedFloat32Array = RoadGeometry.lane_offsets(type)
+	return lanes[mini(lane, lanes.size() - 1)]
 
 
 ## Соблюдают ли правила: дистанция, светофоры, полосы (машины — да; пешеходы и велосипеды — нет).
@@ -237,12 +246,12 @@ func _sync_car_count() -> void:
 			break
 		# Первые машинки — по всему пути, чтобы город не пустовал; потом — выезжают от начала.
 		if _cars.is_empty() or target - _cars.size() > 10:
-			car.progress = _rng.randf() * car.path.size()
+			car.distance = _rng.randf() * car.route.length()
 			car.speed = 1.0
 		_cars.append(car)
 
 
-## Новый путь из выборки (не короче двух клеток). false — подходящих путей нет.
+## Новый путь из выборки и маршрут по нему. false — подходящих путей нет.
 func _assign_path(car: Car) -> bool:
 	var paths: Array[PackedInt32Array] = _paths()
 	var grid: CityGrid = GameState.grid
@@ -252,29 +261,61 @@ func _assign_path(car: Car) -> bool:
 	for attempt: int in 8:
 		var path: PackedInt32Array = paths[_rng.randi_range(0, paths.size() - 1)]
 		# Выборка может отстать от дорог (пересчёт трафика ещё не случился) — сломанный путь не берём.
-		if path.size() >= 2 and _path_is_intact(path, grid):
-			car.path = path
-			car.progress = 0.0
-			# Из дома на работу или с работы домой.
-			car.forward = _rng.randf() < 0.5
-			car.lane = _rng.randi_range(0, 1)
-			car.speed = 0.0
-			return true
+		if path.size() < 2 or not _path_is_intact(path, grid):
+			continue
+		car.path = path
+		# Из дома на работу или с работы домой.
+		car.forward = _rng.randf() < 0.5
+		car.lane = _rng.randi_range(0, 1)
+		car.route = _route_for(car, grid)
+		if car.route.length() < MIN_ROUTE:
+			continue
+		car.distance = 0.0
+		car.speed = 0.0
+		return true
 	return false
 
 
-## Дороги изменились — машинки со сломанным путём сразу берут новый; новый город — все заново.
+## Маршрут по пути машинки (из запаса или новый).
+func _route_for(car: Car, grid: CityGrid) -> RoadRoute:
+	var lane: int = car.lane if _obeys_rules() else 0
+	var key: int = hash([car.path, car.forward, lane])
+	var route: RoadRoute = _routes.get(key)
+	if route != null:
+		return route
+	if _routes.size() >= MAX_ROUTES:
+		_routes.clear()
+	var cells: Array[Vector2i] = []
+	for k: int in car.path.size():
+		cells.append(_cell_of(_path_index(car, k), grid))
+	var offsets: Dictionary = {}
+	for type: int in [RoadTypes.Type.STREET, RoadTypes.Type.AVENUE, RoadTypes.Type.HIGHWAY]:
+		offsets[type] = _offset(type, lane)
+	route = RoadRoute.build(grid.roads, grid, cells, offsets, lane)
+	_routes[key] = route
+	return route
+
+
+## Дороги изменились — маршруты строятся заново (машинка остаётся, где была), машинки со сломанным
+## путём сразу берут новый; новый город — все заново.
 func _check_roads() -> void:
 	var grid: CityGrid = GameState.grid
 	if grid != _seen_grid:
 		_cars.clear()
-	elif grid.roads_version != _seen_roads_version:
+		_routes.clear()
+	elif grid.roads_version != _seen_roads_version or grid.roads.version != _seen_graph_version:
+		_routes.clear()
 		for car: Car in _cars:
-			if not _path_is_intact(car.path, grid) and not _assign_path(car):
+			var pos: Vector2 = car.route.point_at(car.distance) if car.route != null else Vector2.ZERO
+			if _path_is_intact(car.path, grid):
+				car.route = _route_for(car, grid)
+				car.distance = car.route.nearest(pos)
+			elif not _assign_path(car):
 				car.path = PackedInt32Array()
-		_cars = _cars.filter(func(car: Car) -> bool: return car.path.size() >= 2)
+		_cars = _cars.filter(func(car: Car) -> bool: return car.path.size() >= 2 and car.route != null)
 	_seen_grid = grid
 	_seen_roads_version = grid.roads_version
+	_seen_graph_version = grid.roads.version
 
 
 static func _path_is_intact(path: PackedInt32Array, grid: CityGrid) -> bool:
@@ -285,84 +326,67 @@ static func _path_is_intact(path: PackedInt32Array, grid: CityGrid) -> bool:
 
 
 func _advance(car: Car, grid: CityGrid, step: float, dt: float) -> void:
-	var k: int = mini(int(car.progress), car.path.size() - 1)
-	var ratio: float = GameState.traffic.load_ratio(grid, _path_index(car, k))
+	var ratio: float = GameState.traffic.load_ratio(grid, _index_at(car, grid))
 	var target: float = 1.0 / _slowdown(ratio)
 	var allowed: float = INF
 	if _obeys_rules():
-		allowed = _free_ahead(car, grid, k)
+		allowed = _free_ahead(car, grid)
 	# Перед помехой — тормозим, иначе плавно разгоняемся до скорости улицы.
 	car.speed = move_toward(car.speed, target if allowed > step else 0.0, ACCEL * dt)
-	car.progress += clampf(step * car.speed, 0.0, maxf(0.0, allowed))
-	if car.progress < car.path.size():
+	var moved: float = clampf(step * car.speed, 0.0, maxf(0.0, allowed))
+	car.distance += moved
+	car.stuck = car.stuck + dt if moved < 0.001 else 0.0
+	if car.distance < car.route.length() and car.stuck < STUCK_TIME:
 		return
-	# Доехали: машина «паркуется», вместо неё — новая поездка.
+	car.stuck = 0.0
+	# Доехали (или застряли): машина «паркуется», вместо неё — новая поездка.
 	if not _assign_path(car):
-		car.progress = 0.0
+		car.distance = 0.0
 
 
-## Сколько можно проехать (доля клеток): до машины впереди в своей полосе (с дистанцией)
-## и до стоп-линии, если на следующем перекрёстке красный.
-func _free_ahead(car: Car, grid: CityGrid, k: int) -> float:
-	var t: float = car.progress - k
+## Клетка под машинкой (индекс в слоях сетки) — для загрузки дороги.
+static func _index_at(car: Car, grid: CityGrid) -> int:
+	var cell: Vector2i = RoadGraph.cell_of(car.route.point_at(car.distance))
+	return grid.index_of(grid.clamp_to_bounds(cell))
+
+
+## Сколько можно проехать, м: до машины впереди в своей полосе (с дистанцией) — на своём отрезке
+## и на въезде в следующие (в пределах LOOK_AHEAD) — и до стоп-линии подхода на красный.
+func _free_ahead(car: Car, grid: CityGrid) -> float:
+	var route: RoadRoute = car.route
+	var d: float = car.distance
+	var current: int = route.leg_at(d)
 	var free: float = INF
-	var own: PackedFloat32Array = _occupancy.get(_occupancy_key(car, grid, k), PackedFloat32Array())
-	for other: float in own:
-		if other > t + 0.001:
-			free = minf(free, other - t - MIN_GAP)
-	if k + 1 < car.path.size():
-		var ahead: PackedFloat32Array = _occupancy.get(_occupancy_key(car, grid, k + 1), PackedFloat32Array())
-		for other: float in ahead:
-			free = minf(free, 1.0 - t + other - MIN_GAP)
-		# Светофор: следующая клетка — перекрёсток, мы ещё до стоп-линии, по нашей оси красный.
-		var here: Vector2i = _cell_of(_path_index(car, k), grid)
-		var next: Vector2i = _cell_of(_path_index(car, k + 1), grid)
-		if t <= STOP_LINE and TrafficLights.is_junction(grid, next) \
-				and not TrafficLights.is_green(next, TrafficLights.axis_of(next - here)):
-			free = minf(free, STOP_LINE - t)
+	for k: int in range(current, route.legs.size()):
+		var leg: RoadRoute.Leg = route.legs[k]
+		var ahead: float = leg.start - d
+		if k > current and ahead > LOOK_AHEAD:
+			break
+		if leg.key != -1 and _occupancy.has(leg.key):
+			var mine: float = leg.frame + d - leg.start
+			for other: float in _occupancy[leg.key]:
+				if k == current:
+					if other > mine + 0.001:
+						free = minf(free, other - mine - MIN_GAP)
+				elif other >= leg.frame - 0.001:
+					free = minf(free, ahead + other - leg.frame - MIN_GAP)
+		if leg.stop >= 0.0 and d <= leg.stop + 0.001 \
+				and not TrafficLights.approach_green(grid.roads, leg.light_node, leg.light_segment):
+			free = minf(free, leg.stop - d)
 	return free
 
 
-## Ключ занятости: клетка, направление движения в ней и полоса.
-func _occupancy_key(car: Car, grid: CityGrid, k: int) -> int:
-	var index: int = _path_index(car, k)
-	var here: Vector2i = _cell_of(index, grid)
-	var step := Vector2i.ZERO
-	if k + 1 < car.path.size():
-		step = _cell_of(_path_index(car, k + 1), grid) - here
-	elif k > 0:
-		step = here - _cell_of(_path_index(car, k - 1), grid)
-	var heading: int = maxi(0, CityGrid.NEIGHBORS.find(step))
-	var lane: int = car.lane if _lanes_at(grid, index) == 2 else 0
-	return (index * 4 + heading) * 2 + lane
-
-
-## Сколько полос в каждую сторону на клетке.
-static func _lanes_at(grid: CityGrid, index: int) -> int:
-	var road_type: int = grid.road_type[index] if index < grid.road_type.size() else 0
-	return 2 if road_type == RoadTypes.Type.AVENUE or road_type == RoadTypes.Type.HIGHWAY else 1
-
-
-func _fill_occupancy(grid: CityGrid) -> void:
+func _fill_occupancy() -> void:
 	_occupancy.clear()
 	for car: Car in _cars:
-		var k: int = mini(int(car.progress), car.path.size() - 1)
-		var key: int = _occupancy_key(car, grid, k)
-		if not _occupancy.has(key):
-			_occupancy[key] = PackedFloat32Array()
-		_occupancy[key].append(car.progress - k)
-
-
-## Сдвиг от оси для машины на клетке: на проспекте и шоссе — по её полосе.
-func _lane_for(car: Car, grid: CityGrid, index: int) -> float:
-	if _obeys_rules() and _lanes_at(grid, index) == 2:
-		return MULTI_LANES[car.lane]
-	return _lane_offset_at(grid, index)
-
-
-## Сдвиг от оси на клетке без полос (пешеходы — по тротуару своего типа дороги).
-func _lane_offset_at(_grid: CityGrid, _index: int) -> float:
-	return _lane_offset()
+		if car.route == null or car.route.legs.is_empty():
+			continue
+		var leg: RoadRoute.Leg = car.route.legs[car.route.leg_at(car.distance)]
+		if leg.key == -1:
+			continue
+		if not _occupancy.has(leg.key):
+			_occupancy[leg.key] = PackedFloat32Array()
+		_occupancy[leg.key].append(leg.frame + car.distance - leg.start)
 
 
 ## Индекс клетки пути с учётом направления (обратно — путь задом наперёд).
@@ -370,54 +394,15 @@ func _path_index(car: Car, k: int) -> int:
 	return car.path[k] if car.forward else car.path[car.path.size() - 1 - k]
 
 
-func _car_transform(car: Car, grid: CityGrid) -> Transform3D:
-	var count: int = car.path.size()
-	var k: int = mini(int(car.progress), count - 1)
-	var t: float = clampf(car.progress - k, 0.0, 1.0)
-	var cell: Vector2i = _cell_of(_path_index(car, k), grid)
-	var roads: RoadGraph = grid.roads
-	# Точки клеток — на полотне дороги (RoadGraph.anchor): на прямой по центрам — центр клетки,
-	# на диагонали и дуге — ближайшая точка кривой, так машинка едет по дороге, а не «лесенкой».
-	var center: Vector3 = _anchor(roads, cell) + Vector3.UP * (ROAD_TOP + _bob(car))
-	var has_prev: bool = k > 0
-	var has_next: bool = k < count - 1
-	var prev_cell: Vector2i = _cell_of(_path_index(car, k - 1), grid) if has_prev else cell
-	var next_cell: Vector2i = _cell_of(_path_index(car, k + 1), grid) if has_next else cell
-	var prev_point: Vector3 = _anchor(roads, prev_cell) + Vector3.UP * (ROAD_TOP + _bob(car))
-	var next_point: Vector3 = _anchor(roads, next_cell) + Vector3.UP * (ROAD_TOP + _bob(car))
-	# Полоса: на входе — как на этой клетке, на выходе — как на следующей (плавная смена полос).
-	var lane_in: float = _lane_for(car, grid, _path_index(car, k))
-	var lane_out: float = _lane_for(car, grid, _path_index(car, k + 1)) if has_next else lane_in
-	var dir_in: Vector3 = _step_dir(center - prev_point, cell - prev_cell) if has_prev 			else _step_dir(next_point - center, next_cell - cell)
-	var dir_out: Vector3 = _step_dir(next_point - center, next_cell - cell) if has_next else dir_in
-	var right_in := Vector3(-dir_in.z, 0.0, dir_in.x)
-	var right_out := Vector3(-dir_out.z, 0.0, dir_out.x)
-	# Середина входного и выходного рёбер клетки (на концах пути — центр), на правой полосе.
-	var p0: Vector3 = ((prev_point + center) * 0.5 if has_prev else center) + right_in * lane_in
-	var p2: Vector3 = ((center + next_point) * 0.5 if has_next else center) + right_out * lane_out
-	var p1: Vector3 = center + (right_in * lane_in + right_out * lane_out) * 0.5
-	var point: Vector3 = p0 * (1.0 - t) * (1.0 - t) + p1 * 2.0 * (1.0 - t) * t + p2 * t * t
-	var tangent: Vector3 = (p1 - p0) * 2.0 * (1.0 - t) + (p2 - p1) * 2.0 * t
-	if tangent.length_squared() < 0.0001:
-		tangent = dir_out
-	return Transform3D(Basis.looking_at(tangent.normalized(), Vector3.UP), point)
+func _car_transform(car: Car) -> Transform3D:
+	var point: Vector2 = car.route.point_at(car.distance)
+	var dir: Vector2 = car.route.dir_at(car.distance)
+	var origin := Vector3(point.x, ROAD_TOP + _bob(car), point.y)
+	if dir.length_squared() < 1e-6:
+		return Transform3D(Basis.IDENTITY, origin)
+	return Transform3D(Basis.looking_at(Vector3(dir.x, 0.0, dir.y), Vector3.UP), origin)
 
 
 @warning_ignore("integer_division")
 static func _cell_of(index: int, grid: CityGrid) -> Vector2i:
 	return Vector2i(index % grid.size, index / grid.size)
-
-
-static func _dir(offset: Vector2i) -> Vector3:
-	return Vector3(offset.x, 0.0, offset.y).normalized()
-
-
-static func _anchor(roads: RoadGraph, cell: Vector2i) -> Vector3:
-	var point: Vector2 = roads.anchor(cell)
-	return Vector3(point.x, 0.0, point.y)
-
-
-## Направление шага между точками дороги; точки совпали — по шагу клеток.
-static func _step_dir(delta: Vector3, step: Vector2i) -> Vector3:
-	var flat := Vector3(delta.x, 0.0, delta.z)
-	return flat.normalized() if flat.length_squared() > 0.0025 else _dir(step)

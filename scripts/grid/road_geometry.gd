@@ -43,6 +43,20 @@ const BARRIER_HALF: float = 0.05
 const BARRIER_HEIGHT: float = 0.1
 
 
+## Полосы в одну сторону: сдвиг середины каждой вправо от оси, м — по разметке (улица — одна полоса,
+## проспект — две между газоном и краем, шоссе — две между отбойником и краем). Первая — ближе к оси.
+static func lane_offsets(type: int) -> PackedFloat32Array:
+	match type:
+		RoadTypes.Type.AVENUE:
+			return PackedFloat32Array([(MEDIAN_HALF + LANE_LINE) * 0.5,
+					(LANE_LINE + RoadTypes.ASPHALT_HALF[RoadTypes.Type.AVENUE]) * 0.5])
+		RoadTypes.Type.HIGHWAY:
+			var line: float = LANE_LINE + 0.04
+			return PackedFloat32Array([(BARRIER_HALF + line) * 0.5,
+					(line + RoadTypes.ASPHALT_HALF[RoadTypes.Type.HIGHWAY]) * 0.5])
+	return PackedFloat32Array([RoadTypes.ASPHALT_HALF.get(type, 0.72) * 0.5])
+
+
 ## Узел: дороги по кругу (против часовой при виде сверху) и сколько каждой отрезать до перекрёстка.
 class Junction extends RefCounted:
 	var node: int = -1
