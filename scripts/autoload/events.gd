@@ -71,3 +71,11 @@ signal speed_changed(speed: int)
 ## UI просит сменить налог, %. Границы проверяет simulation.gd.
 @warning_ignore("unused_signal")
 signal tax_rate_requested(rate: int)
+
+## Инструмент дорог (RoadTool): форма (RoadTool.Shape) и привязка к сетке. Просит HUD, сообщает RoadTool.
+@warning_ignore("unused_signal")
+signal road_shape_requested(shape: int)
+@warning_ignore("unused_signal")
+signal road_grid_snap_requested(enabled: bool)
+@warning_ignore("unused_signal")
+signal road_tool_changed(shape: int, grid_snap: bool)

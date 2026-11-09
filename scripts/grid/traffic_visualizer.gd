@@ -111,6 +111,7 @@ func _load_layers() -> void:
 
 
 func _process(delta: float) -> void:
+	GameState.grid.roads.sync(GameState.grid)
 	_check_roads()
 	_sync_car_count()
 	var grid: CityGrid = GameState.grid
@@ -356,6 +357,11 @@ func _fill_occupancy(grid: CityGrid) -> void:
 func _lane_for(car: Car, grid: CityGrid, index: int) -> float:
 	if _obeys_rules() and _lanes_at(grid, index) == 2:
 		return MULTI_LANES[car.lane]
+	return _lane_offset_at(grid, index)
+
+
+## Сдвиг от оси на клетке без полос (пешеходы — по тротуару своего типа дороги).
+func _lane_offset_at(_grid: CityGrid, _index: int) -> float:
 	return _lane_offset()
 
 
@@ -369,22 +375,26 @@ func _car_transform(car: Car, grid: CityGrid) -> Transform3D:
 	var k: int = mini(int(car.progress), count - 1)
 	var t: float = clampf(car.progress - k, 0.0, 1.0)
 	var cell: Vector2i = _cell_of(_path_index(car, k), grid)
-	var center: Vector3 = grid.grid_to_world(cell) + Vector3.UP * (ROAD_TOP + _bob(car))
-	var half: float = CityGrid.CELL_SIZE * 0.5
+	var roads: RoadGraph = grid.roads
+	# Точки клеток — на полотне дороги (RoadGraph.anchor): на прямой по центрам — центр клетки,
+	# на диагонали и дуге — ближайшая точка кривой, так машинка едет по дороге, а не «лесенкой».
+	var center: Vector3 = _anchor(roads, cell) + Vector3.UP * (ROAD_TOP + _bob(car))
 	var has_prev: bool = k > 0
 	var has_next: bool = k < count - 1
 	var prev_cell: Vector2i = _cell_of(_path_index(car, k - 1), grid) if has_prev else cell
 	var next_cell: Vector2i = _cell_of(_path_index(car, k + 1), grid) if has_next else cell
+	var prev_point: Vector3 = _anchor(roads, prev_cell) + Vector3.UP * (ROAD_TOP + _bob(car))
+	var next_point: Vector3 = _anchor(roads, next_cell) + Vector3.UP * (ROAD_TOP + _bob(car))
 	# Полоса: на входе — как на этой клетке, на выходе — как на следующей (плавная смена полос).
 	var lane_in: float = _lane_for(car, grid, _path_index(car, k))
 	var lane_out: float = _lane_for(car, grid, _path_index(car, k + 1)) if has_next else lane_in
-	var dir_in: Vector3 = _dir(cell - prev_cell) if has_prev else _dir(next_cell - cell)
-	var dir_out: Vector3 = _dir(next_cell - cell) if has_next else dir_in
+	var dir_in: Vector3 = _step_dir(center - prev_point, cell - prev_cell) if has_prev 			else _step_dir(next_point - center, next_cell - cell)
+	var dir_out: Vector3 = _step_dir(next_point - center, next_cell - cell) if has_next else dir_in
 	var right_in := Vector3(-dir_in.z, 0.0, dir_in.x)
 	var right_out := Vector3(-dir_out.z, 0.0, dir_out.x)
 	# Середина входного и выходного рёбер клетки (на концах пути — центр), на правой полосе.
-	var p0: Vector3 = (center - dir_in * half if has_prev else center) + right_in * lane_in
-	var p2: Vector3 = (center + dir_out * half if has_next else center) + right_out * lane_out
+	var p0: Vector3 = ((prev_point + center) * 0.5 if has_prev else center) + right_in * lane_in
+	var p2: Vector3 = ((center + next_point) * 0.5 if has_next else center) + right_out * lane_out
 	var p1: Vector3 = center + (right_in * lane_in + right_out * lane_out) * 0.5
 	var point: Vector3 = p0 * (1.0 - t) * (1.0 - t) + p1 * 2.0 * (1.0 - t) * t + p2 * t * t
 	var tangent: Vector3 = (p1 - p0) * 2.0 * (1.0 - t) + (p2 - p1) * 2.0 * t
@@ -400,3 +410,14 @@ static func _cell_of(index: int, grid: CityGrid) -> Vector2i:
 
 static func _dir(offset: Vector2i) -> Vector3:
 	return Vector3(offset.x, 0.0, offset.y).normalized()
+
+
+static func _anchor(roads: RoadGraph, cell: Vector2i) -> Vector3:
+	var point: Vector2 = roads.anchor(cell)
+	return Vector3(point.x, 0.0, point.y)
+
+
+## Направление шага между точками дороги; точки совпали — по шагу клеток.
+static func _step_dir(delta: Vector3, step: Vector2i) -> Vector3:
+	var flat := Vector3(delta.x, 0.0, delta.z)
+	return flat.normalized() if flat.length_squared() > 0.0025 else _dir(step)

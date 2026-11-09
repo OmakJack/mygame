@@ -19,7 +19,7 @@ const MAX_TAX_RATE: int = 20
 ## Жителей и мест в здании с 2026-11-01 в 3–6 раз меньше (LevelStats) — налог с человека втрое выше.
 const TAX_FACTOR: float = 0.045
 ## Мост через воду, $ за клетку (обычная дорога — ROAD_COST).
-const BRIDGE_COST: int = 40
+const BRIDGE_COST: int = RoadTypes.BRIDGE_COST
 
 
 static func can_afford(amount: int) -> bool:

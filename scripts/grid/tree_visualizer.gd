@@ -23,6 +23,9 @@ const SCALE_MAX: float = 2.4
 ## Насколько дерево может сдвинуться от центра клетки, метры.
 const JITTER: float = 0.7
 
+## Ствол не ближе к оси дороги, м: полуширина проспекта и крона.
+const ROAD_CLEARANCE: float = 1.6
+
 var _layers: Array[MultiMeshInstance3D] = []
 var _noise := FastNoiseLite.new()
 ## Свободна ли клетка карты (по индексу) — чтобы перестраивать только при настоящих изменениях.
@@ -59,6 +62,7 @@ func _rebuild() -> void:
 	if _layers.is_empty():
 		return
 	var grid: CityGrid = GameState.grid
+	grid.roads.sync(grid)
 	_free.resize(grid.size * grid.size)
 	var transforms: Array[Array] = []
 	for layer: MultiMeshInstance3D in _layers:
@@ -108,6 +112,10 @@ func _rebuild() -> void:
 				if not inside and rng.randf() >= keep_outside:
 					continue
 				var center := Vector3((x + 0.5) * CityGrid.CELL_SIZE, 0.0, (y + 0.5) * CityGrid.CELL_SIZE)
+				# Диагональ и дуга заходят полотном на соседние клетки — дерево там не ставим на дорогу.
+				if inside and _next_to_road(grid, cell) and grid.roads.segment_near(
+						Vector2(center.x + offset.x, center.z + offset.z), ROAD_CLEARANCE) != -1:
+					continue
 				transforms[layer].append(Transform3D(basis, center + offset))
 	for i: int in _layers.size():
 		var multimesh: MultiMesh = _layers[i].multimesh
@@ -132,6 +140,14 @@ func tree_count() -> int:
 	for layer: MultiMeshInstance3D in _layers:
 		total += layer.multimesh.instance_count
 	return total
+
+
+static func _next_to_road(grid: CityGrid, cell: Vector2i) -> bool:
+	for dy: int in range(-1, 2):
+		for dx: int in range(-1, 2):
+			if grid.is_road(cell + Vector2i(dx, dy)):
+				return true
+	return false
 
 
 static func _is_free(grid: CityGrid, cell: Vector2i) -> bool:

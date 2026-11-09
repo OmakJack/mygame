@@ -34,7 +34,7 @@ var _length: float = 0.0
 func _ready() -> void:
 	_road.multimesh = MultiMesh.new()
 	_road.multimesh.transform_format = MultiMesh.TRANSFORM_3D
-	_road.multimesh.mesh = RoadMeshes.highway_straight_mesh()
+	_road.multimesh.mesh = RoadGeometry.straight_piece(RoadTypes.Type.HIGHWAY, CityGrid.CELL_SIZE)
 	_road.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(_road)
 	if ResourceLoader.exists(SIGN_MODEL):
@@ -64,9 +64,11 @@ func _rebuild() -> void:
 	# Прямой кусок идёт с N на S; для трассы E–W — поворот на 90°.
 	var along_x: bool = grid.entry_dir == 1 or grid.entry_dir == 3
 	var basis := Basis(Vector3.UP, PI * 0.5) if along_x else Basis.IDENTITY
-	for i: int in cells.size():
-		_road.multimesh.set_instance_transform(i, Transform3D(basis, grid.grid_to_world(cells[i])))
 	var outward := Vector2(CityGrid.NEIGHBORS[grid.entry_dir])
+	# Куски сдвинуты на полклетки к карте: трасса на карте (граф дорог) кончается в центре клетки въезда.
+	var inward := Vector3(-outward.x, 0.0, -outward.y) * CityGrid.CELL_SIZE * 0.5
+	for i: int in cells.size():
+		_road.multimesh.set_instance_transform(i, Transform3D(basis, grid.grid_to_world(cells[i]) + inward))
 	_dir = Vector3(-outward.x, 0.0, -outward.y)
 	_start = grid.grid_to_world(grid.entry) - _dir * (OUTSIDE_CELLS + 0.5) * CityGrid.CELL_SIZE
 	_length = (OUTSIDE_CELLS + 1) * CityGrid.CELL_SIZE

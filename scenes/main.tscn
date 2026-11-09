@@ -1,4 +1,4 @@
-[gd_scene load_steps=29 format=3]
+[gd_scene load_steps=30 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/camera/rts_camera.tscn" id="1_cam"]
 [ext_resource type="Script" path="res://scripts/grid/grid_visualizer.gd" id="2_grid"]
@@ -22,6 +22,7 @@
 [ext_resource type="Script" path="res://scripts/grid/construction_visualizer.gd" id="20_construction"]
 [ext_resource type="Script" path="res://scripts/grid/rotor_visualizer.gd" id="21_rotors"]
 [ext_resource type="Script" path="res://scripts/grid/yard_visualizer.gd" id="22_yards"]
+[ext_resource type="Script" path="res://scripts/tools/road_tool.gd" id="23_road_tool"]
 
 [sub_resource type="ProceduralSkyMaterial" id="sky_mat"]
 sky_top_color = Color(0.42, 0.62, 0.88, 1)
@@ -91,7 +92,7 @@ script = ExtResource("2_grid")
 [node name="ZoneVisualizer" type="MultiMeshInstance3D" parent="."]
 script = ExtResource("8_zones")
 
-[node name="RoadVisualizer" type="GridMap" parent="."]
+[node name="RoadVisualizer" type="Node3D" parent="."]
 script = ExtResource("4_roads")
 
 [node name="BuildingVisualizer" type="Node3D" parent="."]
@@ -141,6 +142,10 @@ script = ExtResource("3_cursor")
 script = ExtResource("6_tool")
 cursor = NodePath("../CellCursor")
 preview = NodePath("../ToolPreview")
+
+[node name="RoadTool" type="Node3D" parent="." node_paths=PackedStringArray("cursor")]
+script = ExtResource("23_road_tool")
+cursor = NodePath("../CellCursor")
 
 [node name="HUD" parent="." instance=ExtResource("11_hud")]
 

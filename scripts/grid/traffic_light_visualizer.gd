@@ -5,8 +5,8 @@ extends Node3D
 
 const MODEL: String = "res://assets/models/kenney/roads/traffic-light.glb"
 const MODEL_SCALE: float = 2.0
-## Угол клетки, где стоит столб, — доля половины клетки от центра.
-const CORNER: float = 0.86
+## Столб дальше середины тротуара от узла на столько (по каждой оси), м: там скруглённый угол.
+const CORNER: float = 0.12
 const LAMP_SIZE := Vector3(0.12, 0.12, 0.12)
 const RED := Color(1.0, 0.18, 0.12)
 const GREEN := Color(0.2, 1.0, 0.35)
@@ -66,11 +66,14 @@ func _rebuild(grid: CityGrid) -> void:
 	_lights.clear()
 	var poles: Array[Transform3D] = []
 	var lamps: Array[Transform3D] = []
-	var half: float = CityGrid.CELL_SIZE * 0.5 * CORNER
 	for cell: Vector2i in grid.road_cells:
 		if not TrafficLights.is_junction(grid, cell):
 			continue
-		var center: Vector3 = grid.grid_to_world(cell)
+		# Столб — на углу тротуара перекрёстка: середина тротуара и чуть дальше от узла.
+		var road_type: int = grid.get_road_type(cell)
+		var half: float = (RoadTypes.ASPHALT_HALF.get(road_type, 0.72) + RoadTypes.HALF_WIDTH.get(road_type, 1.0)) * 0.5 + CORNER
+		var point: Vector2 = grid.roads.anchor(cell)
+		var center := Vector3(point.x, 0.0, point.y)
 		# Ось N–S — столб на юго-восточном углу, ось E–W — на северо-западном.
 		for axis: int in 2:
 			var corner := Vector3(half, 0.0, half) if axis == 0 else Vector3(-half, 0.0, -half)

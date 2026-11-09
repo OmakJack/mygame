@@ -18,9 +18,15 @@ const CAPACITY: Dictionary[Type, float] = {Type.STREET: 27.0, Type.AVENUE: 67.0,
 const TRAVEL_COST: Dictionary[Type, float] = {Type.STREET: 1.0, Type.AVENUE: 0.8, Type.HIGHWAY: 0.5}
 ## Цена клетки и содержание за тик, $ (в интерфейсе — за час).
 const BUILD_COST: Dictionary[Type, int] = {Type.STREET: 10, Type.AVENUE: 30, Type.HIGHWAY: 50}
+## Цена клетки моста (дорога по воде) за улицу; другие типы — дороже на свою разницу (Economy.BRIDGE_COST).
+const BRIDGE_COST: int = 40
 const UPKEEP: Dictionary[Type, float] = {Type.STREET: 0.2, Type.AVENUE: 0.5, Type.HIGHWAY: 0.8}
 ## Во сколько раз громче улицы (LandValue).
 const NOISE_FACTOR: Dictionary[Type, float] = {Type.STREET: 1.0, Type.AVENUE: 1.6, Type.HIGHWAY: 2.4}
+## Полуширина асфальта и всей дороги с тротуарами, м (клетка — 2 м). По ним рисуется полотно
+## (RoadGeometry) и считается, какие клетки дорога занимает (RoadGraph.rasterize). У шоссе тротуаров нет.
+const ASPHALT_HALF: Dictionary[Type, float] = {Type.STREET: 0.72, Type.AVENUE: 0.95, Type.HIGHWAY: 1.05}
+const HALF_WIDTH: Dictionary[Type, float] = {Type.STREET: 1.0, Type.AVENUE: 1.2, Type.HIGHWAY: 1.05}
 ## С какого звания города открывается (Ranks): проспект — посёлок, шоссе — городок.
 const UNLOCK_RANK: Dictionary[Type, int] = {Type.STREET: 0, Type.AVENUE: 1, Type.HIGHWAY: 2}
 

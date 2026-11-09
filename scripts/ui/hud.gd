@@ -47,6 +47,13 @@ const FILTER_TAB := "filters"
 const TOAST_SECONDS: float = 2.5
 ## Ширина часов «00:00» с запасом, px.
 const CLOCK_WIDTH: float = 52.0
+## Подсказки к формам дороги (RoadTool.Shape).
+const ROAD_SHAPE_TIPS: Array[String] = [
+	"Прямая: щелчок — начало, щелчок — конец, дорога тянется дальше.\nПКМ — закончить, Tab — следующая форма",
+	"Дуга: щелчок — начало, щелчок — изгиб, щелчок — конец",
+	"Плавная: каждый кусок продолжает предыдущий плавной дугой",
+	"Замена: щелчок по дороге меняет её тип на выбранный (улица, проспект, шоссе)",
+]
 
 var _tool_buttons: Dictionary[int, Button] = {}
 var _service_buttons: Dictionary[StringName, Button] = {}
@@ -77,6 +84,9 @@ var _clock_label := Label.new()
 var _toast_serial: int = 0
 ## Скорость до окна подтверждения «Новый город».
 var _speed_before_confirm: int = 1
+## Формы дороги (RoadTool.Shape) и привязка к сетке — кнопки во вкладке «Дороги».
+var _road_shape_buttons: Array[Button] = []
+var _road_snap_button: Button
 
 
 func _ready() -> void:
@@ -228,7 +238,7 @@ func _sync_locks() -> void:
 					roundi(GameTime.per_hour(RoadTypes.UPKEEP[road_type]))]
 			if road_type == RoadTypes.Type.HIGHWAY:
 				about += "\nДома к шоссе не подключаются"
-			about += "\nПротяните поверх дороги другого типа — она заменится"
+			about += "\nЩелчок — начало, щелчок — конец; «Замена» — сменить тип готовой дороги"
 			_tool_buttons[mode].tooltip_text = ("Откроется на звании «%s» (%d жителей)\n" % [Ranks.NAMES[rank],
 					Ranks.THRESHOLDS[rank]] if road_locked else "") + about
 			continue
@@ -342,6 +352,8 @@ func _build_tabs() -> void:
 				_add_building_card(cards, id, data)
 		if id == "utilities":
 			_add_utility_meters(cards)
+		if id == "roads":
+			_add_road_shapes(cards)
 		var button := _make_button(tab.name, &"Tab")
 		UiTheme.tab_styles(button, id)
 		button.pressed.connect(func() -> void:
@@ -349,6 +361,34 @@ func _build_tabs() -> void:
 			_select_tab("" if _active_tab == id else id))
 		%Tabs.add_child(button)
 		_tab_buttons[id] = button
+
+
+## Формы дороги и привязка к сетке — справа от типов дорог (как панель инструмента в Cities: Skylines).
+func _add_road_shapes(row: HBoxContainer) -> void:
+	row.add_child(VSeparator.new())
+	var box := GridContainer.new()
+	box.columns = 3
+	box.add_theme_constant_override(&"h_separation", 4)
+	box.add_theme_constant_override(&"v_separation", 4)
+	for shape: int in RoadTool.SHAPE_NAMES.size():
+		var button := _make_button(RoadTool.SHAPE_NAMES[shape], &"Small")
+		button.tooltip_text = ROAD_SHAPE_TIPS[shape]
+		button.pressed.connect(func() -> void: Events.road_shape_requested.emit(shape))
+		box.add_child(button)
+		_road_shape_buttons.append(button)
+	_road_snap_button = _make_button("Сетка [G]", &"Small")
+	_road_snap_button.tooltip_text = "Привязка к центрам клеток: дороги ровно по сетке зон.\nБез сетки — любые точки, углы липнут к 15°"
+	_road_snap_button.toggled.connect(func(on: bool) -> void: Events.road_grid_snap_requested.emit(on))
+	box.add_child(_road_snap_button)
+	row.add_child(box)
+	Events.road_tool_changed.connect(_sync_road_shapes)
+	_sync_road_shapes(RoadTool.Shape.STRAIGHT, true)
+
+
+func _sync_road_shapes(shape: int, grid_snap: bool) -> void:
+	for i: int in _road_shape_buttons.size():
+		_road_shape_buttons[i].set_pressed_no_signal(i == shape)
+	_road_snap_button.set_pressed_no_signal(grid_snap)
 
 
 ## Шкалы света и воды справа от станций, как в Cities: Skylines: видно, хватает ли и сколько ещё нужно.

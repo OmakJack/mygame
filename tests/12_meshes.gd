@@ -52,14 +52,8 @@ func _initialize() -> void:
 	check.call("argon services without signs", BuildingCatalog.get_type(&"health_01").sign_color.a == 0.0
 			and BuildingCatalog.get_type(&"fire_01").sign_color.a == 0.0)
 
-	# 5. Таблица поворотов дорог даёт базовые маски (эвристика — только здесь).
-	var turns_ok := true
-	for piece in RoadMeshes.MODEL_TURNS.size():
-		var scale := Vector3(CityGrid.CELL_SIZE, 1.0, CityGrid.CELL_SIZE)
-		var basis := Basis(Vector3.UP, -RoadMeshes.MODEL_TURNS[piece] * PI * 0.5) * Basis.from_scale(scale)
-		var mesh := ModelLoader.merge(load(RoadMeshes.MODELS[piece]), Transform3D(basis, Vector3.ZERO))
-		if RoadMeshes.native_mask(mesh, CityGrid.CELL_SIZE * 0.5) != RoadMeshes.BASE_MASKS[piece]: turns_ok = false
-	check.call("road turn table", turns_ok)
+	# 5. Дороги рисуются из кода по графу (RoadGeometry, с 2026-11-09; раньше — куски Kenney по маске).
+	check.call("road piece from code", RoadGeometry.straight_piece(1, CityGrid.CELL_SIZE).get_surface_count() == 1)
 
 	# 7. Деревья: есть; исчезают при зонировании и возвращаются при снятии зоны.
 	var trees: Node = main.get_node("TreeVisualizer")

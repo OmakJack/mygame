@@ -51,6 +51,9 @@ var road_cells: Dictionary[Vector2i, bool] = {}
 var next_building_id: int = 0
 ## Растёт при каждом изменении дорог — по нему RoadNetwork понимает, что пора пересчитаться.
 var roads_version: int = 0
+## Граф дорог (узлы и кривые, как в Cities: Skylines): дороги игры строятся через него, клетки
+## road_cells — его растр. Клетки, поставленные мимо графа, он подхватывает сам (RoadGraph.sync).
+var roads := RoadGraph.new()
 ## Растёт при каждой постройке и сносе здания — по нему пересчитывается трафик.
 var buildings_version: int = 0
 ## Свободная земля зон: Vector2i → true. Клетка здесь ⇔ EMPTY, зона не NONE и не двор (нет участка).

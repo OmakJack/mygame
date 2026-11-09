@@ -28,6 +28,7 @@ class LoadResult extends RefCounted:
 
 static func to_dict(grid: CityGrid, city_name: String, money: int, tax_rate: int, minutes: int,
 		population: int, rank: int = -1, rng: RandomNumberGenerator = null) -> Dictionary:
+	grid.roads.sync(grid)
 	var roads := PackedByteArray()
 	roads.resize(grid.size * grid.size)
 	roads.fill(0)
@@ -68,6 +69,8 @@ static func to_dict(grid: CityGrid, city_name: String, money: int, tax_rate: int
 			"water": Marshalls.raw_to_base64(grid.water),
 			"entry": [grid.entry.x, grid.entry.y, grid.entry_dir, grid.highway_cells.size()] if grid.has_entry() else [],
 			"lots": _lots_to_list(grid),
+			# Граф дорог (узлы и кривые, с 2026-11-09). Клетки дорог — по-прежнему в roads.
+			"road_graph": grid.roads.to_dict(),
 		},
 		"buildings": buildings,
 	}
@@ -156,6 +159,8 @@ static func from_dict(data: Variant) -> LoadResult:
 		var edge := Vector2i(_int(entry[0], -1), _int(entry[1], -1))
 		if grid.is_in_bounds(edge):
 			grid.set_entry(edge, clampi(_int(entry[2], 0), 0, 3), clampi(_int(entry[3], 1), 1, 16))
+	# Граф дорог: нет поля (старое сохранение) — дороги из клеток становятся прямыми отрезками.
+	result.warnings.append_array(grid.roads.load_dict(grid, grid_data.get("road_graph")))
 
 	var state: Dictionary = _dict(root.get("state"))
 	result.money = _int(state.get("money"), Economy.START_MONEY)

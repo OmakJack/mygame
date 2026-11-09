@@ -14,6 +14,12 @@ var has_cell: bool = false
 ## Имеет смысл только при has_ground_hit == true — луч попал в плоскость земли.
 var ground_cell: Vector2i = Vector2i.ZERO
 var has_ground_hit: bool = false
+## Точка земли под мышкой (мир) — для дорог, которые ставятся не по клеткам (RoadTool).
+var ground_point := Vector3.ZERO
+## Мышь над панелью интерфейса.
+var over_ui: bool = false
+## Не показывать подсветку клетки (у инструмента дорог свой маркер), но считать клетку.
+var suppressed: bool = false
 
 var _ground_plane := Plane(Vector3.UP, 0.0)
 var _material := StandardMaterial3D.new()
@@ -47,15 +53,16 @@ func _process(_delta: float) -> void:
 	var grid: CityGrid = GameState.grid
 	has_ground_hit = hit != null
 	if has_ground_hit:
+		ground_point = hit
 		ground_cell = grid.world_to_grid(hit)
 	# Над панелями UI курсор прячем, но ground_cell считаем дальше —
 	# начатое протягивание не обрывается, если мышь заехала на панель.
-	var over_ui: bool = get_viewport().gui_get_hovered_control() != null
+	over_ui = get_viewport().gui_get_hovered_control() != null
 	if over_ui or not has_ground_hit or not grid.is_in_bounds(ground_cell):
 		has_cell = false
 		visible = false
 		return
 	hovered_cell = ground_cell
 	has_cell = true
-	visible = true
+	visible = not suppressed
 	position = grid.grid_to_world(hovered_cell) + Vector3.UP * HIGHLIGHT_HEIGHT

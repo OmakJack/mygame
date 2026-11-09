@@ -1,8 +1,9 @@
 class_name TrafficLights
 extends RefCounted
 ## Светофоры на перекрёстках: правила общие для симуляции (время на перекрёсток при выборе пути)
-## и для машинок (стоят на красный). Перекрёсток — клетка дороги с тремя и более соседями-дорогами,
-## кроме шоссе (там развязки без светофоров).
+## и для машинок (стоят на красный). Перекрёсток — клетка узла графа дорог (RoadGraph) с тремя
+## и более дорогами, кроме шоссе (там развязки без светофоров). Для дорог из клеток (подхват графом)
+## это то же, что клетка с тремя и более соседями-дорогами (так было до 2026-11-09).
 ## Фазы: зелёный по оси N–S (ось 0), жёлтый-красный, зелёный по оси E–W (ось 1), красный.
 ## Соседние перекрёстки сдвинуты по фазе на OFFSET_PER_CELL — «зелёная волна» вдоль улиц.
 
@@ -20,13 +21,7 @@ static var time: float = 0.0
 
 
 static func is_junction(grid: CityGrid, cell: Vector2i) -> bool:
-	if not grid.is_road(cell) or grid.get_road_type(cell) == RoadTypes.Type.HIGHWAY:
-		return false
-	var neighbors: int = 0
-	for offset: Vector2i in CityGrid.NEIGHBORS:
-		if grid.is_road(cell + offset):
-			neighbors += 1
-	return neighbors >= 3
+	return grid.roads.is_junction(grid, cell)
 
 
 ## Задержка на клетке при выборе пути: на перекрёстке — ожидание светофора.

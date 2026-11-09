@@ -74,11 +74,13 @@ func _initialize() -> void:
 	var back = CS.from_dict(JSON.parse_string(JSON.stringify(d)))
 	check.call("road types saved", back.ok and back.grid.get_road_type(Vector2i(15, 20)) == 2)
 
-	# Вид: кусок проспекта и шоссе разные.
-	var rv: GridMap = main.get_node("RoadVisualizer")
-	ev.cells_changed.emit([Vector2i(15, 20)] as Array[Vector2i])
-	var item: int = rv.get_cell_item(Vector3i(15, 0, 20))
-	check.call("avenue piece drawn", item >= RoadMeshes.AVENUE_BASE and item < RoadMeshes.HIGHWAY_BASE)
-	check.call("highway pieces exist", rv.mesh_library.get_item_mesh(RoadMeshes.HIGHWAY_BASE + 1) != null)
+	# Вид: полотно по графу дорог — клетки проспекта стали отрезком-проспектом, он нарисован.
+	var rv: Node = main.get_node("RoadVisualizer")
+	await process_frame
+	var graph: RoadGraph = city.roads
+	var owners: Array[int] = graph.owners_of(Vector2i(15, 20))
+	check.call("avenue segment drawn", not owners.is_empty() and graph.segments[owners[0]].type == 2
+			and rv.segment_mesh_count() > 0)
+	check.call("highway piece exists", RoadGeometry.straight_piece(3, CityGrid.CELL_SIZE).get_surface_count() == 1)
 	print("ALL OK" if fails.is_empty() else "FAIL: " + ", ".join(fails))
 	quit()

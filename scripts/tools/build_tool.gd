@@ -137,6 +137,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		if button.button_index == MOUSE_BUTTON_LEFT and button.pressed and cursor.has_cell:
 			Events.cell_inspected.emit(cursor.hovered_cell)
 		return
+	# Дороги мышью строит RoadTool (по точкам, как в Cities: Skylines). Протягивание по клеткам
+	# (_update_drag / _apply) осталось для тестов и сценариев.
+	if MODE_ROADS.has(mode):
+		return
 	if button.button_index == MOUSE_BUTTON_LEFT and button.pressed and cursor.has_cell:
 		_dragging = true
 		_drag_start = cursor.hovered_cell

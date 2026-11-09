@@ -69,6 +69,15 @@ func _lane_offset() -> float:
 	return BIKE_LANE_OFFSET if cyclists else SIDEWALK_OFFSET
 
 
+## По тротуару (середина между асфальтом и краем) и у края асфальта — по ширине дороги клетки.
+func _lane_offset_at(grid: CityGrid, index: int) -> float:
+	var road_type: int = grid.road_type[index] if index < grid.road_type.size() else 0
+	if not RoadTypes.HALF_WIDTH.has(road_type) or road_type == RoadTypes.Type.STREET:
+		return _lane_offset()
+	var asphalt: float = RoadTypes.ASPHALT_HALF[road_type]
+	return asphalt - (RoadTypes.ASPHALT_HALF[RoadTypes.Type.STREET] - BIKE_LANE_OFFSET) if cyclists 			else (asphalt + RoadTypes.HALF_WIDTH[road_type]) * 0.5
+
+
 ## Пешеходы и велосипедисты не стоят в очереди и на светофорах (пока нет переходов).
 func _obeys_rules() -> bool:
 	return false
