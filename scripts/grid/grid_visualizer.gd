@@ -1,6 +1,7 @@
 extends MeshInstance3D
 ## Рисует линии сетки на земле по размеру GameState.grid.
-## Видна только пока выбран инструмент: в обычном режиме картинка чистая.
+## Видна только пока выбран инструмент: в обычном режиме картинка чистая. У зон сетки нет: там видны
+## плитки самих полос (клетки у дорог по сетке, ячейки под углом у кривых) — линии карты их только путают.
 
 ## Высота линий над землёй, чтобы не мерцали.
 const LINE_HEIGHT: float = 0.01
@@ -17,7 +18,7 @@ func _ready() -> void:
 	visible = false
 	Events.grid_reset.connect(_rebuild)
 	Events.tool_mode_changed.connect(func(mode: int, _type_id: StringName) -> void:
-		visible = mode != BuildTool.Mode.NONE)
+		visible = mode != BuildTool.Mode.NONE and not BuildTool.MODE_ZONES.has(mode))
 	_rebuild()
 
 

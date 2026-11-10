@@ -130,13 +130,13 @@ static func collect() -> Array[Entry]:
 		if data == null:
 			continue
 		if data.power_use > 0 and not building.powered:
-			unpowered.append(building.cell)
+			unpowered.append(building.anchor_cell())
 		if data.water_use > 0 and not building.has_water:
-			dry.append(building.cell)
+			dry.append(building.anchor_cell())
 		if building.abandoned:
-			abandoned.append(building.cell)
+			abandoned.append(building.anchor_cell())
 		elif building.no_road_ticks > 0:
-			cut_road.append(building.cell)
+			cut_road.append(building.anchor_cell())
 	if utilities.unpowered_count > 0:
 		var entry := Entry.new("power", "Нет света у %d зд.: нужна ТЭЦ, ветряк или дорога к ним" % utilities.unpowered_count,
 				Level.ALERT, "stat_power")
@@ -197,7 +197,7 @@ static func collect() -> Array[Entry]:
 		var data: BuildingData = BuildingCatalog.get_type(building.type_id)
 		if data != null and data.population > 0 and not building.abandoned \
 				and land.building_value(land.pollution, grid, building) >= DIRTY_HOME:
-			dirty_homes.append(building.cell)
+			dirty_homes.append(building.anchor_cell())
 	var dirty_zone: Array[Vector2i] = []
 	for cell: Vector2i in grid.zoned_empty_cells[CityGrid.Zone.RESIDENTIAL]:
 		if land.value_at(land.pollution, grid, cell) >= DIRTY_HOME:

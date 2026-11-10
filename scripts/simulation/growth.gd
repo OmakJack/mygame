@@ -442,10 +442,9 @@ static func plan_free_at(grid: CityGrid, land: LandValue, zone_type: CityGrid.Zo
 	return {}
 
 
-## Ячейка свободна под зону: есть, не занята участком, все её клетки — свободная земля этой зоны
-## (ячейка без клеток подходит любой зоне).
+## Ячейка свободна под зону: есть, этой зоны, не занята участком, все её клетки — свободная земля.
 static func _free_slot_ok(grid: CityGrid, zone_type: CityGrid.Zone, slot: FreeStrips.Slot) -> bool:
-	if slot == null or grid.free_strips.occupied.has(slot.id):
+	if slot == null or slot.zone != zone_type or grid.free_strips.occupied.has(slot.id):
 		return false
 	for cell: Vector2i in slot.cells:
 		if not grid.zoned_empty_cells[zone_type].has(cell):

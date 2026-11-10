@@ -49,6 +49,8 @@ var strip_depth: PackedByteArray
 ## Пересчитываются при новой версии графа (ensure_strips).
 var free_strips := FreeStrips.new()
 var _strips_graph_version: int = -1
+## Зоны ячеек из сохранения ([середина, зона]) — лягут на ячейки при первой сборке полос.
+var loaded_slot_zones: Array[Array] = []
 
 # Кэши, чтобы не сканировать всю карту.
 var buildings: Dictionary[int, BuildingInstance] = {}
@@ -302,6 +304,10 @@ func get_zone(cell: Vector2i) -> Zone:
 func can_zone(cell: Vector2i, zone_type: Zone) -> bool:
 	if not is_in_bounds(cell):
 		return false
+	# Клетка свободной полосы: зона — у её ячейки.
+	var slot: FreeStrips.Slot = free_slot(cell)
+	if slot != null:
+		return can_zone_slot(slot, zone_type)
 	var i: int = index_of(cell)
 	if zone[i] == zone_type:
 		return false
@@ -328,6 +334,9 @@ static func _same_density_family(a: Zone, b: Zone) -> bool:
 func set_zone(cell: Vector2i, zone_type: Zone) -> bool:
 	if not can_zone(cell, zone_type):
 		return false
+	var slot: FreeStrips.Slot = free_slot(cell)
+	if slot != null:
+		return set_slot_zone(slot, zone_type)
 	var i: int = index_of(cell)
 	# Двор перекрасили в другую зону (или сняли) — участок распадается, дом остаётся без двора.
 	# Смена плотности (R ↔ R высокая) двор не трогает: дом перестроится на том же участке.
@@ -340,6 +349,38 @@ func set_zone(cell: Vector2i, zone_type: Zone) -> bool:
 
 
 # --- Полосы зон ---
+
+## Можно ли поставить зону на ячейку свободной полосы. Под домом и во дворе (ячейка занята участком) —
+## только смена плотности той же категории (R ↔ R высокая, C ↔ C высокая); чтобы снять зону — снести дом.
+func can_zone_slot(slot: FreeStrips.Slot, zone_type: Zone) -> bool:
+	if slot == null or slot.zone == zone_type:
+		return false
+	if free_strips.occupied.has(slot.id):
+		return slot.zone != Zone.NONE and zone_type != Zone.NONE and _same_density_family(slot.zone as Zone, zone_type)
+	for cell: Vector2i in slot.cells:
+		if tile_type[index_of(cell)] != Tile.EMPTY:
+			return false
+	return true
+
+
+## Ставит или снимает зону ячейки свободной полосы; клетки ячейки повторяют её зону.
+## true — зона изменилась. Сигнал шлёт вызывающий.
+func set_slot_zone(slot: FreeStrips.Slot, zone_type: Zone) -> bool:
+	if not can_zone_slot(slot, zone_type):
+		return false
+	slot.zone = zone_type
+	for cell: Vector2i in slot.cells:
+		zone[index_of(cell)] = zone_type
+		_update_zoned_cache(cell)
+	return true
+
+
+## Клетки, которые надо перерисовать после смены зоны ячейки (у ячейки без клеток — клетка под ней).
+func slot_redraw_cells(slot: FreeStrips.Slot) -> Array[Vector2i]:
+	if not slot.cells.is_empty():
+		return slot.cells.duplicate()
+	return [clamp_to_bounds(RoadGraph.cell_of(slot.center))]
+
 
 ## Есть ли у клетки полоса зоны (можно размечать, может вырасти дом).
 func in_strip(cell: Vector2i) -> bool:
@@ -384,6 +425,9 @@ func ensure_strips() -> void:
 	if roads.version == _strips_graph_version:
 		return
 	_strips_graph_version = roads.version
+	var marks: Array[Array] = free_strips.zone_marks()
+	marks.append_array(loaded_slot_zones)
+	loaded_slot_zones = []
 	var candidates: Dictionary[Vector2i, Array] = free_strips.candidates(self)
 	rebuild_strips()
 	var owners: Dictionary[Vector2i, Array] = {}
@@ -402,6 +446,53 @@ func ensure_strips() -> void:
 		strip_dir[i] = _dir_of_vector(slot.front)
 		strip_depth[i] = slot.row
 	_mark_free_lots()
+	_restore_slot_zones(marks)
+
+
+## Зоны новых ячеек: под участком — зона его дома; иначе — зона старой ячейки на том же месте (marks),
+## а если её не было (старое сохранение, клетки бывшей полосы по сетке) — зона свободной клетки ячейки.
+## Свободные клетки ячейки получают её зону.
+func _restore_slot_zones(marks: Array[Array]) -> void:
+	var index: Dictionary[Vector2i, Array] = {}
+	for mark: Array in marks:
+		var key: Vector2i = RoadGraph.cell_of(mark[0])
+		if not index.has(key):
+			index[key] = []
+		index[key].append(mark)
+	for slot: FreeStrips.Slot in free_strips.slots:
+		var zone_type: int = Zone.NONE
+		var lot: Lot = lots.get(free_strips.occupied.get(slot.id, -1))
+		if lot != null:
+			zone_type = zone[index_of(lot.shape[0])]
+		else:
+			var best: float = FreeStrips.MARK_RADIUS
+			var found: bool = false
+			var at: Vector2i = RoadGraph.cell_of(slot.center)
+			for dy: int in [-1, 0, 1]:
+				for dx: int in [-1, 0, 1]:
+					for mark: Array in index.get(at + Vector2i(dx, dy), []):
+						var d: float = slot.center.distance_to(mark[0])
+						if d < best:
+							best = d
+							zone_type = mark[1]
+							found = true
+			if not found:
+				for cell: Vector2i in slot.cells:
+					var i: int = index_of(cell)
+					if tile_type[i] == Tile.EMPTY and lot_at[i] == -1 and zone[i] != Zone.NONE:
+						zone_type = zone[i]
+						break
+		slot.zone = zone_type
+		for cell: Vector2i in slot.cells:
+			var i: int = index_of(cell)
+			if tile_type[i] == Tile.EMPTY and lot_at[i] == -1 and zone[i] != zone_type:
+				zone[i] = zone_type
+				_update_zoned_cache(cell)
+
+
+## Полосы соберутся заново при следующем обращении (загрузка: граф и зоны ячеек пришли из файла).
+func invalidate_strips() -> void:
+	_strips_graph_version = -1
 
 
 ## Сторона 0..3 = N/E/S/W, ближайшая к направлению dir (мир x, z).
@@ -605,7 +696,7 @@ func building_on_lot(lot: Lot) -> BuildingInstance:
 
 ## Участок здания или null.
 func lot_of(building: BuildingInstance) -> Lot:
-	return get_lot(building.shape[0] if building.is_free() else building.cell)
+	return get_lot(building.anchor_cell())
 
 
 ## Здание на клетке или дом, чей это двор; null — ни того, ни другого.
@@ -745,8 +836,10 @@ func place_building(type_id: StringName, cell: Vector2i, orientation: int, clear
 
 
 ## Ставит дом под углом дороги (полоса свободной дороги): клетки shape, середина center (мир x, z),
-## поворот yaw (Basis(UP, yaw)), сторона фасада dir (ближайшая из 0..3). Номер экземпляра или −1.
-func place_free_building(type_id: StringName, shape: Array[Vector2i], center: Vector2, yaw: float, dir: int) -> int:
+## поворот yaw (Basis(UP, yaw)), сторона фасада dir (ближайшая из 0..3). clear_zone — стереть зону клеток
+## (службы). Номер экземпляра или −1.
+func place_free_building(type_id: StringName, shape: Array[Vector2i], center: Vector2, yaw: float, dir: int,
+		clear_zone: bool = false) -> int:
 	if shape.is_empty():
 		return -1
 	for c: Vector2i in shape:
@@ -766,6 +859,8 @@ func place_free_building(type_id: StringName, shape: Array[Vector2i], center: Ve
 		var i: int = index_of(c)
 		tile_type[i] = Tile.BUILDING
 		building_at[i] = id
+		if clear_zone:
+			zone[i] = Zone.NONE
 		_update_zoned_cache(c)
 	return id
 

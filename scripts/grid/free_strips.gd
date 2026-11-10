@@ -8,6 +8,9 @@ extends RefCounted
 ## Дороги по центрам клеток вдоль осей — по-прежнему полосы из клеток (CityGrid._compute_strip).
 ## Строится заново при каждой новой версии графа (CityGrid.ensure_strips); номера ячеек меняются,
 ## участки помнят себя по форме (многоугольник), не по номерам.
+## Зона — у ячейки (Slot.zone), а не у клеток: на диагонали в каждую пятую ячейку не попадает ни одного
+## центра клетки. Клетки ячейки зону повторяют (рост, уровни и слои считают по клеткам). При перестройке
+## зоны переносятся на новые ячейки по месту (zone_marks → CityGrid.ensure_strips).
 
 ## Ячейка: шаг вдоль дороги и глубина ряда, м; рядов.
 const ROW: float = 2.0
@@ -23,6 +26,10 @@ const END_SLACK: float = 0.1
 const FIT_SLACK: float = 0.05
 ## Дальше дом от полотна не отодвигается (внутренняя сторона крутой дуги — не встаёт), м.
 const MAX_SETBACK: float = 1.0
+## Зона переходит на новую ячейку со старой, если их середины не дальше, м (колонки сдвигаются до 1 м).
+const MARK_RADIUS: float = 1.5
+## Дальше стольких отрезков зона одним движением вдоль дороги не тянется.
+const MAX_CHAIN: int = 12
 
 
 ## Ячейка зоны вдоль отрезка.
@@ -43,6 +50,8 @@ class Slot extends RefCounted:
 	var cells: Array[Vector2i] = []
 	## Ближайшая к ячейке клетка её отрезка (связь с трассой, поток машин у магазина).
 	var road: Vector2i = Vector2i(-1, -1)
+	## Зона ячейки (CityGrid.Zone); меняет только CityGrid.set_slot_zone.
+	var zone: int = 0
 
 
 ## Колонки отрезка: начало первой по дуге от узла a, сколько их, полуширина полотна.
@@ -102,6 +111,108 @@ func slot_in(segment: int, side: int, col: int, row: int) -> Slot:
 	return slots[ids[row - 1]]
 
 
+## Ячейка под точкой мира (x, z) или null. Из нескольких дорог — та, чей край ближе.
+func slot_at_point(p: Vector2) -> Slot:
+	var best: Slot = null
+	var best_e: float = INF
+	for id: int in frames:
+		var f: Frame = frames[id]
+		var segment: RoadGraph.Segment = _graph.segments.get(id)
+		if f.count == 0 or segment == null:
+			continue
+		if not _graph._bbox(segment).grow(f.half + DEPTH * ROW + 0.5).has_point(p):
+			continue
+		var near: Vector2 = _graph.nearest_on(segment, p)
+		var e: float = near.y - f.half
+		if e < 0.0 or e >= DEPTH * ROW or e >= best_e:
+			continue
+		var foot: Vector2 = RoadGraph.bezier(f.curve[0], f.curve[1], f.curve[2], near.x)
+		var tangent: Vector2 = RoadGraph.bezier_tangent(f.curve[0], f.curve[1], f.curve[2], near.x).normalized()
+		if absf((p - foot).dot(tangent)) > END_SLACK:
+			continue
+		var side: int = 1 if (p - foot).dot(Vector2(tangent.y, -tangent.x)) > 0.0 else -1
+		var slot: Slot = slot_in(id, side, floori((_s_of(f.table, near.x) - f.offset) / ROW), floori(e / ROW) + 1)
+		if slot != null:
+			best = slot
+			best_e = e
+	return best
+
+
+## Колонка и ряд полосы (segment, side) под точкой p; за краями полосы — ближайшие (протягивание зоны
+## вдоль дороги: мышь может уйти с полосы).
+func coords_at(segment: int, side: int, p: Vector2) -> Vector2i:
+	var f: Frame = frames.get(segment)
+	var road: RoadGraph.Segment = _graph.segments.get(segment) if _graph != null else null
+	if f == null or road == null or f.count == 0:
+		return Vector2i.ZERO
+	var near: Vector2 = _graph.nearest_on(road, p)
+	var foot: Vector2 = RoadGraph.bezier(f.curve[0], f.curve[1], f.curve[2], near.x)
+	var tangent: Vector2 = RoadGraph.bezier_tangent(f.curve[0], f.curve[1], f.curve[2], near.x).normalized()
+	var n: float = (p - foot).dot(Vector2(tangent.y, -tangent.x)) * side
+	return Vector2i(clampi(floori((_s_of(f.table, near.x) - f.offset) / ROW), 0, f.count - 1),
+			clampi(floori((n - f.half) / ROW) + 1, 1, DEPTH))
+
+
+## Путь по дорогам от отрезка from до отрезка to через общие узлы (кратчайший по числу отрезков):
+## [[отрезок, вперёд ли — от узла a к b], …]; пусто — не связаны ближе MAX_CHAIN отрезков.
+## Дорога, проложенная в несколько щелчков, — цепочка отрезков: зона тянется вдоль неё через узлы.
+func chain(from: int, to: int) -> Array[Array]:
+	var none: Array[Array] = []
+	if _graph == null or not _graph.segments.has(from) or not _graph.segments.has(to):
+		return none
+	if from == to:
+		return [[from, true]]
+	# Состояние обхода в ширину — (отрезок, 1 — идём от a к b).
+	var queue: Array[Vector2i] = [Vector2i(from, 1), Vector2i(from, 0)]
+	var depth: Dictionary[Vector2i, int] = {queue[0]: 0, queue[1]: 0}
+	var prev: Dictionary[Vector2i, Vector2i] = {}
+	var head: int = 0
+	while head < queue.size():
+		var state: Vector2i = queue[head]
+		head += 1
+		if depth[state] >= MAX_CHAIN:
+			continue
+		var segment: RoadGraph.Segment = _graph.segments[state.x]
+		var exit: int = segment.b if state.y == 1 else segment.a
+		for id: int in _graph.nodes[exit].segments:
+			if id == state.x:
+				continue
+			var next := Vector2i(id, 1 if _graph.segments[id].a == exit else 0)
+			if depth.has(next):
+				continue
+			depth[next] = depth[state] + 1
+			prev[next] = state
+			if id == to:
+				var path: Array[Array] = []
+				var at: Vector2i = next
+				while true:
+					path.push_front([at.x, at.y == 1])
+					if not prev.has(at):
+						break
+					at = prev[at]
+				return path
+			queue.append(next)
+	return none
+
+
+## Ячейки, чья середина в прямоугольнике мира.
+func slots_in(rect: Rect2) -> Array[Slot]:
+	var result: Array[Slot] = []
+	for slot: Slot in slots:
+		if rect.has_point(slot.center):
+			result.append(slot)
+	return result
+
+
+## Зоны ячеек для переноса на новые ячейки: [середина, зона] у каждой ячейки с зоной.
+func zone_marks() -> Array[Array]:
+	var marks: Array[Array] = []
+	for slot: Slot in slots:
+		if slot.zone != 0:
+			marks.append([slot.center, slot.zone])
+	return marks
+
+
 ## Точка и касательная (единичная, a → b) отрезка на расстоянии s по дуге от a.
 func frame_at(segment: int, s: float) -> PackedVector2Array:
 	var f: Frame = frames[segment]
@@ -156,12 +267,13 @@ func house_pose(segment: int, side: int, col: int, columns: int, width: float, d
 		if into <= FIT_SLACK * 0.5:
 			break
 		n += into + 0.01
+	# Боковые края колонок — перпендикуляры к дороге: угол дома между ними, пока его место по дуге
+	# (s ближайшей точки дороги) — в пределах колонок.
 	var ok: bool = n - f.half <= MAX_SETBACK
-	if ok:
-		var lot: PackedVector2Array = lot_shape(segment, side, col, columns, DEPTH).corners
-		var room: PackedVector2Array = Geometry2D.offset_polygon(lot, FIT_SLACK)[0]
-		for p: Vector2 in corners:
-			ok = ok and Geometry2D.is_point_in_polygon(p, room)
+	var s0: float = f.offset + col * ROW
+	for p: Vector2 in corners:
+		var s: float = _s_of(f.table, _graph.nearest_on(road, p).x)
+		ok = ok and s >= s0 - FIT_SLACK and s <= s0 + columns * ROW + FIT_SLACK
 	var front: Vector2 = -outward
 	return {"center": mid[0] + outward * (n + depth * 0.5), "yaw": atan2(-front.x, -front.y), "corners": corners,
 			"setback": n - f.half, "ok": ok}

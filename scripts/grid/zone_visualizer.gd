@@ -4,6 +4,8 @@ extends MultiMeshInstance3D
 ## Слой выбирают во вкладке «Фильтры» (FilterPanel) через Events.overlay_requested; обычный — зоны.
 ## Вдоль свободных дорог (диагональ, дуга — этап C3) зоны рисуются не клетками, а ячейками FreeStrips
 ## под углом дороги (_slots: одна сетка-меш на все ячейки); клетки там в слое зон прозрачные.
+## В слоях света, воды, трафика и служб дом под углом — своим прямоугольником (тот же меш _slots),
+## а дороги красит RoadVisualizer по самому полотну (road_tint) — клетки дорог тут прозрачные.
 
 enum Overlay { ZONES, POWER, WATER, SERVICES, TRAFFIC, LAND_VALUE, POLLUTION, NOISE }
 
@@ -56,20 +58,20 @@ const STRIP_CHECKER: float = 0.04
 
 ## Ячейки свободных полос чуть уже своих границ — видна сетка ячеек.
 const SLOT_INSET: float = 0.06
-## Где искать зону для ячейки без клеток (колонка, ряд): ближние — раньше.
-const SLOT_NEIGHBORS: Array[Vector2i] = [Vector2i(0, 1), Vector2i(0, -1), Vector2i(-1, 0), Vector2i(1, 0),
-		Vector2i(-1, 1), Vector2i(1, 1), Vector2i(-1, -1), Vector2i(1, -1), Vector2i(0, 2), Vector2i(0, -2),
-		Vector2i(-2, 0), Vector2i(2, 0)]
+## Клетка зоны чуть меньше клетки карты — та же сетка плиток, что у ячеек (линий карты у зон нет).
+const CELL_INSET: float = 0.94
+## Углы четырёхугольника двумя треугольниками.
+const QUAD: Array[int] = [0, 1, 2, 0, 2, 3]
 
 const CLEAR := Color(0, 0, 0, 0)
 const SERVED := Color(0.2, 0.85, 0.3, 0.75)
 const UNSERVED := Color(1.0, 0.15, 0.15, 0.85)
-## Станция / дорога с ресурсом для слоёв света и воды.
+## Станция / дорога с ресурсом для слоёв света и воды (дорогу красит RoadVisualizer по полотну).
 const POWER_SOURCE := Color(1.0, 0.85, 0.1, 0.9)
-const POWER_ROAD := Color(1.0, 0.85, 0.1, 0.35)
+const POWER_ROAD := Color(1.0, 0.85, 0.1, 0.6)
 const WATER_SOURCE := Color(0.2, 0.75, 1.0, 0.9)
-const WATER_ROAD := Color(0.2, 0.75, 1.0, 0.35)
-const NO_SUPPLY_ROAD := Color(0.4, 0.4, 0.4, 0.35)
+const WATER_ROAD := Color(0.2, 0.75, 1.0, 0.6)
+const NO_SUPPLY_ROAD := Color(0.55, 0.55, 0.55, 0.5)
 ## Слой служб: прозрачность растёт с числом служб, покрывающих клетку.
 const COVERAGE_COLOR := Color(0.3, 0.9, 0.4)
 const SERVICE_BUILDING := Color(1.0, 1.0, 1.0, 0.9)
@@ -140,11 +142,13 @@ func _rebuild() -> void:
 	var grid: CityGrid = GameState.grid
 	multimesh.instance_count = grid.size * grid.size
 	var height: float = ZONE_HEIGHT if overlay == Overlay.ZONES else OVERLAY_HEIGHT
+	var basis: Basis = Basis.IDENTITY.scaled(Vector3(CELL_INSET, 1.0, CELL_INSET)) if overlay == Overlay.ZONES \
+			else Basis.IDENTITY
 	for y: int in grid.size:
 		for x: int in grid.size:
 			var cell := Vector2i(x, y)
 			var pos: Vector3 = grid.grid_to_world(cell) + Vector3.UP * height
-			multimesh.set_instance_transform(grid.index_of(cell), Transform3D(Basis.IDENTITY, pos))
+			multimesh.set_instance_transform(grid.index_of(cell), Transform3D(basis, pos))
 	_repaint_all()
 
 
@@ -191,28 +195,34 @@ func _on_cells_changed(cells: Array[Vector2i]) -> void:
 	_rebuild_slots()
 
 
-## Меш ячеек свободных полос: по четырёхугольнику на ячейку, цвет — как у клетки в том же состоянии.
+## Меш под углом дороги. Слой зон — ячейки свободных полос: по четырёхугольнику на ячейку, цвет — как
+## у клетки в том же состоянии. Слои света, воды, трафика, служб — прямоугольники домов под углом.
 func _rebuild_slots() -> void:
 	var grid: CityGrid = GameState.grid
-	_slots.visible = overlay == Overlay.ZONES
-	if not _slots.visible:
-		return
 	grid.ensure_strips()
-	var strips: FreeStrips = grid.free_strips
-	if strips.slots.is_empty():
-		_slots.mesh = null
-		return
 	var points := PackedVector3Array()
 	var colors := PackedColorArray()
-	for slot: FreeStrips.Slot in strips.slots:
-		var color: Color = _slot_color(grid, slot)
-		if color.a <= 0.0:
-			continue
-		var c: PackedVector2Array = slot.corners
-		for i: int in [0, 1, 2, 0, 2, 3]:
-			var p: Vector2 = c[i].lerp(slot.center, SLOT_INSET)
-			points.append(Vector3(p.x, ZONE_HEIGHT, p.y))
-			colors.append(color)
+	if overlay == Overlay.ZONES:
+		for slot: FreeStrips.Slot in grid.free_strips.slots:
+			var color: Color = _slot_color(grid, slot)
+			if color.a <= 0.0:
+				continue
+			var c: PackedVector2Array = slot.corners
+			for i: int in QUAD:
+				var p: Vector2 = c[i].lerp(slot.center, SLOT_INSET)
+				points.append(Vector3(p.x, ZONE_HEIGHT, p.y))
+				colors.append(color)
+	elif BUILDING_OVERLAYS.has(overlay):
+		for building: BuildingInstance in grid.buildings.values():
+			if not building.is_free():
+				continue
+			var color: Color = _building_color(grid, building)
+			if color.a <= 0.0:
+				continue
+			var c: PackedVector2Array = grid.free_footprint(building)
+			for i: int in QUAD:
+				points.append(Vector3(c[i].x, OVERLAY_HEIGHT, c[i].y))
+				colors.append(color)
 	if points.is_empty():
 		_slots.mesh = null
 		return
@@ -226,31 +236,22 @@ func _rebuild_slots() -> void:
 	_slots.mesh = mesh
 
 
-## Цвет ячейки свободной полосы: зона её клеток (ячейка без клеток — клетки под её серединой),
-## под домом — почти прозрачная, двор — по виду двора, без зоны — подсказка полосы у инструмента зон.
+## Цвет ячейки свободной полосы: её зона; под домом — почти прозрачная, двор — по виду двора,
+## под службой — пусто, без зоны — подсказка полосы у инструмента зон.
 func _slot_color(grid: CityGrid, slot: FreeStrips.Slot) -> Color:
 	var lot_id: int = grid.free_strips.occupied.get(slot.id, -1)
 	if lot_id != -1 and grid.lots.has(lot_id):
 		var building: BuildingInstance = grid.building_on_lot(grid.lots[lot_id])
 		var data: BuildingData = BuildingCatalog.get_type(building.type_id) if building != null else null
 		if data != null:
+			if data.zone == CityGrid.Zone.NONE:
+				return CLEAR
 			if slot.row <= data.size.y:
-				var built: Color = ZONE_COLORS[data.zone] if ZONE_COLORS.has(data.zone) else CLEAR
+				var built: Color = ZONE_COLORS[data.zone]
 				built.a = BUILT_ALPHA
 				return built
-			var yard: Color = _yard_color(grid, grid.lots[lot_id].shape[0], ZONE_COLORS.get(data.zone, CLEAR))
-			return yard
-	# Ячейка без клеток — зона ближайшей ячейки с клетками той же полосы (через одну — тоже).
-	var source: FreeStrips.Slot = slot
-	if slot.cells.is_empty():
-		source = null
-		for step: Vector2i in SLOT_NEIGHBORS:
-			var other: FreeStrips.Slot = grid.free_strips.slot_in(slot.segment, slot.side, slot.col + step.x,
-					slot.row + step.y)
-			if other != null and not other.cells.is_empty() and not grid.free_strips.occupied.has(other.id):
-				source = other
-				break
-	var zone_type: CityGrid.Zone = grid.get_zone(source.cells[0]) if source != null else CityGrid.Zone.NONE
+			return _yard_color(grid, grid.lots[lot_id].shape[0], ZONE_COLORS[data.zone])
+	var zone_type: CityGrid.Zone = slot.zone as CityGrid.Zone
 	if zone_type == CityGrid.Zone.NONE:
 		if not _show_strips:
 			return CLEAR
@@ -345,19 +346,60 @@ func _yard_color(grid: CityGrid, cell: Vector2i, fallback: Color) -> Color:
 	return YARD_PARKING
 
 
-## Свет (power = true) или вода: станции, здания со ресурсом и без, дороги с запасом.
+## Слои, где у здания свой цвет: дом под углом дороги рисуется прямоугольником (_rebuild_slots).
+const BUILDING_OVERLAYS: Array[Overlay] = [Overlay.POWER, Overlay.WATER, Overlay.TRAFFIC, Overlay.SERVICES]
+
+
+## Цвет полотна отрезка дороги в слое mode (красит RoadVisualizer): свет и вода — есть ли запас в его
+## сети дорог; CLEAR — слой дорог так не красит (трафик — лентой с цветом вдоль отрезка, traffic_road_color).
+static func road_tint(mode: int, _grid: CityGrid, segment: RoadGraph.Segment) -> Color:
+	if segment == null or segment.cells.is_empty():
+		return CLEAR
+	match mode:
+		Overlay.POWER, Overlay.WATER:
+			var component: int = GameState.network.component_of.get(segment.cells[0], -1)
+			var supplied: Dictionary[int, bool] = GameState.utilities.powered_components if mode == Overlay.POWER \
+					else GameState.utilities.watered_components
+			if supplied.has(component):
+				return POWER_ROAD if mode == Overlay.POWER else WATER_ROAD
+			return NO_SUPPLY_ROAD
+	return CLEAR
+
+
+## Цвет дороги в слое трафика по загрузке (1 — на пределе).
+static func traffic_road_color(ratio: float) -> Color:
+	if ratio <= 0.0:
+		return NO_SUPPLY_ROAD
+	if ratio < TRAFFIC_BUSY_RATIO:
+		return TRAFFIC_FREE.lerp(TRAFFIC_BUSY, ratio / TRAFFIC_BUSY_RATIO)
+	return TRAFFIC_BUSY.lerp(TRAFFIC_JAM, clampf((ratio - TRAFFIC_BUSY_RATIO) / (1.0 - TRAFFIC_BUSY_RATIO), 0.0, 1.0))
+
+
+## Цвет здания в слое (свет, вода, трафик, службы) или CLEAR.
+func _building_color(grid: CityGrid, building: BuildingInstance) -> Color:
+	match overlay:
+		Overlay.POWER:
+			return _utility_building_color(grid, building, true)
+		Overlay.WATER:
+			return _utility_building_color(grid, building, false)
+		Overlay.TRAFFIC:
+			return _commute_color(building)
+		Overlay.SERVICES:
+			var data: BuildingData = BuildingCatalog.get_type(building.type_id)
+			return SERVICE_BUILDING if data != null and data.service != BuildingData.Service.NONE else CLEAR
+	return CLEAR
+
+
+## Свет (power = true) или вода: станции, здания со ресурсом и без. Дороги — RoadVisualizer (road_tint).
 func _utility_color(cell: Vector2i, power: bool) -> Color:
 	var grid: CityGrid = GameState.grid
-	if grid.is_road(cell):
-		var component: int = GameState.network.component_of.get(cell, -1)
-		var supplied: Dictionary[int, bool] = GameState.utilities.powered_components if power \
-				else GameState.utilities.watered_components
-		if supplied.has(component):
-			return POWER_ROAD if power else WATER_ROAD
-		return NO_SUPPLY_ROAD
 	var building: BuildingInstance = grid.get_building_at(cell)
-	if building == null:
+	if building == null or building.is_free():
 		return CLEAR
+	return _utility_building_color(grid, building, power)
+
+
+func _utility_building_color(grid: CityGrid, building: BuildingInstance, power: bool) -> Color:
 	var data: BuildingData = BuildingCatalog.get_type(building.type_id)
 	if data == null:
 		return CLEAR
@@ -372,20 +414,16 @@ func _utility_color(cell: Vector2i, power: bool) -> Color:
 	return SERVED if (building.powered if power else building.has_water) else UNSERVED
 
 
+## Дома с долгой дорогой до работы. Дороги — RoadVisualizer (road_tint).
 func _traffic_color(cell: Vector2i) -> Color:
-	var grid: CityGrid = GameState.grid
-	var traffic: Traffic = GameState.traffic
-	if grid.is_road(cell):
-		var ratio: float = traffic.load_ratio(grid, grid.index_of(cell))
-		if ratio <= 0.0:
-			return NO_SUPPLY_ROAD
-		if ratio < TRAFFIC_BUSY_RATIO:
-			return TRAFFIC_FREE.lerp(TRAFFIC_BUSY, ratio / TRAFFIC_BUSY_RATIO)
-		return TRAFFIC_BUSY.lerp(TRAFFIC_JAM, clampf((ratio - TRAFFIC_BUSY_RATIO) / (1.0 - TRAFFIC_BUSY_RATIO), 0.0, 1.0))
-	var building: BuildingInstance = grid.get_building_at(cell)
-	if building == null:
+	var building: BuildingInstance = GameState.grid.get_building_at(cell)
+	if building == null or building.is_free():
 		return CLEAR
-	var badness: float = traffic.home_badness.get(building.id, 0.0)
+	return _commute_color(building)
+
+
+func _commute_color(building: BuildingInstance) -> Color:
+	var badness: float = GameState.traffic.home_badness.get(building.id, 0.0)
 	if badness <= 0.0:
 		return CLEAR
 	var color: Color = LONG_COMMUTE
@@ -396,7 +434,7 @@ func _traffic_color(cell: Vector2i) -> Color:
 func _service_color(cell: Vector2i) -> Color:
 	var grid: CityGrid = GameState.grid
 	var building: BuildingInstance = grid.get_building_at(cell)
-	if building != null:
+	if building != null and not building.is_free():
 		var data: BuildingData = BuildingCatalog.get_type(building.type_id)
 		if data != null and data.service != BuildingData.Service.NONE:
 			return SERVICE_BUILDING

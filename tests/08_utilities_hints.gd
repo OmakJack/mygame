@@ -154,7 +154,11 @@ func _initialize() -> void:
 	zv.set_overlay(zv.Overlay.POWER)
 	check.call("filter shows power", hud._filters.overlay == 1 and hud._filters._cards[1].button_pressed)
 	check.call("plant color", zv.multimesh.get_instance_color(g.index_of(plant.cell)).is_equal_approx(zv.POWER_SOURCE))
-	check.call("road color", zv.multimesh.get_instance_color(g.index_of(Vector2i(10,20))).is_equal_approx(zv.POWER_ROAD))
+	# Дорогу красит RoadVisualizer по самому полотну (не клетками).
+	await process_frame
+	var road_tint: Color = main.get_node("RoadVisualizer").tint_at(Vector2i(10, 20))
+	check.call("road color: the ribbon is tinted, not the cell", road_tint.is_equal_approx(zv.POWER_ROAD)
+			and zv.multimesh.get_instance_color(g.index_of(Vector2i(10, 20))).a == 0.0)
 	# Обесточить один дом для снимка: снести ТЭЦ.
 	drag.call(tool.Mode.BULLDOZE, plant.cell, plant.cell)
 	var some_home: BuildingInstance = null

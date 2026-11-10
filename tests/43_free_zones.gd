@@ -102,12 +102,43 @@ func _initialize() -> void:
 			if g.strip_dir[i] != plain.strip_dir[i] or g.strip_depth[i] != plain.strip_depth[i]: same = false
 	check.call("grid street: strips as before", same and g.free_slot(Vector2i(30, 55)) == null and g.get_strip_depth(Vector2i(30, 55)) == 1)
 
+	# --- Зона — у ячейки: клетка красит свою ячейку целиком; ячейка без клеток красится сама ---
+	var pair: FreeStrips.Slot = null
+	var bare: FreeStrips.Slot = null
+	var bare_count: int = 0
+	for slot: FreeStrips.Slot in strips.slots:
+		if slot.cells.size() == 2 and pair == null: pair = slot
+		if slot.cells.is_empty():
+			bare_count += 1
+			if bare == null: bare = slot
+	check.call("diagonal has slots without a cell (%d of %d) and with two" % [bare_count, strips.slots.size()],
+			bare != null and pair != null)
+	if pair != null and bare != null:
+		check.call("a cell zones its whole slot", g.can_zone(pair.cells[0], CityGrid.Zone.COMMERCIAL)
+				and g.set_zone(pair.cells[0], CityGrid.Zone.COMMERCIAL) and pair.zone == CityGrid.Zone.COMMERCIAL
+				and g.get_zone(pair.cells[1]) == CityGrid.Zone.COMMERCIAL and not g.can_zone(pair.cells[1], CityGrid.Zone.COMMERCIAL))
+		check.call("a slot without cells takes a zone", g.set_slot_zone(bare, CityGrid.Zone.COMMERCIAL)
+				and bare.zone == CityGrid.Zone.COMMERCIAL and not g.set_slot_zone(bare, CityGrid.Zone.COMMERCIAL))
+		check.call("dezone a slot", g.set_slot_zone(pair, CityGrid.Zone.NONE) and g.get_zone(pair.cells[0]) == CityGrid.Zone.NONE
+				and g.set_slot_zone(bare, CityGrid.Zone.NONE))
+	var under: FreeStrips.Slot = strips.slot_at_point(pair.center + (pair.corners[0] - pair.center) * 0.8) if pair != null else null
+	check.call("point → slot under it", under == pair and strips.slot_at_point(c.call(18, 18)) == null
+			and strips.slot_at_point(c.call(2, 2)) == null)
+
 	# --- Рост: всё в полосах — жильё ---
 	for y in 64:
 		for x in 64:
 			var cell := Vector2i(x, y)
 			if g.in_strip(cell) and not g.is_road(cell):
 				g.set_zone(cell, CityGrid.Zone.RESIDENTIAL)
+	for slot: FreeStrips.Slot in strips.slots:
+		g.set_slot_zone(slot, CityGrid.Zone.RESIDENTIAL)
+	var all_zoned: bool = true
+	for slot: FreeStrips.Slot in strips.slots:
+		if slot.zone != CityGrid.Zone.RESIDENTIAL: all_zoned = false
+		for cell: Vector2i in slot.cells:
+			if g.get_zone(cell) != CityGrid.Zone.RESIDENTIAL: all_zoned = false
+	check.call("every slot zoned, cells follow", all_zoned)
 	var net := RoadNetwork.new()
 	net.update(g)
 	var ut := Utilities.new()
@@ -224,6 +255,14 @@ func _initialize() -> void:
 		g2.ensure_strips()
 		check.call("loaded: same slots taken (%d / %d)" % [g2.free_strips.occupied.size(), strips.occupied.size()],
 				g2.free_strips.occupied.size() == strips.occupied.size() and strips.occupied.size() > 0)
+		var zones_kept: bool = g2.free_strips.slots.size() == strips.slots.size()
+		var bare_kept: int = 0
+		for i in mini(strips.slots.size(), g2.free_strips.slots.size()):
+			var before: FreeStrips.Slot = strips.slots[i]
+			var after: FreeStrips.Slot = g2.free_strips.slots[i]
+			if after.zone != before.zone or after.center.distance_to(before.center) > 0.001: zones_kept = false
+			if before.cells.is_empty() and after.zone == CityGrid.Zone.RESIDENTIAL: bare_kept += 1
+		check.call("loaded: slot zones kept, also where a slot has no cells (%d)" % bare_kept, zones_kept and bare_kept > 0)
 
 	# --- Новая дорога в стороне: номера ячеек новые, участки заняты те же ---
 	var taken: int = strips.occupied.size()
@@ -231,6 +270,11 @@ func _initialize() -> void:
 	g.ensure_strips()
 	check.call("new road elsewhere: lots keep their slots (%d / %d)" % [g.free_strips.occupied.size(), taken],
 			g.free_strips.occupied.size() == taken)
+	var still_zoned: bool = true
+	for slot: FreeStrips.Slot in g.free_strips.slots:
+		if slot.segment != diagonal and slot.segment != arc: continue
+		if slot.zone != CityGrid.Zone.RESIDENTIAL: still_zoned = false
+	check.call("new road elsewhere: slot zones carried over", still_zoned)
 
 	# --- Повышение уровня: тот же дом на том же месте и под тем же углом ---
 	var up: BuildingInstance = null
@@ -272,7 +316,18 @@ func _initialize() -> void:
 	var free_before: int = 0
 	for b: BuildingInstance in g.buildings.values():
 		if b.is_free(): free_before += 1
+	var marks: Array[Array] = strips.zone_marks()
 	road.call(g, c.call(10, 26), c.call(26, 10), STREET)
+	g.ensure_strips()
+	# Диагональ разрезана перекрёстком: зоны ячеек — на тех же местах (кроме самого перекрёстка).
+	var carried: int = 0
+	var lost: int = 0
+	for mark: Array in marks:
+		var now: FreeStrips.Slot = g.free_strips.slot_at_point(mark[0])
+		if now == null: continue
+		if now.zone == mark[1]: carried += 1
+		else: lost += 1
+	check.call("road split: slot zones stay in place (%d carried, %d lost)" % [carried, lost], carried > 200 and lost == 0)
 	var hit: int = 0
 	var free_after: int = 0
 	for b: BuildingInstance in g.buildings.values():

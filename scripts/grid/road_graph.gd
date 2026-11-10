@@ -230,6 +230,15 @@ func nearest_on(segment: Segment, pos: Vector2) -> Vector2:
 	return Vector2(t, bezier(points[0], points[1], points[2], t).distance_to(pos))
 
 
+## Лежит ли точка на полотне дороги (или не дальше margin от его края).
+func on_ribbon(pos: Vector2, margin: float = 0.0) -> bool:
+	for segment: Segment in segments.values():
+		var half: float = RoadTypes.HALF_WIDTH.get(segment.type, 1.0) + margin
+		if _bbox(segment).grow(half).has_point(pos) and nearest_on(segment, pos).y < half:
+			return true
+	return false
+
+
 ## Направление отрезка из узла node (касательная, единичная).
 func direction_from(segment: Segment, node: int) -> Vector2:
 	var points: PackedVector2Array = curve(segment)

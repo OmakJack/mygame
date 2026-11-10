@@ -28,7 +28,7 @@ class LoadResult extends RefCounted:
 
 static func to_dict(grid: CityGrid, city_name: String, money: int, tax_rate: int, minutes: int,
 		population: int, rank: int = -1, rng: RandomNumberGenerator = null) -> Dictionary:
-	grid.roads.sync(grid)
+	grid.ensure_strips()
 	var roads := PackedByteArray()
 	roads.resize(grid.size * grid.size)
 	roads.fill(0)
@@ -78,6 +78,8 @@ static func to_dict(grid: CityGrid, city_name: String, money: int, tax_rate: int
 			"lots": _lots_to_list(grid),
 			# Граф дорог (узлы и кривые, с 2026-11-09). Клетки дорог — по-прежнему в roads.
 			"road_graph": grid.roads.to_dict(),
+			# Зоны ячеек свободных полос (с 2026-11-10): [x, z середины в сантиметрах, зона, …].
+			"slot_zones": _slot_zones_to_list(grid),
 		},
 		"buildings": buildings,
 	}
@@ -169,6 +171,9 @@ static func from_dict(data: Variant) -> LoadResult:
 			grid.set_entry(edge, clampi(_int(entry[2], 0), 0, 3), clampi(_int(entry[3], 1), 1, 16))
 	# Граф дорог: нет поля (старое сохранение) — дороги из клеток становятся прямыми отрезками.
 	result.warnings.append_array(grid.roads.load_dict(grid, grid_data.get("road_graph")))
+	# Зоны ячеек свободных полос — лягут на ячейки, когда полосы соберутся (CityGrid.ensure_strips).
+	grid.loaded_slot_zones = _load_slot_zones(grid_data.get("slot_zones"))
+	grid.invalidate_strips()
 
 	var state: Dictionary = _dict(root.get("state"))
 	result.money = _int(state.get("money"), Economy.START_MONEY)
@@ -204,6 +209,29 @@ static func _lots_to_list(grid: CityGrid) -> Array:
 			continue
 		list.append([lot.rect.position.x, lot.rect.position.y, lot.rect.size.x, lot.rect.size.y, lot.dir])
 	return list
+
+
+static func _slot_zones_to_list(grid: CityGrid) -> Array:
+	var list: Array = []
+	for mark: Array in grid.free_strips.zone_marks():
+		list.append_array([roundi(mark[0].x * 100.0), roundi(mark[0].y * 100.0), mark[1]])
+	return list
+
+
+## Зоны ячеек из сохранения: [середина в мире, зона]; повреждённые тройки пропускаются.
+static func _load_slot_zones(value: Variant) -> Array[Array]:
+	var marks: Array[Array] = []
+	if not value is Array:
+		return marks
+	var list: Array = value
+	for i: int in range(0, list.size() - 2, 3):
+		var x: int = _int(list[i], -1)
+		var z: int = _int(list[i + 1], -1)
+		var zone_type: int = _int(list[i + 2], 0)
+		if x < 0 or z < 0 or zone_type <= 0 or zone_type >= CityGrid.Zone.size():
+			continue
+		marks.append([Vector2(x, z) * 0.01, zone_type])
+	return marks
 
 
 ## Клетки плоским списком [x, y, x, y, …].
@@ -265,8 +293,8 @@ static func _load_lot(grid: CityGrid, entry: Variant) -> bool:
 	return true
 
 
-## Участок вдоль свободной дороги: 4 угла, клетки на карте с зоной и без другого участка, не больше
-## 7 × STRIP_DEPTH клеток. false — пропущен.
+## Участок вдоль свободной дороги: 4 угла, клетки на карте без другого участка, не больше
+## 7 × STRIP_DEPTH клеток (зоны может не быть — участок службы). false — пропущен.
 static func _load_free_lot(grid: CityGrid, entry: Dictionary) -> bool:
 	var dir: int = _int(entry.get("dir"), -1)
 	var cells: Array[Vector2i] = _list_to_cells(entry.get("cells"))
@@ -279,7 +307,7 @@ static func _load_free_lot(grid: CityGrid, entry: Dictionary) -> bool:
 			return false
 		poly.append(Vector2(float(raw[i]), float(raw[i + 1])))
 	for cell: Vector2i in cells:
-		if not grid.is_in_bounds(cell) or grid.get_zone(cell) == CityGrid.Zone.NONE or grid.get_lot(cell) != null:
+		if not grid.is_in_bounds(cell) or grid.is_road(cell) or grid.get_lot(cell) != null:
 			return false
 	grid.add_free_lot(cells, poly, dir)
 	return true

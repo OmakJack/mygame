@@ -136,7 +136,10 @@ func _initialize() -> void:
 		if gs.traffic.load_ratio(g, g.index_of(road)) >= 1.0:
 			jam_cell = road
 			break
-	check.call("jam colored red", jam_cell.x >= 0 and zv.multimesh.get_instance_color(g.index_of(jam_cell)).is_equal_approx(zv.TRAFFIC_JAM))
+	# Дорогу красит RoadVisualizer по самому полотну (не клетками).
+	await process_frame
+	var jam_tint: Color = main.get_node("RoadVisualizer").tint_at(jam_cell) if jam_cell.x >= 0 else Color()
+	check.call("jam colored red (the ribbon) %s" % jam_tint, jam_cell.x >= 0 and jam_tint.is_equal_approx(zv.TRAFFIC_JAM))
 
 	# --- Машинки ---
 	clock.set_speed(1)

@@ -3,6 +3,11 @@ extends Node
 ## Инструменты строительства: дорога, снос, зоны, постановка служебных зданий.
 ## Меняет клетки только через CityGrid и шлёт один Events.cells_changed на операцию.
 ## Платные режимы списывают деньги через Economy и останавливаются, когда денег нет.
+## У свободных дорог (диагональ, дуга) игрок работает не с клетками карты, а с ячейками полосы
+## (FreeStrips): зона красится по ячейкам — начал с ячейки и тянешь вдоль дороги (прямоугольник
+## «колонки × ряды» изгибается с дорогой и идёт через узлы на следующие отрезки той же стороны),
+## начал с клетки — прямоугольник карты берёт и ячейки внутри;
+## служба встаёт под углом дороги; снос и «Инфо» находят дом под углом по его участку.
 
 ## Новые режимы — только в конец (номера режимов шлёт HUD через Events.tool_requested).
 enum Mode { NONE, ROAD, BULLDOZE, ZONE_R, ZONE_C, ZONE_I, DEZONE, PLACE, ZONE_R_HIGH, ZONE_C_HIGH, ZONE_O,
@@ -32,6 +37,9 @@ const MODE_ROADS: Dictionary[Mode, int] = {
 }
 ## Цвет клетки, куда здание поставить нельзя.
 const INVALID_COLOR := Color(1.0, 0.15, 0.15, 0.6)
+## Здание по клеткам не встаёт, если середина клетки ближе к краю полотна кривой дороги, м
+## (у дороги по сетке середина соседней клетки — в 1 м от края улицы и в 0.8 м от края проспекта).
+const RIBBON_CLEARANCE: float = 0.6
 
 ## Какую зону ставит режим (DEZONE ставит NONE, т. е. снимает).
 const MODE_ZONES: Dictionary[Mode, CityGrid.Zone] = {
@@ -86,6 +94,14 @@ var _drag_start: Vector2i = Vector2i.ZERO
 var _drag_end: Vector2i = Vector2i.ZERO
 ## Клетки текущей операции (пересчитываются, когда меняется _drag_end).
 var _drag_cells: Array[Vector2i] = []
+## Зона вдоль свободной дороги: с какой ячейки начали — [отрезок, сторона, колонка, ряд]; пусто —
+## протягивание прямоугольником клеток.
+var _drag_anchor: Array[int] = []
+## Полоса под мышью (отрезок, сторона) — своя или дальше по той же дороге — и колонка с рядом на ней.
+var _drag_strip := Vector2i.ZERO
+var _drag_coords := Vector2i.ZERO
+## Ячейки свободных полос текущей операции (зоны).
+var _drag_slots: Array[FreeStrips.Slot] = []
 
 
 func _ready() -> void:
@@ -118,7 +134,23 @@ func _process(_delta: float) -> void:
 		return
 	# Мышь за картой — прижимаем конец протягивания к краю.
 	var end: Vector2i = GameState.grid.clamp_to_bounds(cursor.ground_cell)
-	if end != _drag_end:
+	var moved: bool = end != _drag_end
+	if not _drag_anchor.is_empty():
+		# Вдоль свободной дороги — по ячейке под мышью: на своей полосе или дальше по той же стороне
+		# дороги; мышь ушла с полос — колонка и ряд последней полосы, ближайшие к мыши.
+		var over: FreeStrips.Slot = cursor.hovered_slot
+		var strip: Vector2i = _drag_strip
+		var coords: Vector2i
+		if over != null and not _chain_to(over.segment, over.side).is_empty():
+			strip = Vector2i(over.segment, over.side)
+			coords = Vector2i(over.col, over.row)
+		else:
+			coords = GameState.grid.free_strips.coords_at(strip.x, strip.y,
+					Vector2(cursor.ground_point.x, cursor.ground_point.z))
+		moved = moved or strip != _drag_strip or coords != _drag_coords
+		_drag_strip = strip
+		_drag_coords = coords
+	if moved:
 		_update_drag(end)
 
 
@@ -135,7 +167,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if mode == Mode.NONE:
 		# Без инструмента клик показывает, что на клетке (карточка «Инфо»).
 		if button.button_index == MOUSE_BUTTON_LEFT and button.pressed and cursor.has_cell:
-			Events.cell_inspected.emit(cursor.hovered_cell)
+			Events.cell_inspected.emit(_inspect_cell())
 		return
 	# Дороги мышью строит RoadTool (по точкам, как в Cities: Skylines). Протягивание по клеткам
 	# (_update_drag / _apply) осталось для тестов и сценариев.
@@ -144,7 +176,114 @@ func _unhandled_input(event: InputEvent) -> void:
 	if button.button_index == MOUSE_BUTTON_LEFT and button.pressed and cursor.has_cell:
 		_dragging = true
 		_drag_start = cursor.hovered_cell
+		_drag_anchor.clear()
+		# Зону начали с ячейки свободной полосы — тянем вдоль дороги.
+		var slot: FreeStrips.Slot = cursor.hovered_slot
+		if MODE_ZONES.has(mode) and slot != null:
+			_drag_anchor = [slot.segment, slot.side, slot.col, slot.row]
+			_drag_strip = Vector2i(slot.segment, slot.side)
+			_drag_coords = Vector2i(slot.col, slot.row)
 		_update_drag(_drag_start)
+
+
+## Клетка для карточки «Инфо»: под мышью; над участком дома под углом дороги — клетка этого участка
+## (центр клетки под мышью может лежать уже у соседа).
+func _inspect_cell() -> Vector2i:
+	var slot: FreeStrips.Slot = cursor.hovered_slot
+	var lot: CityGrid.Lot = _lot_of_slot(slot)
+	if lot != null:
+		return lot.shape[0]
+	# Пустая ячейка — её клетка: зона и причины «почему не строят» — те же.
+	if slot != null and not slot.cells.is_empty():
+		return slot.cells[0]
+	return cursor.hovered_cell
+
+
+## Участок, занявший ячейку свободной полосы, или null.
+func _lot_of_slot(slot: FreeStrips.Slot) -> CityGrid.Lot:
+	if slot == null:
+		return null
+	var grid: CityGrid = GameState.grid
+	return grid.lots.get(grid.free_strips.occupied.get(slot.id, -1))
+
+
+## Путь вдоль дороги от полосы начала (_drag_anchor) до полосы (segment, side): [[отрезок, сторона,
+## вперёд ли], …]. Сторона — та же по ходу движения: слева осталось слева. Пусто — не та сторона
+## дороги или отрезки не связаны.
+func _chain_to(segment: int, side: int) -> Array[Array]:
+	var none: Array[Array] = []
+	if _drag_anchor.is_empty():
+		return none
+	var path: Array[Array] = GameState.grid.free_strips.chain(_drag_anchor[0], segment)
+	if path.is_empty():
+		return none
+	# Сторона по ходу: у отрезка, пройденного от b к a, она с обратным знаком.
+	var travel: int = _drag_anchor[1] * (1 if path[0][1] else -1)
+	var result: Array[Array] = []
+	for step: Array in path:
+		result.append([step[0], travel * (1 if step[1] else -1), step[1]])
+	return result if result.back()[1] == side else none
+
+
+## Ячейки зоны под протягивание: вдоль дороги от ячейки начала (_drag_anchor) до колонки и ряда под
+## мышью (_drag_strip, _drag_coords) — через узлы по той же стороне дороги; а если начали с клетки —
+## все ячейки с серединой в прямоугольнике клеток.
+func _zone_slots(zone_type: CityGrid.Zone) -> Array[FreeStrips.Slot]:
+	var grid: CityGrid = GameState.grid
+	grid.ensure_strips()
+	var strips: FreeStrips = grid.free_strips
+	var result: Array[FreeStrips.Slot] = []
+	if not _drag_anchor.is_empty():
+		var path: Array[Array] = _chain_to(_drag_strip.x, _drag_strip.y)
+		var row_from: int = mini(_drag_anchor[3], _drag_coords.y)
+		var row_to: int = maxi(_drag_anchor[3], _drag_coords.y)
+		for k: int in path.size():
+			var frame: FreeStrips.Frame = strips.frames.get(path[k][0])
+			if frame == null or frame.count == 0:
+				continue
+			var forward: bool = path[k][2]
+			var col_from: int = 0
+			var col_to: int = frame.count - 1
+			if path.size() == 1:
+				col_from = mini(_drag_anchor[2], _drag_coords.x)
+				col_to = maxi(_drag_anchor[2], _drag_coords.x)
+			elif k == 0:
+				# От ячейки начала — до конца отрезка, куда ушли.
+				if forward:
+					col_from = _drag_anchor[2]
+				else:
+					col_to = _drag_anchor[2]
+			elif k == path.size() - 1:
+				# От узла, откуда пришли, — до ячейки под мышью.
+				if forward:
+					col_to = _drag_coords.x
+				else:
+					col_from = _drag_coords.x
+			for col: int in range(col_from, col_to + 1):
+				for row: int in range(row_from, row_to + 1):
+					var slot: FreeStrips.Slot = strips.slot_in(path[k][0], path[k][1], col, row)
+					if slot != null and grid.can_zone_slot(slot, zone_type):
+						result.append(slot)
+		return result
+	for slot: FreeStrips.Slot in strips.slots_in(_drag_rect()):
+		if grid.can_zone_slot(slot, zone_type):
+			result.append(slot)
+	return result
+
+
+## Прямоугольник протягивания в мире (x, z).
+func _drag_rect() -> Rect2:
+	var from: Vector2i = _drag_start.min(_drag_end)
+	var to: Vector2i = _drag_start.max(_drag_end)
+	return Rect2(Vector2(from) * CityGrid.CELL_SIZE, Vector2(to - from + Vector2i.ONE) * CityGrid.CELL_SIZE)
+
+
+## Углы ячеек — для превью.
+static func _quads_of(slots: Array[FreeStrips.Slot]) -> Array[PackedVector2Array]:
+	var quads: Array[PackedVector2Array] = []
+	for slot: FreeStrips.Slot in slots:
+		quads.append(slot.corners)
+	return quads
 
 
 ## Отпускание и отмена — здесь, чтобы UI не «съел» их и протягивание не залипло.
@@ -182,46 +321,155 @@ func _set_mode(new_mode: Mode, type_id: StringName = &"") -> void:
 
 func _update_drag(end: Vector2i) -> void:
 	_drag_end = end
+	_drag_slots.clear()
+	var quads: Array[PackedVector2Array] = []
 	match mode:
 		Mode.ROAD, Mode.ROAD_AVENUE, Mode.ROAD_HIGHWAY:
 			_drag_cells = _l_path(_drag_start, _drag_end)
 		Mode.BULLDOZE:
 			_drag_cells = _rect_cells(_drag_start, _drag_end)
+			# Дома под углом дороги — по участкам: ячейки в прямоугольнике и ячейка под мышью.
+			var grid: CityGrid = GameState.grid
+			grid.ensure_strips()
+			var hit: Array[FreeStrips.Slot] = grid.free_strips.slots_in(_drag_rect())
+			if cursor.hovered_slot != null and cursor.has_cell and cursor.hovered_cell == _drag_end:
+				hit.append(cursor.hovered_slot)
+			var lots: Dictionary[int, bool] = {}
+			for slot: FreeStrips.Slot in hit:
+				var lot: CityGrid.Lot = _lot_of_slot(slot)
+				if lot == null or lots.has(lot.id):
+					continue
+				lots[lot.id] = true
+				quads.append(lot.poly)
+				if not _drag_cells.has(lot.shape[0]):
+					_drag_cells.append(lot.shape[0])
 		Mode.ZONE_R, Mode.ZONE_C, Mode.ZONE_I, Mode.DEZONE, Mode.ZONE_R_HIGH, Mode.ZONE_C_HIGH, Mode.ZONE_O:
-			# Показываем только клетки, где зона реально изменится.
+			# Показываем только клетки и ячейки, где зона реально изменится.
 			var grid: CityGrid = GameState.grid
 			var zone_type: CityGrid.Zone = MODE_ZONES[mode]
-			# Красить можно только полосу у дороги (CityGrid.in_strip) — остальное отсеивает can_zone.
-			_drag_cells = _rect_cells(_drag_start, _drag_end).filter(
-				func(cell: Vector2i) -> bool: return grid.can_zone(cell, zone_type))
+			_drag_cells.clear()
+			if _drag_anchor.is_empty():
+				# Красить можно только полосу у дороги (CityGrid.in_strip) — остальное отсеивает can_zone.
+				# Клетки свободных полос идут ячейками.
+				_drag_cells = _rect_cells(_drag_start, _drag_end).filter(
+					func(cell: Vector2i) -> bool: return grid.free_slot(cell) == null and grid.can_zone(cell, zone_type))
+			_drag_slots = _zone_slots(zone_type)
 		Mode.PLACE:
 			# Здание ставится на участок с углом в клетке, где отпустили мышь.
 			var valid: bool = _can_place(_drag_end)
-			var target: Array[Vector2i] = _place_cells(_drag_end)
+			var plan: Dictionary = _free_place(_drag_end)
+			var target: Array[Vector2i] = _place_cells(_drag_end) if plan.is_empty() else ([] as Array[Vector2i])
+			if not plan.is_empty():
+				quads.append(plan.corners)
 			_drag_cells.clear()
 			if valid:
 				_drag_cells.append(_drag_end)
-			preview.show_cells(target, CURSOR_COLORS[mode] if valid else INVALID_COLOR)
+			preview.show_selection(target, quads, CURSOR_COLORS[mode] if valid else INVALID_COLOR)
 			return
-	_drag_cells = _affordable(_drag_cells)
-	preview.show_cells(_drag_cells, CURSOR_COLORS[mode])
+	_trim_to_budget()
+	quads.append_array(_quads_of(_drag_slots))
+	preview.show_selection(_drag_cells, quads, CURSOR_COLORS[mode])
 
 
 ## Можно ли поставить выбранное служебное здание: пустой участок, дорога рядом, хватает денег.
+## У свободной дороги — на ячейки её полосы под углом дороги (_free_place).
 func _can_place(cell: Vector2i) -> bool:
 	var data: BuildingData = BuildingCatalog.get_type(place_type)
 	if data == null or not Economy.can_afford(data.cost):
 		return false
+	var plan: Dictionary = _free_place(cell)
+	if not plan.is_empty():
+		return plan.ok
 	var grid: CityGrid = GameState.grid
 	var dir: int = maxi(0, grid.find_nearest_road_dir(cell))
 	var span: Vector2i = data.footprint(dir)
 	if not grid.can_place_building(cell, span):
 		return false
+	var access: bool = false
 	for dy: int in span.y:
 		for dx: int in span.x:
-			if grid.has_road_access(Vector2i(cell.x + dx, cell.y + dy)):
-				return true
-	return false
+			var c := Vector2i(cell.x + dx, cell.y + dy)
+			# Клетку может задевать полотно кривой дороги, хотя клетка — не дорога.
+			if grid.roads.on_ribbon(RoadGraph.cell_center(c), RIBBON_CLEARANCE):
+				return false
+			access = access or grid.has_road_access(c)
+	return access
+
+
+## Служба у свободной дороги: под мышью (или у клетки cell) — ячейка полосы. Здание встаёт на колонки
+## от этой ячейки под углом дороги, фасадом к ней. Пусто — здесь не свободная полоса (ставим по клеткам).
+## {ok, corners — прямоугольник здания, center, yaw, dir, cells — клетки под зданием, lot — клетки участка,
+## poly — углы участка, slots — его ячейки}.
+func _free_place(cell: Vector2i) -> Dictionary:
+	var data: BuildingData = BuildingCatalog.get_type(place_type)
+	var grid: CityGrid = GameState.grid
+	var slot: FreeStrips.Slot = cursor.hovered_slot if cursor.has_cell and cursor.hovered_cell == cell else null
+	if slot == null:
+		slot = grid.free_slot(cell)
+	if data == null or slot == null:
+		return {}
+	var strips: FreeStrips = grid.free_strips
+	var count: int = strips.frames[slot.segment].count
+	var best: Dictionary = {}
+	# На внутренней стороне дуги здание в свои колонки не влезает — участок на колонку шире.
+	for extra: int in [0, 1]:
+		var columns: int = data.size.x + extra
+		var col: int = clampi(slot.col - (columns - 1) / 2, 0, maxi(0, count - columns))
+		var pose: Dictionary = strips.house_pose(slot.segment, slot.side, col, columns,
+				data.size.x * CityGrid.CELL_SIZE, data.size.y * CityGrid.CELL_SIZE)
+		var plan: Dictionary = {"ok": pose.ok and columns <= count, "corners": pose.corners, "center": pose.center,
+				"yaw": pose.yaw, "dir": CityGrid._dir_of_vector(slot.front), "slots": [], "lot": [] as Array[Vector2i],
+				"cells": [] as Array[Vector2i],
+				"poly": strips.lot_shape(slot.segment, slot.side, col, columns, data.size.y).corners}
+		for c: int in range(col, col + columns):
+			for row: int in range(1, data.size.y + 1):
+				var part: FreeStrips.Slot = strips.slot_in(slot.segment, slot.side, c, row)
+				if part == null or strips.occupied.has(part.id):
+					plan.ok = false
+					continue
+				plan.slots.append(part)
+				for own: Vector2i in part.cells:
+					if grid.tile_type[grid.index_of(own)] != CityGrid.Tile.EMPTY:
+						plan.ok = false
+					plan.lot.append(own)
+		var under: PackedVector2Array = Geometry2D.offset_polygon(pose.corners, Growth.HOUSE_CELL_MARGIN)[0]
+		for own: Vector2i in plan.lot:
+			if Geometry2D.is_point_in_polygon(RoadGraph.cell_center(own), under):
+				plan.cells.append(own)
+		if plan.cells.is_empty():
+			# Под зданием нет ни одной клетки (ячейки диагонали бывают без клеток) — берём ближайшую
+			# свободную клетку соседних ячеек: без клетки здания для сетки нет.
+			var spare: Vector2i = _spare_cell(slot.segment, slot.side, col, columns, data.size.y, pose.center)
+			if spare == CityGrid.NO_CELL:
+				plan.ok = false
+			else:
+				plan.cells.append(spare)
+				if not plan.lot.has(spare):
+					plan.lot.append(spare)
+		if best.is_empty() or plan.ok:
+			best = plan
+		if plan.ok:
+			break
+	return best
+
+
+## Ближайшая к center свободная клетка (пусто, без участка) в ячейках колонок [col − 1, col + columns]
+## и рядов 1..rows + 1 полосы; NO_CELL — нет.
+func _spare_cell(segment: int, side: int, col: int, columns: int, rows: int, center: Vector2) -> Vector2i:
+	var grid: CityGrid = GameState.grid
+	var best: Vector2i = CityGrid.NO_CELL
+	var best_d: float = INF
+	for c: int in range(col - 1, col + columns + 1):
+		for row: int in range(1, rows + 2):
+			var slot: FreeStrips.Slot = grid.free_strips.slot_in(segment, side, c, row)
+			if slot == null or grid.free_strips.occupied.has(slot.id):
+				continue
+			for cell: Vector2i in slot.cells:
+				var d: float = RoadGraph.cell_center(cell).distance_squared_to(center)
+				if d < best_d and grid.tile_type[grid.index_of(cell)] == CityGrid.Tile.EMPTY and grid.get_lot(cell) == null:
+					best_d = d
+					best = cell
+	return best
 
 
 func _place_cells(cell: Vector2i) -> Array[Vector2i]:
@@ -238,21 +486,30 @@ func _place_cells(cell: Vector2i) -> Array[Vector2i]:
 	return result
 
 
-## Обрезает клетки операции там, где кончаются деньги. Клетки, которые не изменятся
-## (например, уже есть дорога), бесплатны и не обрезаются.
-func _affordable(cells: Array[Vector2i]) -> Array[Vector2i]:
+## Обрезает клетки и ячейки операции там, где кончаются деньги. Клетки, которые не изменятся
+## (например, уже есть дорога), бесплатны и не обрезаются. Ячейка зоны стоит как клетка.
+func _trim_to_budget() -> void:
 	if cost_of(mode) == 0:
-		return cells
+		return
 	var budget: int = GameState.money
-	var result: Array[Vector2i] = []
-	for cell: Vector2i in cells:
+	var cells: Array[Vector2i] = []
+	var enough: bool = true
+	for cell: Vector2i in _drag_cells:
 		if _would_change(cell):
 			var cost: int = _cell_cost(cell)
 			if budget < cost:
+				enough = false
 				break
 			budget -= cost
-		result.append(cell)
-	return result
+		cells.append(cell)
+	_drag_cells = cells
+	var slots: Array[FreeStrips.Slot] = []
+	for slot: FreeStrips.Slot in _drag_slots:
+		if not enough or budget < cost_of(mode):
+			break
+		budget -= cost_of(mode)
+		slots.append(slot)
+	_drag_slots = slots
 
 
 func _would_change(cell: Vector2i) -> bool:
@@ -268,6 +525,8 @@ func _would_change(cell: Vector2i) -> bool:
 func _end_drag() -> void:
 	_dragging = false
 	_drag_cells.clear()
+	_drag_slots.clear()
+	_drag_anchor.clear()
 	preview.clear()
 
 
@@ -304,6 +563,18 @@ func _apply() -> void:
 				changed.append_array(freed_cells)
 			else:
 				changed.append(cell)
+	# Зоны ячеек свободных полос.
+	if MODE_ZONES.has(mode):
+		var strips: FreeStrips = grid.free_strips
+		for slot: FreeStrips.Slot in _drag_slots:
+			if cost_of(mode) > 0 and not Economy.can_afford(cost_of(mode)):
+				break
+			# Ячейка могла устареть, если полосы пересобрались с момента превью.
+			if slot.id >= strips.slots.size() or strips.slots[slot.id] != slot:
+				continue
+			if grid.set_slot_zone(slot, MODE_ZONES[mode]):
+				Economy.spend(cost_of(mode))
+				changed.append_array(grid.slot_redraw_cells(slot))
 	if not changed.is_empty():
 		Events.cells_changed.emit(changed)
 
@@ -315,11 +586,30 @@ func _apply_place(grid: CityGrid) -> void:
 		return
 	var cell: Vector2i = _drag_cells[0]
 	var data: BuildingData = BuildingCatalog.get_type(place_type)
+	var plan: Dictionary = _free_place(cell)
+	if not plan.is_empty():
+		_apply_free_place(grid, data, plan)
+		return
 	var dir: int = maxi(0, grid.find_nearest_road_dir(cell))
 	Economy.spend(data.cost)
 	var id: int = grid.place_building(data.id, cell, dir, true)
 	if id != -1:
 		Events.cells_changed.emit(grid.buildings[id].cells())
+
+
+## Служба у свободной дороги — под углом дороги: зона её ячеек снимается, ячейки занимает участок здания.
+func _apply_free_place(grid: CityGrid, data: BuildingData, plan: Dictionary) -> void:
+	var changed: Array[Vector2i] = []
+	for slot: FreeStrips.Slot in plan.slots:
+		grid.set_slot_zone(slot, CityGrid.Zone.NONE)
+		changed.append_array(grid.slot_redraw_cells(slot))
+	var id: int = grid.place_free_building(data.id, plan.cells, plan.center, plan.yaw, plan.dir, true)
+	if id == -1:
+		return
+	Economy.spend(data.cost)
+	grid.add_free_lot(plan.lot, plan.poly, plan.dir)
+	changed.append_array(plan.lot)
+	Events.cells_changed.emit(changed)
 
 
 ## Путь буквой «Г»: сначала по длинной оси, потом по короткой.

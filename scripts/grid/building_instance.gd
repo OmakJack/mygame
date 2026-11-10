@@ -50,6 +50,11 @@ func _init(p_id: int, p_type_id: StringName, p_cell: Vector2i, p_orientation: in
 	size = p_size
 
 
+## Клетка, которая точно принадлежит зданию (у дома под углом cell — только угол охвата).
+func anchor_cell() -> Vector2i:
+	return shape[0] if not shape.is_empty() else cell
+
+
 ## Под углом ли дороги (полоса свободной дороги).
 func is_free() -> bool:
 	return not shape.is_empty()
