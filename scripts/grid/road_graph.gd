@@ -528,6 +528,19 @@ func plan(grid: CityGrid, from: RoadPoint, to: RoadPoint, ctrl: Variant, type: i
 			demolish[building_id] = true
 		result.cells.append(cell)
 		result.cost += cell_cost(grid, cell, type)
+	# Дом под углом дороги (этап C3) полотно может задеть и мимо его клеток.
+	var ribbon: Array[PackedVector2Array] = Geometry2D.offset_polyline(
+			polyline(result.p0, result.c, result.p2, maxi(4, ceili(result.length))), RoadTypes.HALF_WIDTH.get(type, 1.0))
+	var reach: Rect2 = Rect2(result.p0, Vector2.ZERO).expand(result.c).expand(result.p2).grow(
+			RoadTypes.HALF_WIDTH.get(type, 1.0) + CityGrid.CELL_SIZE * 5.0)
+	for building: BuildingInstance in grid.buildings.values():
+		if not building.is_free() or demolish.has(building.id) or not reach.has_point(building.center):
+			continue
+		var footprint: PackedVector2Array = grid.free_footprint(building)
+		for part: PackedVector2Array in ribbon:
+			if not Geometry2D.intersect_polygons(part, footprint).is_empty():
+				demolish[building.id] = true
+				break
 	result.demolish.assign(demolish.keys())
 	if result.cost > money:
 		return _reject(result, "Не хватает денег")
@@ -684,7 +697,7 @@ func build(grid: CityGrid, built: Plan) -> Array[Vector2i]:
 			continue
 		var building: BuildingInstance = grid.buildings[building_id]
 		changed.append_array(building.cells())
-		var lot: CityGrid.Lot = grid.get_lot(building.cell)
+		var lot: CityGrid.Lot = grid.lot_of(building)
 		if lot != null:
 			changed.append_array(lot.cells())
 		grid.remove_building(building_id)

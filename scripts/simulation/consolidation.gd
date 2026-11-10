@@ -65,9 +65,11 @@ static func find_plans(grid: CityGrid, land: LandValue, demands: Dictionary[City
 static func blockers(grid: CityGrid, building: BuildingInstance, land: LandValue,
 		demands: Dictionary[CityGrid.Zone, float]) -> PackedStringArray:
 	var data: BuildingData = BuildingCatalog.get_type(building.type_id)
-	var lot: CityGrid.Lot = grid.get_lot(building.cell)
+	var lot: CityGrid.Lot = grid.lot_of(building)
 	if data == null or not data.grows or data.zone == CityGrid.Zone.NONE:
 		return PackedStringArray(["не растёт"])
+	if building.is_free():
+		return PackedStringArray(["вдоль кривой дороги дома пока не объединяются"])
 	if lot == null:
 		return PackedStringArray(["у дома нет участка"])
 	if building.abandoned:
@@ -243,7 +245,7 @@ static func _next_lot(grid: CityGrid, lot: CityGrid.Lot) -> CityGrid.Lot:
 	var front: Array[Vector2i] = BuildingInstance.edge_cells(lot.rect.position, lot.rect.size, lot.dir)
 	var probe: Vector2i = (front.back() if along.x + along.y > 0 else front[0]) + along
 	var next: CityGrid.Lot = grid.get_lot(probe)
-	if next == null or next == lot or next.dir != lot.dir:
+	if next == null or next == lot or next.dir != lot.dir or not next.poly.is_empty():
 		return null
 	if lot.dir % 2 == 0:
 		return next if next.rect.position.y == lot.rect.position.y and next.rect.size.y == lot.rect.size.y else null

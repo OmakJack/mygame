@@ -89,8 +89,10 @@ func _refresh() -> void:
 		_title.text = data.display_name
 		_subtitle.text = _kind(data) + (" · заброшено" if building.abandoned else "")
 		_icon.texture = UiTheme.icon(_building_icon(data))
-		var lot: CityGrid.Lot = grid.get_lot(building.cell)
-		if lot != null and lot.rect.size != building.size:
+		var lot: CityGrid.Lot = grid.lot_of(building)
+		if lot != null and not lot.poly.is_empty():
+			_add("Участок", "вдоль дороги под углом, %d кл., дом %d×%d" % [lot.shape.size(), data.size.x, data.size.y])
+		elif lot != null and lot.rect.size != building.size:
 			var lot_size: Vector2i = lot.building_size()
 			_add("Участок", "%d×%d, дом %d×%d, двор %d кл." % [lot_size.x, lot_size.y, data.size.x, data.size.y,
 					lot_size.x * lot_size.y - data.area()])

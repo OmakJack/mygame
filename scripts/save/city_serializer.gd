@@ -37,7 +37,7 @@ static func to_dict(grid: CityGrid, city_name: String, money: int, tax_rate: int
 		roads[grid.index_of(cell)] = grid.road_type[grid.index_of(cell)]
 	var buildings: Array[Dictionary] = []
 	for building: BuildingInstance in grid.buildings.values():
-		buildings.append({
+		var record: Dictionary = {
 			"id": building.id,
 			"type": String(building.type_id),
 			"x": building.cell.x,
@@ -52,7 +52,14 @@ static func to_dict(grid: CityGrid, city_name: String, money: int, tax_rate: int
 			"age": building.age_ticks,
 			"ab": 1 if building.abandoned else 0,
 			"rt": building.recover_ticks,
-		})
+		}
+		# Дом под углом дороги (этап C3): клетки под ним, середина в мире и поворот.
+		if building.is_free():
+			record["fs"] = _cells_to_list(building.shape)
+			record["fx"] = building.center.x
+			record["fz"] = building.center.y
+			record["fy"] = building.yaw
+		buildings.append(record)
 	return {
 		"format": FORMAT,
 		"version": VERSION,
@@ -141,7 +148,8 @@ static func from_dict(data: Variant) -> LoadResult:
 		if not problem.is_empty():
 			result.warnings.append(problem)
 	grid.rebuild_caches()
-	# Участки: [x, y, ширина, глубина по сетке, сторона фасада]; нет поля — участков нет.
+	# Участки: [x, y, ширина, глубина по сетке, сторона фасада]; вдоль свободной дороги (этап C3) —
+	# {dir, poly — углы в мире, cells — клетки}; нет поля — участков нет.
 	# Участок без дома (старые сохранения: его нарезала разметка) молча отбрасывается — застройщик нарежет заново.
 	var raw_lots: Variant = grid_data.get("lots", [])
 	if raw_lots is Array:
@@ -188,12 +196,45 @@ static func from_dict(data: Variant) -> LoadResult:
 static func _lots_to_list(grid: CityGrid) -> Array:
 	var list: Array = []
 	for lot: CityGrid.Lot in grid.lots.values():
+		if not lot.poly.is_empty():
+			var poly: Array = []
+			for p: Vector2 in lot.poly:
+				poly.append_array([p.x, p.y])
+			list.append({"dir": lot.dir, "poly": poly, "cells": _cells_to_list(lot.shape)})
+			continue
 		list.append([lot.rect.position.x, lot.rect.position.y, lot.rect.size.x, lot.rect.size.y, lot.dir])
 	return list
 
 
+## Клетки плоским списком [x, y, x, y, …].
+static func _cells_to_list(cells: Array[Vector2i]) -> Array:
+	var list: Array = []
+	for cell: Vector2i in cells:
+		list.append_array([cell.x, cell.y])
+	return list
+
+
+## Клетки из плоского списка; пусто — список повреждён.
+static func _list_to_cells(value: Variant) -> Array[Vector2i]:
+	var cells: Array[Vector2i] = []
+	if not value is Array or (value as Array).size() % 2 != 0:
+		return cells
+	var list: Array = value
+	for i: int in range(0, list.size(), 2):
+		var cell := Vector2i(_int(list[i], -1), _int(list[i + 1], -1))
+		if cell.x < 0 or cell.y < 0:
+			return []
+		cells.append(cell)
+	return cells
+
+
 ## Участок из сохранения без единого здания на нём (до застройщика по месту участки резала разметка).
 static func _is_empty_lot(grid: CityGrid, entry: Variant) -> bool:
+	if entry is Dictionary:
+		for cell: Vector2i in _list_to_cells((entry as Dictionary).get("cells")):
+			if grid.is_in_bounds(cell) and grid.get_building_at(cell) != null:
+				return false
+		return true
 	if not entry is Array or (entry as Array).size() != 5:
 		return false
 	var rect := Rect2i(_int(entry[0], -1), _int(entry[1], -1), _int(entry[2], 0), _int(entry[3], 0))
@@ -207,6 +248,8 @@ static func _is_empty_lot(grid: CityGrid, entry: Variant) -> bool:
 ## Участок из сохранения: все клетки на карте и с зоной, не больше 7 × STRIP_DEPTH клеток (дом и двор).
 ## false — пропущен.
 static func _load_lot(grid: CityGrid, entry: Variant) -> bool:
+	if entry is Dictionary:
+		return _load_free_lot(grid, entry)
 	if not entry is Array or (entry as Array).size() != 5:
 		return false
 	var rect := Rect2i(_int(entry[0], -1), _int(entry[1], -1), _int(entry[2], 0), _int(entry[3], 0))
@@ -219,6 +262,26 @@ static func _load_lot(grid: CityGrid, entry: Variant) -> bool:
 			if not grid.is_in_bounds(cell) or grid.get_zone(cell) == CityGrid.Zone.NONE or grid.get_lot(cell) != null:
 				return false
 	grid.add_lot(rect, dir)
+	return true
+
+
+## Участок вдоль свободной дороги: 4 угла, клетки на карте с зоной и без другого участка, не больше
+## 7 × STRIP_DEPTH клеток. false — пропущен.
+static func _load_free_lot(grid: CityGrid, entry: Dictionary) -> bool:
+	var dir: int = _int(entry.get("dir"), -1)
+	var cells: Array[Vector2i] = _list_to_cells(entry.get("cells"))
+	var raw: Variant = entry.get("poly")
+	if dir < 0 or dir > 3 or cells.is_empty() or cells.size() > Growth.MAX_RUN * CityGrid.STRIP_DEPTH 			or not raw is Array or (raw as Array).size() != 8:
+		return false
+	var poly := PackedVector2Array()
+	for i: int in range(0, 8, 2):
+		if not (raw[i] is float or raw[i] is int) or not (raw[i + 1] is float or raw[i + 1] is int):
+			return false
+		poly.append(Vector2(float(raw[i]), float(raw[i + 1])))
+	for cell: Vector2i in cells:
+		if not grid.is_in_bounds(cell) or grid.get_zone(cell) == CityGrid.Zone.NONE or grid.get_lot(cell) != null:
+			return false
+	grid.add_free_lot(cells, poly, dir)
 	return true
 
 
@@ -237,6 +300,20 @@ static func _load_building(grid: CityGrid, entry: Dictionary, occupied: Dictiona
 		return "пропущено здание с неверным поворотом"
 	var span: Vector2i = data.footprint(orientation)
 	var building := BuildingInstance.new(id, type_id, cell, orientation, span)
+	# Дом под углом дороги (этап C3): клетки, середина и поворот; повреждено — пропуск.
+	if entry.has("fs"):
+		var shape: Array[Vector2i] = _list_to_cells(entry.get("fs"))
+		var fx: Variant = entry.get("fx")
+		var fz: Variant = entry.get("fz")
+		var fy: Variant = entry.get("fy")
+		if shape.is_empty() or not (fx is float or fx is int) or not (fz is float or fz is int) 				or not (fy is float or fy is int):
+			return "пропущено здание с повреждённым участком под углом"
+		var bounds: Rect2i = CityGrid._bounds(shape)
+		building.cell = bounds.position
+		building.size = bounds.size
+		building.shape = shape
+		building.center = Vector2(float(fx), float(fz))
+		building.yaw = float(fy)
 	var cells: Array[Vector2i] = building.cells()
 	for c: Vector2i in cells:
 		if not grid.is_in_bounds(c):

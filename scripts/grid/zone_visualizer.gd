@@ -2,6 +2,8 @@ class_name ZoneVisualizer
 extends MultiMeshInstance3D
 ## Раскраска клеток: один экземпляр на клетку (номер = CityGrid.index_of), цвет — по слою карты.
 ## Слой выбирают во вкладке «Фильтры» (FilterPanel) через Events.overlay_requested; обычный — зоны.
+## Вдоль свободных дорог (диагональ, дуга — этап C3) зоны рисуются не клетками, а ячейками FreeStrips
+## под углом дороги (_slots: одна сетка-меш на все ячейки); клетки там в слое зон прозрачные.
 
 enum Overlay { ZONES, POWER, WATER, SERVICES, TRAFFIC, LAND_VALUE, POLLUTION, NOISE }
 
@@ -52,6 +54,13 @@ const STRIP_COLOR := Color(1.0, 1.0, 1.0, 0.2)
 const STRIP_FADE_PER_DEPTH: float = 0.03
 const STRIP_CHECKER: float = 0.04
 
+## Ячейки свободных полос чуть уже своих границ — видна сетка ячеек.
+const SLOT_INSET: float = 0.06
+## Где искать зону для ячейки без клеток (колонка, ряд): ближние — раньше.
+const SLOT_NEIGHBORS: Array[Vector2i] = [Vector2i(0, 1), Vector2i(0, -1), Vector2i(-1, 0), Vector2i(1, 0),
+		Vector2i(-1, 1), Vector2i(1, 1), Vector2i(-1, -1), Vector2i(1, -1), Vector2i(0, 2), Vector2i(0, -2),
+		Vector2i(-2, 0), Vector2i(2, 0)]
+
 const CLEAR := Color(0, 0, 0, 0)
 const SERVED := Color(0.2, 0.85, 0.3, 0.75)
 const UNSERVED := Color(1.0, 0.15, 0.15, 0.85)
@@ -85,6 +94,9 @@ var _show_strips: bool = false
 
 ## Слой служб: клетка → битовая маска покрывающих служб (пересчитывается при перерисовке).
 var _service_mask := PackedByteArray()
+## Ячейки свободных полос (только в слое зон).
+var _slots: MeshInstance3D
+var _slot_material: StandardMaterial3D
 
 
 func _ready() -> void:
@@ -95,6 +107,11 @@ func _ready() -> void:
 	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	material.vertex_color_use_as_albedo = true
 	quad.material = material
+	_slot_material = material.duplicate()
+	_slot_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	_slots = MeshInstance3D.new()
+	_slots.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(_slots)
 	multimesh = MultiMesh.new()
 	multimesh.transform_format = MultiMesh.TRANSFORM_3D
 	multimesh.use_colors = true
@@ -141,6 +158,7 @@ func _repaint_all() -> void:
 	for y: int in grid.size:
 		for x: int in grid.size:
 			_update_cell(Vector2i(x, y))
+	_rebuild_slots()
 
 
 func _on_tool_mode_changed(mode: int, _type_id: StringName) -> void:
@@ -170,6 +188,78 @@ func _on_cells_changed(cells: Array[Vector2i]) -> void:
 			_update_rect(cell - Vector2i(r, r), cell + Vector2i(r, r))
 	else:
 		_update_rect(area.position - Vector2i(r, r), area.end + Vector2i(r, r))
+	_rebuild_slots()
+
+
+## Меш ячеек свободных полос: по четырёхугольнику на ячейку, цвет — как у клетки в том же состоянии.
+func _rebuild_slots() -> void:
+	var grid: CityGrid = GameState.grid
+	_slots.visible = overlay == Overlay.ZONES
+	if not _slots.visible:
+		return
+	grid.ensure_strips()
+	var strips: FreeStrips = grid.free_strips
+	if strips.slots.is_empty():
+		_slots.mesh = null
+		return
+	var points := PackedVector3Array()
+	var colors := PackedColorArray()
+	for slot: FreeStrips.Slot in strips.slots:
+		var color: Color = _slot_color(grid, slot)
+		if color.a <= 0.0:
+			continue
+		var c: PackedVector2Array = slot.corners
+		for i: int in [0, 1, 2, 0, 2, 3]:
+			var p: Vector2 = c[i].lerp(slot.center, SLOT_INSET)
+			points.append(Vector3(p.x, ZONE_HEIGHT, p.y))
+			colors.append(color)
+	if points.is_empty():
+		_slots.mesh = null
+		return
+	var arrays: Array = []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = points
+	arrays[Mesh.ARRAY_COLOR] = colors
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	mesh.surface_set_material(0, _slot_material)
+	_slots.mesh = mesh
+
+
+## Цвет ячейки свободной полосы: зона её клеток (ячейка без клеток — клетки под её серединой),
+## под домом — почти прозрачная, двор — по виду двора, без зоны — подсказка полосы у инструмента зон.
+func _slot_color(grid: CityGrid, slot: FreeStrips.Slot) -> Color:
+	var lot_id: int = grid.free_strips.occupied.get(slot.id, -1)
+	if lot_id != -1 and grid.lots.has(lot_id):
+		var building: BuildingInstance = grid.building_on_lot(grid.lots[lot_id])
+		var data: BuildingData = BuildingCatalog.get_type(building.type_id) if building != null else null
+		if data != null:
+			if slot.row <= data.size.y:
+				var built: Color = ZONE_COLORS[data.zone] if ZONE_COLORS.has(data.zone) else CLEAR
+				built.a = BUILT_ALPHA
+				return built
+			var yard: Color = _yard_color(grid, grid.lots[lot_id].shape[0], ZONE_COLORS.get(data.zone, CLEAR))
+			return yard
+	# Ячейка без клеток — зона ближайшей ячейки с клетками той же полосы (через одну — тоже).
+	var source: FreeStrips.Slot = slot
+	if slot.cells.is_empty():
+		source = null
+		for step: Vector2i in SLOT_NEIGHBORS:
+			var other: FreeStrips.Slot = grid.free_strips.slot_in(slot.segment, slot.side, slot.col + step.x,
+					slot.row + step.y)
+			if other != null and not other.cells.is_empty() and not grid.free_strips.occupied.has(other.id):
+				source = other
+				break
+	var zone_type: CityGrid.Zone = grid.get_zone(source.cells[0]) if source != null else CityGrid.Zone.NONE
+	if zone_type == CityGrid.Zone.NONE:
+		if not _show_strips:
+			return CLEAR
+		var hint: Color = STRIP_COLOR
+		hint.a -= STRIP_FADE_PER_DEPTH * (slot.row - 1)
+		if (slot.col + slot.row) % 2 == 0:
+			hint.a += STRIP_CHECKER
+		return hint
+	return ZONE_COLORS[zone_type]
 
 
 ## Перекрашивает клетки от top_left до bottom_right включительно (обрезая по карте).
@@ -206,6 +296,9 @@ func _update_cell(cell: Vector2i) -> void:
 
 func _zone_color(cell: Vector2i) -> Color:
 	var grid: CityGrid = GameState.grid
+	# Клетка свободной полосы — её рисует ячейка (_rebuild_slots).
+	if grid.free_slot(cell) != null:
+		return CLEAR
 	var zone_type: CityGrid.Zone = grid.get_zone(cell)
 	var color: Color = ZONE_COLORS[zone_type]
 	if zone_type == CityGrid.Zone.NONE:

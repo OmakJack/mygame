@@ -97,7 +97,7 @@ func refresh() -> void:
 				kinds.append(Kind.WATER)
 		if kinds.is_empty():
 			continue
-		var top: Vector3 = grid.footprint_center(building.cell, building.size) \
+		var top: Vector3 = grid.building_transform(building).origin \
 				+ Vector3(0.0, BuildingMeshes.height_of(data) + GAP, 0.0)
 		var phase: float = fposmod(building.id * 0.618034, 1.0)
 		for i: int in kinds.size():

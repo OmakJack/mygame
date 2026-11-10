@@ -44,6 +44,11 @@ var highway_cells: Dictionary[Vector2i, bool] = {}
 ## strip_depth — расстояние до неё (1 — у самой дороги). Производные от дорог: не сохраняются.
 var strip_dir: PackedByteArray
 var strip_depth: PackedByteArray
+## Полосы вдоль свободных дорог (диагональ, дуга; этап C3): ячейки 2×2 м под углом дороги. Клетка такой
+## полосы — в strip_dir (сторона, ближняя к направлению на дорогу) и strip_depth (ряд ячейки).
+## Пересчитываются при новой версии графа (ensure_strips).
+var free_strips := FreeStrips.new()
+var _strips_graph_version: int = -1
 
 # Кэши, чтобы не сканировать всю карту.
 var buildings: Dictionary[int, BuildingInstance] = {}
@@ -338,11 +343,13 @@ func set_zone(cell: Vector2i, zone_type: Zone) -> bool:
 
 ## Есть ли у клетки полоса зоны (можно размечать, может вырасти дом).
 func in_strip(cell: Vector2i) -> bool:
+	ensure_strips()
 	return is_in_bounds(cell) and strip_dir[index_of(cell)] != NO_STRIP
 
 
 ## Сторона на улицу полосы клетки 0..3 = N/E/S/W или −1 — полосы нет.
 func get_strip_dir(cell: Vector2i) -> int:
+	ensure_strips()
 	if not is_in_bounds(cell):
 		return -1
 	var dir: int = strip_dir[index_of(cell)]
@@ -351,7 +358,84 @@ func get_strip_dir(cell: Vector2i) -> int:
 
 ## Расстояние клетки до её улицы (1 — у самой дороги) или 0 — полосы нет.
 func get_strip_depth(cell: Vector2i) -> int:
+	ensure_strips()
 	return strip_depth[index_of(cell)] if is_in_bounds(cell) else 0
+
+
+## Ячейка полосы свободной дороги у клетки или null (клетка — в полосе из клеток или вне полос).
+func free_slot(cell: Vector2i) -> FreeStrips.Slot:
+	ensure_strips()
+	return free_strips.slot_at(cell)
+
+
+## Клетка дороги, к которой выходит полоса клетки (для связи с трассой); NO_CELL — полосы нет.
+func strip_road(cell: Vector2i) -> Vector2i:
+	var slot: FreeStrips.Slot = free_slot(cell)
+	if slot != null:
+		return slot.road
+	var dir: int = get_strip_dir(cell)
+	return cell + NEIGHBORS[dir] * get_strip_depth(cell) if dir >= 0 else NO_CELL
+
+
+## Полосы по графу дорог: при новой версии графа — заново полосы из клеток (дороги по сетке) и ячейки
+## вдоль свободных дорог (FreeStrips); клетка — к той дороге, чей край ближе (поровну — полоса из клеток).
+func ensure_strips() -> void:
+	roads.sync(self)
+	if roads.version == _strips_graph_version:
+		return
+	_strips_graph_version = roads.version
+	var candidates: Dictionary[Vector2i, Array] = free_strips.candidates(self)
+	rebuild_strips()
+	var owners: Dictionary[Vector2i, Array] = {}
+	for cell: Vector2i in candidates:
+		var i: int = index_of(cell)
+		# Край дороги по сетке от центра клетки ряда k — 2k − 1 м.
+		if strip_dir[i] != NO_STRIP and strip_depth[i] * CELL_SIZE - CELL_SIZE * 0.5 <= candidates[cell][0] + 0.001:
+			continue
+		owners[cell] = candidates[cell]
+		strip_dir[i] = NO_STRIP
+		strip_depth[i] = 0
+	free_strips.build(self, owners)
+	for cell: Vector2i in free_strips.slot_of_cell:
+		var slot: FreeStrips.Slot = free_strips.slot_at(cell)
+		var i: int = index_of(cell)
+		strip_dir[i] = _dir_of_vector(slot.front)
+		strip_depth[i] = slot.row
+	_mark_free_lots()
+
+
+## Сторона 0..3 = N/E/S/W, ближайшая к направлению dir (мир x, z).
+static func _dir_of_vector(dir: Vector2) -> int:
+	if absf(dir.x) >= absf(dir.y):
+		return 1 if dir.x > 0.0 else 3
+	return 2 if dir.y > 0.0 else 0
+
+
+## Какие ячейки свободных полос заняты участками (по форме участка — номера ячеек новые).
+func _mark_free_lots() -> void:
+	free_strips.occupied.clear()
+	for lot: Lot in lots.values():
+		if lot.poly.is_empty():
+			continue
+		_occupy_slots(lot)
+
+
+func _occupy_slots(lot: Lot) -> void:
+	var seen: Dictionary[Vector3i, bool] = {}
+	for cell: Vector2i in lot.shape:
+		var slot: FreeStrips.Slot = free_strips.slot_at(cell)
+		if slot == null:
+			continue
+		var key := Vector3i(slot.segment, slot.side, slot.col)
+		if seen.has(key):
+			continue
+		# Соседние колонки — там могут быть ячейки участка без клеток.
+		for dc: int in [-1, 0, 1]:
+			seen[Vector3i(slot.segment, slot.side, slot.col + dc)] = true
+			for row: int in range(1, FreeStrips.DEPTH + 1):
+				var other: FreeStrips.Slot = free_strips.slot_in(slot.segment, slot.side, slot.col + dc, row)
+				if other != null and Geometry2D.is_point_in_polygon(other.center, lot.poly):
+					free_strips.occupied[other.id] = lot.id
 
 
 ## Пересчитывает полосы всей карты (загрузка).
@@ -387,12 +471,23 @@ func _compute_strip(cell: Vector2i) -> void:
 				if not is_in_bounds(c) or water[index_of(c)] == 1:
 					break
 				if road_cells.has(c):
-					if _is_land_road(c):
+					if _is_land_road(c) and not _is_free_road(c):
 						best_dir = dir
 						best_depth = k
 					break
 	strip_dir[i] = best_dir
 	strip_depth[i] = best_depth
+
+
+## Клетка только свободных дорог (их полосы — ячейки FreeStrips, не клетки).
+func _is_free_road(cell: Vector2i) -> bool:
+	var owners: Array[int] = roads.owners_of(cell)
+	if owners.is_empty():
+		return false
+	for id: int in owners:
+		if not free_strips.frames.has(id):
+			return false
+	return true
 
 
 # --- Участки ---
@@ -403,6 +498,10 @@ class Lot extends RefCounted:
 	var id: int
 	var rect: Rect2i
 	var dir: int
+	## Участок вдоль свободной дороги (этап C3): углы (многоугольник в мире) и клетки сетки, чьи центры
+	## в нём; rect — их охват. Пусто — обычный участок-прямоугольник клеток.
+	var poly := PackedVector2Array()
+	var shape: Array[Vector2i] = []
 
 	func _init(p_id: int, p_rect: Rect2i, p_dir: int) -> void:
 		id = p_id
@@ -414,6 +513,8 @@ class Lot extends RefCounted:
 		return rect.size if posmod(dir, 2) == 0 else Vector2i(rect.size.y, rect.size.x)
 
 	func cells() -> Array[Vector2i]:
+		if not shape.is_empty():
+			return shape.duplicate()
 		var result: Array[Vector2i] = []
 		for y: int in range(rect.position.y, rect.end.y):
 			for x: int in range(rect.position.x, rect.end.x):
@@ -446,6 +547,37 @@ func add_lot(rect: Rect2i, dir: int) -> int:
 	return id
 
 
+## Новый участок вдоль свободной дороги: клетки cells, углы poly, сторона фасада dir. Номер участка.
+func add_free_lot(cells: Array[Vector2i], poly: PackedVector2Array, dir: int) -> int:
+	for cell: Vector2i in cells:
+		var old: int = lot_at[index_of(cell)]
+		if old != -1:
+			dissolve_lot(old)
+	var id: int = next_lot_id
+	next_lot_id += 1
+	lots_version += 1
+	var lot := Lot.new(id, _bounds(cells), dir)
+	lot.poly = poly
+	lot.shape = cells.duplicate()
+	lots[id] = lot
+	for cell: Vector2i in cells:
+		lot_at[index_of(cell)] = id
+		_update_zoned_cache(cell)
+	if _strips_graph_version == roads.version:
+		_occupy_slots(lot)
+	return id
+
+
+## Охват клеток прямоугольником.
+static func _bounds(cells: Array[Vector2i]) -> Rect2i:
+	var lo: Vector2i = cells[0]
+	var hi: Vector2i = cells[0]
+	for cell: Vector2i in cells:
+		lo = lo.min(cell)
+		hi = hi.max(cell)
+	return Rect2i(lo, hi - lo + Vector2i.ONE)
+
+
 ## Убирает участок: клетки двора снова свободная земля зоны.
 func dissolve_lot(id: int) -> void:
 	var lot: Lot = lots.get(id)
@@ -453,6 +585,10 @@ func dissolve_lot(id: int) -> void:
 		return
 	lots.erase(id)
 	lots_version += 1
+	if not lot.poly.is_empty():
+		for slot: int in free_strips.occupied.keys():
+			if free_strips.occupied[slot] == id:
+				free_strips.occupied.erase(slot)
 	for cell: Vector2i in lot.cells():
 		if is_in_bounds(cell) and lot_at[index_of(cell)] == id:
 			lot_at[index_of(cell)] = -1
@@ -465,6 +601,11 @@ func building_on_lot(lot: Lot) -> BuildingInstance:
 		if is_in_bounds(cell) and building_at[index_of(cell)] != -1:
 			return buildings.get(building_at[index_of(cell)])
 	return null
+
+
+## Участок здания или null.
+func lot_of(building: BuildingInstance) -> Lot:
+	return get_lot(building.shape[0] if building.is_free() else building.cell)
 
 
 ## Здание на клетке или дом, чей это двор; null — ни того, ни другого.
@@ -603,6 +744,50 @@ func place_building(type_id: StringName, cell: Vector2i, orientation: int, clear
 	return id
 
 
+## Ставит дом под углом дороги (полоса свободной дороги): клетки shape, середина center (мир x, z),
+## поворот yaw (Basis(UP, yaw)), сторона фасада dir (ближайшая из 0..3). Номер экземпляра или −1.
+func place_free_building(type_id: StringName, shape: Array[Vector2i], center: Vector2, yaw: float, dir: int) -> int:
+	if shape.is_empty():
+		return -1
+	for c: Vector2i in shape:
+		if not is_in_bounds(c) or tile_type[index_of(c)] != Tile.EMPTY or water[index_of(c)] != 0:
+			return -1
+	var id: int = next_building_id
+	next_building_id += 1
+	var bounds: Rect2i = _bounds(shape)
+	var building := BuildingInstance.new(id, type_id, bounds.position, dir, bounds.size)
+	building.shape = shape.duplicate()
+	building.center = center
+	building.yaw = yaw
+	buildings[id] = building
+	buildings_version += 1
+	for c: Vector2i in shape:
+		_dissolve_lot_at(c)
+		var i: int = index_of(c)
+		tile_type[i] = Tile.BUILDING
+		building_at[i] = id
+		_update_zoned_cache(c)
+	return id
+
+
+## Прямоугольник дома под углом дороги в мире (x, z), чуть ужатый — соседям можно касаться.
+func free_footprint(building: BuildingInstance) -> PackedVector2Array:
+	var data: BuildingData = BuildingCatalog.get_type(building.type_id)
+	var size: Vector2 = Vector2(data.size) * CELL_SIZE * 0.5 - Vector2.ONE * 0.05 if data != null else Vector2.ONE
+	var front := Vector2(-sin(building.yaw), -cos(building.yaw))
+	var along := Vector2(front.y, -front.x)
+	var c: Vector2 = building.center
+	return PackedVector2Array([c + along * size.x + front * size.y, c - along * size.x + front * size.y,
+			c - along * size.x - front * size.y, c + along * size.x - front * size.y])
+
+
+## Где и как стоит здание в мире: по клеткам (поворот на 90°) или под углом дороги.
+func building_transform(building: BuildingInstance) -> Transform3D:
+	if building.is_free():
+		return Transform3D(Basis(Vector3.UP, building.yaw), Vector3(building.center.x, 0.0, building.center.y))
+	return Transform3D(Basis(Vector3.UP, -building.orientation * PI * 0.5), footprint_center(building.cell, building.size))
+
+
 ## Убирает здание вместе с его участком (двор снова свободен — застройщик решит заново).
 ## Клетки снова пустые, зона остаётся. Возвращает true, если здание было.
 func remove_building(instance_id: int) -> bool:
@@ -616,7 +801,7 @@ func remove_building(instance_id: int) -> bool:
 		var i: int = index_of(c)
 		tile_type[i] = Tile.EMPTY
 		building_at[i] = -1
-	_dissolve_lot_at(building.cell)
+	_dissolve_lot_at(occupied[0] if building.is_free() else building.cell)
 	for c: Vector2i in occupied:
 		_update_zoned_cache(c)
 	return true
@@ -652,7 +837,7 @@ func rebuild_caches() -> void:
 	var max_id: int = -1
 	for building: BuildingInstance in buildings.values():
 		var data: BuildingData = BuildingCatalog.get_type(building.type_id)
-		if data != null:
+		if data != null and not building.is_free():
 			building.size = data.footprint(building.orientation)
 		for c: Vector2i in building.cells():
 			if is_in_bounds(c):
@@ -681,4 +866,5 @@ func rebuild_caches() -> void:
 		for x: int in size:
 			_update_zoned_cache(Vector2i(x, y))
 	rebuild_strips()
+	_strips_graph_version = -1
 	roads_version += 1

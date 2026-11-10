@@ -207,8 +207,6 @@ func _write_layer(item: int) -> void:
 		var building: BuildingInstance = grid.buildings.get(ids[i])
 		if building == null:
 			continue
-		var basis := Basis(Vector3.UP, -building.orientation * PI * 0.5)
-		var center: Vector3 = grid.footprint_center(building.cell, building.size)
-		multimesh.set_instance_transform(i, Transform3D(basis, center))
+		multimesh.set_instance_transform(i, grid.building_transform(building))
 		var data: BuildingData = BuildingCatalog.get_type(building.type_id)
 		multimesh.set_instance_custom_data(i, BuildingPalette.custom_for(building, data) if data != null else Color())

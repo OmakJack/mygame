@@ -145,8 +145,7 @@ func _make_site(grid: CityGrid, building: BuildingInstance, data: BuildingData) 
 	site.box = mesh.get_aabb()
 	site.height = site.box.end.y
 	site.root = Node3D.new()
-	site.root.transform = Transform3D(Basis(Vector3.UP, -building.orientation * PI * 0.5),
-			grid.footprint_center(building.cell, building.size))
+	site.root.transform = grid.building_transform(building)
 	add_child(site.root)
 	var ground := MeshInstance3D.new()
 	ground.mesh = BuildingMeshes.site_mesh(data)

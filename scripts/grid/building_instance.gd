@@ -12,6 +12,13 @@ var cell: Vector2i
 var size: Vector2i = Vector2i.ONE
 ## Направление на дорогу 0/1/2/3 = N/E/S/W (поворот по часовой 0°/90°/180°/270°).
 var orientation: int
+## Дом под углом дороги (полоса свободной дороги, этап C3): клетки сетки под ним (центры в доме),
+## середина в мире (x, z) и поворот Basis(UP, yaw). Пусто — здание по клеткам (cell, size, orientation);
+## у дома под углом cell и size — охватывающий клетки прямоугольник (cell может быть не его клеткой —
+## своя клетка: cells()[0]), orientation — ближайшая сторона на дорогу.
+var shape: Array[Vector2i] = []
+var center := Vector2.ZERO
+var yaw: float = 0.0
 # Состояние симуляции.
 ## Сколько тиков подряд нет дороги / света / воды (Decay: по сроку здание пустеет).
 var no_road_ticks: int = 0
@@ -43,8 +50,15 @@ func _init(p_id: int, p_type_id: StringName, p_cell: Vector2i, p_orientation: in
 	size = p_size
 
 
+## Под углом ли дороги (полоса свободной дороги).
+func is_free() -> bool:
+	return not shape.is_empty()
+
+
 ## Все клетки, которые занимает здание на карте.
 func cells() -> Array[Vector2i]:
+	if not shape.is_empty():
+		return shape.duplicate()
 	var result: Array[Vector2i] = []
 	for dy: int in size.y:
 		for dx: int in size.x:
@@ -54,6 +68,8 @@ func cells() -> Array[Vector2i]:
 
 ## Клетки фасадного края здания (со стороны orientation: 0=N, 1=E, 2=S, 3=W).
 func front_cells() -> Array[Vector2i]:
+	if not shape.is_empty():
+		return shape.duplicate()
 	return BuildingInstance.edge_cells(cell, size, orientation)
 
 

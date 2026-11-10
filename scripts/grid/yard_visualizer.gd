@@ -191,6 +191,12 @@ func _rebuild() -> void:
 		var data: BuildingData = BuildingCatalog.get_type(building.type_id)
 		if data == null:
 			continue
+		if not lot.poly.is_empty():
+			# Двор под углом дороги (этап C3): заборы и разметка — по клеткам, тут лесенкой; пока только деревья.
+			for cell: Vector2i in lot.cells():
+				if grid.is_yard(cell) and _roll(cell, 0) < HOME_TREE_SHARE:
+					trees.append(_tree_at(cell, grid.grid_to_world(cell)))
+			continue
 		if data.zone == CityGrid.Zone.INDUSTRIAL:
 			_works_yard(grid, lot, works, fenced)
 			continue

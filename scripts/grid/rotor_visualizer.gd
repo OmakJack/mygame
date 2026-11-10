@@ -48,8 +48,7 @@ func _sync() -> void:
 			continue
 		if not _rotors.has(data.id):
 			_rotors[data.id] = []
-		var place := Transform3D(Basis(Vector3.UP, -building.orientation * PI * 0.5),
-				grid.footprint_center(building.cell, building.size))
+		var place: Transform3D = grid.building_transform(building)
 		var pivot: Transform3D = place * BuildingMeshes.model_placement(data) * Transform3D(Basis.IDENTITY, data.rotor_pivot)
 		# Начальный угол по id: соседние ветряки не крутятся в такт.
 		var phase: float = fposmod(building.id * 2.399, TAU)

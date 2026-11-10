@@ -292,7 +292,7 @@ func _apply() -> void:
 				var existing: BuildingInstance = grid.get_building_or_yard(cell)
 				if existing != null:
 					freed_cells = existing.cells()
-					var lot: CityGrid.Lot = grid.get_lot(existing.cell)
+					var lot: CityGrid.Lot = grid.lot_of(existing)
 					if lot != null:
 						freed_cells.append_array(lot.cells())
 				did_change = grid.bulldoze(cell)

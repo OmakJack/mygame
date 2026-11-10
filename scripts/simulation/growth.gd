@@ -11,6 +11,8 @@ extends RefCounted
 ## («счастье места» — как Happiness, но без налога, дороги до работы, света и воды), и не встаёт там, где
 ## сразу пустело бы; магазины — где рядом покупатели и поток машин; промзона — на дешёвой земле подальше
 ## от жилья; офисы — на дорогой земле у служб. Почему клетка пустует — why_not (карточка «Инфо»).
+## C3 — вдоль свободной дороги (диагональ, дуга) участок — колонки ячеек FreeStrips (plan_free_at),
+## дом встаёт под углом дороги (build_free_lot).
 
 ## С такого загрязнения жильё на клетке не растёт.
 const MAX_HOME_POLLUTION: int = 40
@@ -37,6 +39,10 @@ const WIDTH_JITTER: float = 0.9
 ## и за ряд, разорванный посередине (свободный фасад остаётся с двух сторон).
 const ORPHAN_PENALTY: float = 0.5
 const SPLIT_PENALTY: float = 0.4
+## Участок вдоль свободной дороги на колонку шире дома (боковой двор) — штраф плану.
+const EXTRA_COLUMN_PENALTY: float = 0.6
+## Клетка под домом вдоль свободной дороги — центр в доме или не дальше столько от его края, м.
+const HOUSE_CELL_MARGIN: float = 0.3
 ## Насколько цена земли важнее точности плана при выборе из VALUE_SAMPLES (очков цены за клетку штрафа).
 const VALUE_PER_PENALTY: float = 4.0
 ## Доля домов глубиной 2, когда участок позволяет (иначе — глубиной 1, двор длиннее).
@@ -79,7 +85,7 @@ static func grow_one(grid: CityGrid, zone_type: CityGrid.Zone, rng: RandomNumber
 	for cell: Vector2i in grid.zoned_empty_cells[zone_type]:
 		if grid.get_strip_depth(cell) != 1:
 			continue
-		var component: int = network.component_of.get(cell + CityGrid.NEIGHBORS[grid.get_strip_dir(cell)], -1)
+		var component: int = network.component_of.get(grid.strip_road(cell), -1)
 		if component == -1 or (grid.has_entry() and component != entry_comp):
 			continue
 		frontage.append(cell)
@@ -98,7 +104,8 @@ static func grow_one(grid: CityGrid, zone_type: CityGrid.Zone, rng: RandomNumber
 				+ rng.randf_range(-WIDTH_JITTER, WIDTH_JITTER)
 		if use_value:
 			target += (value - VALUE_MID) * WIDTH_PER_VALUE
-		var plan: Dictionary = plan_at(grid, land, zone_type, cell, by_width, target)
+		var plan: Dictionary = plan_free_at(grid, land, zone_type, cell, by_width, target) \
+				if grid.free_slot(cell) != null else plan_at(grid, land, zone_type, cell, by_width, target)
 		if plan.is_empty():
 			continue
 		var score: float = -plan.penalty * VALUE_PER_PENALTY
@@ -116,13 +123,13 @@ static func grow_one(grid: CityGrid, zone_type: CityGrid.Zone, rng: RandomNumber
 	var data: BuildingData = _pick_type(best.options, best.depth, rng)
 	var dir: int = best.dir
 	var front: Array[Vector2i] = best.front
-	var id: int = build_lot(grid, data, front, dir, best.depth)
+	var id: int = build_free_lot(grid, data, best) if best.has("segment") else build_lot(grid, data, front, dir, best.depth)
 	if id == -1:
 		return CityGrid.NO_CELL
 	# Свет и вода — из запаса компонента, если хватает; нет — дом стоит без них (со значком),
 	# пока следующий пересчёт (Utilities.distribute) не найдёт ему запас.
 	var building: BuildingInstance = grid.buildings[id]
-	var component: int = network.component_of.get(front[0] + CityGrid.NEIGHBORS[dir], -1)
+	var component: int = network.component_for_building(grid, building)
 	building.powered = utilities.spare_power.get(component, 0) >= data.power_use
 	building.has_water = utilities.spare_water.get(component, 0) >= data.water_use
 	if building.powered:
@@ -131,7 +138,7 @@ static func grow_one(grid: CityGrid, zone_type: CityGrid.Zone, rng: RandomNumber
 		utilities.spare_water[component] = utilities.spare_water.get(component, 0) - data.water_use
 	if data.population > 0 and context.has("homes"):
 		context["homes"].append([building.cell, data.population])
-	return building.cell
+	return building.cells()[0]
 
 
 ## Ставит дом data у клеток фасада front (улица — в сторону dir) и участок от улицы на depth клеток вглубь:
@@ -154,7 +161,7 @@ static func place_context(grid: CityGrid, traffic: Traffic) -> Dictionary:
 
 
 ## Желанность места для зоны: [очки, причина отказа или ""] по клеткам фасада cells (улица — в сторону dir).
-static func place_score(grid: CityGrid, zone_type: CityGrid.Zone, cells: Array[Vector2i], dir: int,
+static func place_score(grid: CityGrid, zone_type: CityGrid.Zone, cells: Array[Vector2i], _dir: int,
 		land: LandValue, context: Dictionary) -> Array:
 	var value: float = _average(grid, land.land_value, cells)
 	var pollution: float = _average(grid, land.pollution, cells)
@@ -172,7 +179,7 @@ static func place_score(grid: CityGrid, zone_type: CityGrid.Zone, cells: Array[V
 			var traffic: Traffic = context.get("traffic")
 			if traffic != null:
 				for cell: Vector2i in cells:
-					var road: Vector2i = cell + CityGrid.NEIGHBORS[dir]
+					var road: Vector2i = grid.strip_road(cell)
 					if grid.is_in_bounds(road):
 						passing += clampf(traffic.load_ratio(grid, grid.index_of(road)), 0.0, 1.5)
 				passing /= cells.size()
@@ -212,13 +219,21 @@ static func why_not(grid: CityGrid, cell: Vector2i, network: RoadNetwork, land: 
 	if not grid.in_strip(cell):
 		return PackedStringArray(["далеко от дороги: дом строят в 4 клетках от неё по прямой"])
 	var dir: int = grid.get_strip_dir(cell)
-	# Участок растёт от улицы: клетка в глубине ждёт, пока застроят её фасад.
-	var front: Vector2i = cell + CityGrid.NEIGHBORS[dir] * (grid.get_strip_depth(cell) - 1)
-	for k: int in range(1, grid.get_strip_depth(cell)):
-		var c: Vector2i = cell + CityGrid.NEIGHBORS[dir] * k
-		if not grid.zoned_empty_cells[zone_type].has(c) or grid.get_strip_dir(c) != dir:
-			return PackedStringArray(["нет выхода на улицу: между клеткой и дорогой занято"])
-	var road: Vector2i = front + CityGrid.NEIGHBORS[dir]
+	var front: Vector2i = cell
+	var slot: FreeStrips.Slot = grid.free_slot(cell)
+	if slot != null:
+		# Вдоль свободной дороги: ячейки колонки между клеткой и дорогой должны быть свободны.
+		for row: int in range(1, slot.row):
+			if not _free_slot_ok(grid, zone_type, grid.free_strips.slot_in(slot.segment, slot.side, slot.col, row)):
+				return PackedStringArray(["нет выхода на улицу: между клеткой и дорогой занято"])
+	else:
+		# Участок растёт от улицы: клетка в глубине ждёт, пока застроят её фасад.
+		front = cell + CityGrid.NEIGHBORS[dir] * (grid.get_strip_depth(cell) - 1)
+		for k: int in range(1, grid.get_strip_depth(cell)):
+			var c: Vector2i = cell + CityGrid.NEIGHBORS[dir] * k
+			if not grid.zoned_empty_cells[zone_type].has(c) or grid.get_strip_dir(c) != dir:
+				return PackedStringArray(["нет выхода на улицу: между клеткой и дорогой занято"])
+	var road: Vector2i = grid.strip_road(cell)
 	if grid.has_entry() and network.component_of.get(road, -1) != network.component_of.get(grid.entry, -2):
 		result.append("улица не связана с трассой")
 	if demands.get(CityGrid.zone_category(zone_type), 0.0) <= 0.0:
@@ -331,6 +346,143 @@ static func plan_at(grid: CityGrid, land: LandValue, zone_type: CityGrid.Zone, c
 					"penalty": penalty,
 				}
 	return best
+
+
+## План вдоль свободной дороги для клетки cell у самой дороги (ячейка ряда 1): как plan_at, но ряд —
+## колонки ячеек FreeStrips. {segment, side, col — первая колонка, width, depth, options, penalty,
+## front — клетки ряда 1 участка, dir — ближайшая сторона на дорогу}. Пусто — здесь ничего не встаёт.
+static func plan_free_at(grid: CityGrid, land: LandValue, zone_type: CityGrid.Zone, cell: Vector2i,
+		by_width: Dictionary[int, Array], target: float) -> Dictionary:
+	var strips: FreeStrips = grid.free_strips
+	var slot: FreeStrips.Slot = grid.free_slot(cell)
+	if slot == null or slot.row != 1 or not _free_slot_ok(grid, zone_type, slot):
+		return {}
+	var run: Array[int] = [slot.col]
+	for k: int in range(1, MAX_RUN):
+		if not _free_slot_ok(grid, zone_type, strips.slot_in(slot.segment, slot.side, slot.col - k, 1)):
+			break
+		run.push_front(slot.col - k)
+	var seed_index: int = run.size() - 1
+	for k: int in range(1, MAX_RUN):
+		if not _free_slot_ok(grid, zone_type, strips.slot_in(slot.segment, slot.side, slot.col + k, 1)):
+			break
+		run.append(slot.col + k)
+	var depths: Array[int] = []
+	var fronts: Array[Array] = []
+	var dirty: Array[bool] = []
+	var residential: bool = CityGrid.is_residential(zone_type)
+	for col: int in run:
+		var depth: int = 1
+		while depth < FreeStrips.DEPTH and _free_slot_ok(grid, zone_type,
+				strips.slot_in(slot.segment, slot.side, col, depth + 1)):
+			depth += 1
+		depths.append(depth)
+		var cells: Array[Vector2i] = strips.slot_in(slot.segment, slot.side, col, 1).cells
+		fronts.append(cells)
+		var polluted: bool = false
+		if residential and land != null:
+			for c: Vector2i in cells:
+				polluted = polluted or land.value_at(land.pollution, grid, c) >= MAX_HOME_POLLUTION
+		dirty.append(polluted)
+
+	# Участок — width колонок под дом шириной width или на колонку шире (внутренняя сторона дуги: веер
+	# сужается вглубь, прямоугольный дом в свои колонки не влезает — лишняя колонка уходит в боковой двор).
+	var plans: Array[Dictionary] = []
+	for width: int in by_width:
+		for extra: int in [0, 1]:
+			var columns: int = width + extra
+			for start: int in range(seed_index - columns + 1, seed_index + 1):
+				if start < 0 or start + columns > run.size():
+					continue
+				var depth: int = FreeStrips.DEPTH
+				var polluted: bool = false
+				var front: Array[Vector2i] = []
+				for i: int in range(start, start + columns):
+					depth = mini(depth, depths[i])
+					polluted = polluted or dirty[i]
+					front.append_array(fronts[i])
+				# Без клеток у дороги дому не на чем стоять (ячейки на месте клеток дороги).
+				if polluted or front.is_empty():
+					continue
+				var options: Array = by_width[width].filter(
+						func(data: BuildingData) -> bool: return data.size.y <= depth)
+				if options.is_empty():
+					continue
+				var penalty: float = absf(width - target) + extra * EXTRA_COLUMN_PENALTY
+				for i: int in range(start, start + columns):
+					penalty += (depths[i] - depth) * ORPHAN_PENALTY
+				if start > 0 and start + columns < run.size():
+					penalty += SPLIT_PENALTY
+				plans.append({
+					"segment": slot.segment,
+					"side": slot.side,
+					"col": run[start],
+					"width": width,
+					"columns": columns,
+					"front": front,
+					"dir": CityGrid._dir_of_vector(slot.front),
+					"depth": depth,
+					"options": options,
+					"penalty": penalty,
+				})
+	plans.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a.penalty < b.penalty)
+	# Лучший план, где дом влезает (FreeStrips.house_pose); проверяем по порядку — обычно хватает первого.
+	for plan: Dictionary in plans:
+		var fits: Dictionary[int, bool] = {}
+		var fitting: Array = []
+		for data: BuildingData in plan.options:
+			if not fits.has(data.size.y):
+				fits[data.size.y] = strips.house_pose(plan.segment, plan.side, plan.col, plan.columns,
+						data.size.x * CityGrid.CELL_SIZE, data.size.y * CityGrid.CELL_SIZE).ok
+			if fits[data.size.y]:
+				fitting.append(data)
+		if not fitting.is_empty():
+			plan.options = fitting
+			return plan
+	return {}
+
+
+## Ячейка свободна под зону: есть, не занята участком, все её клетки — свободная земля этой зоны
+## (ячейка без клеток подходит любой зоне).
+static func _free_slot_ok(grid: CityGrid, zone_type: CityGrid.Zone, slot: FreeStrips.Slot) -> bool:
+	if slot == null or grid.free_strips.occupied.has(slot.id):
+		return false
+	for cell: Vector2i in slot.cells:
+		if not grid.zoned_empty_cells[zone_type].has(cell):
+			return false
+	return true
+
+
+## Ставит дом data по плану plan_free_at под углом дороги и участок на plan.depth рядов: дом — у дороги,
+## позади и по бокам — двор. Под домом — клетки участка, чьи центры под ним (хоть одна — ближайшая к его
+## середине). Номер дома или −1.
+static func build_free_lot(grid: CityGrid, data: BuildingData, plan: Dictionary) -> int:
+	var strips: FreeStrips = grid.free_strips
+	var lot: Array[Vector2i] = []
+	for col: int in range(plan.col, plan.col + plan.columns):
+		for row: int in range(1, plan.depth + 1):
+			var slot: FreeStrips.Slot = strips.slot_in(plan.segment, plan.side, col, row)
+			if slot != null:
+				lot.append_array(slot.cells)
+	if lot.is_empty():
+		return -1
+	var pose: Dictionary = strips.house_pose(plan.segment, plan.side, plan.col, plan.columns,
+			data.size.x * CityGrid.CELL_SIZE, data.size.y * CityGrid.CELL_SIZE)
+	var under: PackedVector2Array = Geometry2D.offset_polygon(pose.corners, HOUSE_CELL_MARGIN)[0]
+	var house: Array[Vector2i] = []
+	var nearest: Vector2i = lot[0]
+	for cell: Vector2i in lot:
+		var center: Vector2 = RoadGraph.cell_center(cell)
+		if Geometry2D.is_point_in_polygon(center, under):
+			house.append(cell)
+		if center.distance_squared_to(pose.center) < RoadGraph.cell_center(nearest).distance_squared_to(pose.center):
+			nearest = cell
+	if house.is_empty():
+		house.append(nearest)
+	var id: int = grid.place_free_building(data.id, house, pose.center, pose.yaw, plan.dir)
+	if id != -1:
+		grid.add_free_lot(lot, strips.lot_shape(plan.segment, plan.side, plan.col, plan.columns, plan.depth).corners, plan.dir)
+	return id
 
 
 ## Свободная фасадная клетка той же зоны и той же улицы.
