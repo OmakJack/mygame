@@ -35,9 +35,12 @@ enum Park { NONE, SQUARE, GARDEN, PLAZA }
 ## Цена постройки и содержание за тик (в интерфейсе — за час) — только для служебных зданий.
 @export var cost: int = 0
 @export var upkeep: int = 0
+## Есть ли в меню построек. false — служебное здание на покое: стоит в старых городах и работает,
+## но новое не поставить (ТЭЦ, водокачка и отдельные ветряки — теперь модули станций, StationModules).
+@export var buildable: bool = true
 
 @export_group("Свет и вода")
-## Сколько даёт (ТЭЦ, водокачка).
+## Сколько даёт (станция — вместе со встроенным модулем; достроенные модули — StationModules).
 @export var power_supply: int = 0
 @export var water_supply: int = 0
 ## Сколько потребляет.

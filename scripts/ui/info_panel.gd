@@ -2,6 +2,7 @@ class_name InfoPanel
 extends PanelContainer
 ## Карточка «Инфо» (фаза 9): клик по клетке без инструмента — что на ней и как ей живётся.
 ## Справа по центру; обновляется с каждым пересчётом города, закрывается крестиком.
+## У станции (StationModules) — её модули и кнопки «достроить»: ветряк, насос, служебная дорога.
 
 const WIDTH: float = 296.0
 ## Ниже этого значения показатель хороший (загрязнение, шум) — красим, только если выше.
@@ -13,6 +14,10 @@ var _icon := TextureRect.new()
 var _title := Label.new()
 var _subtitle := Label.new()
 var _rows := GridContainer.new()
+## Кнопки модулей станции: пересобираются, только когда меняется станция или её модули.
+var _modules_box := VBoxContainer.new()
+var _module_buttons: Dictionary[StringName, Button] = {}
+var _modules_key: String = ""
 
 
 func _init() -> void:
@@ -58,6 +63,9 @@ func _init() -> void:
 	_rows.add_theme_constant_override(&"h_separation", 14)
 	_rows.add_theme_constant_override(&"v_separation", 2)
 	column.add_child(_rows)
+	_modules_box.add_theme_constant_override(&"separation", 4)
+	_modules_box.visible = false
+	column.add_child(_modules_box)
 
 
 func _ready() -> void:
@@ -85,6 +93,7 @@ func _refresh() -> void:
 	# Клик по двору — карточка его дома.
 	var building: BuildingInstance = grid.get_building_or_yard(cell)
 	var data: BuildingData = BuildingCatalog.get_type(building.type_id) if building != null else null
+	_show_modules(building if data != null and StationModules.is_station(data.id) else null)
 	if data != null:
 		_title.text = data.display_name
 		_subtitle.text = _kind(data) + (" · заброшено" if building.abandoned else "")
@@ -104,16 +113,22 @@ func _refresh() -> void:
 			_add("Жители", "%d (%s)" % [data.population, _families_text(LevelStats.families(data.population))])
 		if data.jobs > 0:
 			_add("Рабочие места", str(data.jobs))
-		if data.power_use > 0 and not building.abandoned:
-			_add("Свет", "%s, %s" % [Utilities.power_text(data.power_use), "есть" if building.powered else "нет"],
+		var power_use: int = StationModules.power_use(building, data)
+		if power_use > 0 and not building.abandoned:
+			_add("Свет", "%s, %s" % [Utilities.power_text(power_use), "есть" if building.powered else "нет"],
 					not building.powered)
 		if data.water_use > 0 and not building.abandoned:
 			_add("Вода", "%s, %s" % [Utilities.water_text(data.water_use), "есть" if building.has_water else "нет"],
 					not building.has_water)
 		if data.power_supply > 0:
-			_add("Даёт свет", Utilities.power_text(data.power_supply))
+			_add("Даёт свет", Utilities.power_text(StationModules.power_supply(building, data)))
 		if data.water_supply > 0:
-			_add("Даёт воду", Utilities.water_text(data.water_supply))
+			_add("Даёт воду", Utilities.water_text(StationModules.water_supply(building, data)),
+					power_use > 0 and not building.powered)
+		if StationModules.is_station(data.id):
+			_add("Модули", _modules_text(building))
+			_add("Площадки", "%d из %d занято" % [StationModules.used_pads(building), StationModules.pad_count(building)])
+			_add("Содержание", "$%d/ч" % roundi(GameTime.per_hour(StationModules.upkeep(building, data))))
 		if data.land_value > 0:
 			_add("Цена земли вокруг", "+%d" % data.land_value)
 		if building.construction_ticks > 0:
@@ -160,6 +175,85 @@ func _refresh() -> void:
 		_add("Шум", str(noise), noise >= BAD_LEVEL)
 		if data != null and data.population + data.jobs > 0 and not building.abandoned:
 			_add("Налог с участка", "×%.2f" % Economy.land_factor(value))
+
+
+## «Ветряк ×3, вертикальный ветряк, служебная дорога» — что стоит на участке станции.
+static func _modules_text(building: BuildingInstance) -> String:
+	var order: Array[StringName] = []
+	var count: Dictionary[StringName, int] = {}
+	for item: Array in StationModules.placed(building):
+		var module: StationModules.Module = item[0]
+		if not count.has(module.id):
+			order.append(module.id)
+		count[module.id] = count.get(module.id, 0) + 1
+	var parts: PackedStringArray = []
+	for id: StringName in order:
+		var name: String = StationModules.module(id).name.to_lower()
+		parts.append(name if count[id] == 1 else "%s ×%d" % [name, count[id]])
+	return ", ".join(parts)
+
+
+## Что даёт модуль — для кнопки и подсказки.
+static func _module_gain(module: StationModules.Module) -> String:
+	if module.is_road:
+		return "ещё %d площадки" % (StationModules.PADS.size() - StationModules.BASE_PADS)
+	if module.power > 0:
+		return "+" + Utilities.power_text(module.power)
+	return "+" + Utilities.water_text(module.water)
+
+
+## Кнопки «достроить модуль» у станции (building = null — не станция: кнопок нет).
+func _show_modules(building: BuildingInstance) -> void:
+	var key: String = ""
+	if building != null:
+		key = str(building.id)
+		for id: StringName in building.modules:
+			key += "," + String(id)
+	if key != _modules_key:
+		_modules_key = key
+		for child: Node in _modules_box.get_children():
+			child.queue_free()
+		_module_buttons.clear()
+		if building != null:
+			var caption := Label.new()
+			caption.text = "Достроить на участке"
+			caption.theme_type_variation = &"Caption"
+			_modules_box.add_child(caption)
+			for module: StationModules.Module in StationModules.options(building.type_id):
+				var button := Button.new()
+				button.text = "+ %s · $%d · %s" % [module.name, module.cost, _module_gain(module)]
+				button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+				button.focus_mode = Control.FOCUS_NONE
+				button.pressed.connect(buy_module.bind(building.id, module.id))
+				_modules_box.add_child(button)
+				_module_buttons[module.id] = button
+	_modules_box.visible = building != null
+	if building == null:
+		return
+	for id: StringName in _module_buttons:
+		var module: StationModules.Module = StationModules.module(id)
+		var reason: String = StationModules.why_not(building, id)
+		if reason.is_empty() and not Economy.can_afford(module.cost):
+			reason = "не хватает денег"
+		_module_buttons[id].disabled = not reason.is_empty()
+		var upkeep: String = "содержание +$%d/ч" % roundi(GameTime.per_hour(module.upkeep))
+		var needs: String = ", берёт свет %s" % Utilities.power_text(module.power_use) if module.power_use > 0 else ""
+		_module_buttons[id].tooltip_text = ("Нельзя: %s" % reason) if not reason.is_empty() \
+				else "%s: %s, %s%s" % [module.name, _module_gain(module), upkeep, needs]
+
+
+## Достраивает модуль станции за деньги города. true — достроен.
+func buy_module(building_id: int, module_id: StringName) -> bool:
+	var grid: CityGrid = GameState.grid
+	var building: BuildingInstance = grid.buildings.get(building_id)
+	var module: StationModules.Module = StationModules.module(module_id)
+	if building == null or module == null or not Economy.can_afford(module.cost) \
+			or not StationModules.add(building, module_id):
+		return false
+	Economy.spend(module.cost)
+	grid.buildings_version += 1
+	Events.cells_changed.emit(building.cells())
+	return true
 
 
 ## Брошенное здание (Decay): никого нет, что мешает въехать или через сколько въедут, как снести.

@@ -111,13 +111,13 @@ static func collect() -> Array[Entry]:
 			entry.tab = "zones"
 			entries.append(entry)
 	if zoned > 0 and utilities.power_supply == 0 and utilities.water_supply == 0:
-		entries.append(_tab_entry("stations", "Нет ТЭЦ или водокачки: без света и воды дома не повышаются и пустеют — поставьте их у дороги",
+		entries.append(_tab_entry("stations", "Нет ветростанции и водозабора: без света и воды дома не повышаются и пустеют — поставьте их у дороги",
 				Level.ALERT, "power_plant_01", "utilities"))
 	elif zoned > 0 and utilities.power_supply == 0:
-		entries.append(_tab_entry("stations", "Нет ТЭЦ или ветряка: без света дома не повышаются и пустеют — поставьте у дороги",
+		entries.append(_tab_entry("stations", "Нет ветростанции: без света дома не повышаются и пустеют — поставьте её у дороги",
 				Level.ALERT, "power_plant_01", "utilities"))
 	elif zoned > 0 and utilities.water_supply == 0:
-		entries.append(_tab_entry("stations", "Нет водокачки: без воды дома не повышаются и пустеют — поставьте её у дороги",
+		entries.append(_tab_entry("stations", "Нет водозабора: без воды дома не повышаются и пустеют — поставьте его у дороги",
 				Level.ALERT, "water_tower_01", "utilities"))
 
 	# Здания без света и воды, без дороги, заброшенные — места для «Показать».
@@ -138,13 +138,13 @@ static func collect() -> Array[Entry]:
 		elif building.no_road_ticks > 0:
 			cut_road.append(building.anchor_cell())
 	if utilities.unpowered_count > 0:
-		var entry := Entry.new("power", "Нет света у %d зд.: нужна ТЭЦ, ветряк или дорога к ним" % utilities.unpowered_count,
+		var entry := Entry.new("power", "Нет света у %d зд.: достройте ветряки на ветростанции (её карточка «Инфо») или поставьте ещё одну" % utilities.unpowered_count,
 				Level.ALERT, "stat_power")
 		entry.cells = _spots(unpowered)
 		entry.overlay = ZoneVisualizer.Overlay.POWER
 		entries.append(entry)
 	if utilities.no_water_count > 0:
-		var entry := Entry.new("water", "Нет воды у %d зд.: нужна водокачка (ей нужен свет)" % utilities.no_water_count,
+		var entry := Entry.new("water", "Нет воды у %d зд.: достройте насосы на водозаборе (его карточка «Инфо»; насосам нужен свет)" % utilities.no_water_count,
 				Level.ALERT, "stat_water")
 		entry.cells = _spots(dry)
 		entry.overlay = ZoneVisualizer.Overlay.WATER
@@ -312,13 +312,13 @@ static func _first_step(grid: CityGrid, utilities: Utilities, zoned: int) -> Ent
 	if grid.road_cells.is_empty():
 		return _tab_entry("step_road", "Шаг 1: проведите дорогу [R]", Level.STEP, "tool_road", "roads")
 	if utilities.power_supply == 0 and utilities.water_supply == 0:
-		return _tab_entry("step_stations", "Шаг 2: поставьте у дороги ТЭЦ (или ветряк) и водокачку (вкладка «Свет и вода»)",
+		return _tab_entry("step_stations", "Шаг 2: поставьте у дороги ветростанцию и водозабор (вкладка «Свет и вода»)",
 				Level.STEP, "power_plant_01", "utilities")
 	if utilities.power_supply == 0:
-		return _tab_entry("step_stations", "Шаг 2: поставьте у дороги ТЭЦ или ветряк — свет нужен и водокачке",
+		return _tab_entry("step_stations", "Шаг 2: поставьте у дороги ветростанцию — свет нужен и водозабору",
 				Level.STEP, "power_plant_01", "utilities")
 	if utilities.water_supply == 0:
-		return _tab_entry("step_stations", "Шаг 2: поставьте у дороги водокачку (вкладка «Свет и вода»)",
+		return _tab_entry("step_stations", "Шаг 2: поставьте у дороги водозабор (вкладка «Свет и вода»)",
 				Level.STEP, "water_tower_01", "utilities")
 	if zoned == 0:
 		return _tab_entry("step_zones", "Шаг 3: разметьте у дороги жилую [1] и промышленную [3] зоны",

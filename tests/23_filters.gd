@@ -45,9 +45,9 @@ func _initialize() -> void:
 	hud._tab_buttons["roads"].pressed.emit()
 	check.call("other tab -> zones", zv.overlay == zv.Overlay.ZONES and hud._active_tab == "roads")
 	# Станции и службы сами показывают свой слой (как в SimCity).
-	ev.building_place_requested.emit(&"power_plant_01")
+	ev.building_place_requested.emit(&"wind_station")
 	check.call("power plant -> power", zv.overlay == zv.Overlay.POWER and hud._active_tab == "utilities")
-	ev.building_place_requested.emit(&"water_tower_01")
+	ev.building_place_requested.emit(&"water_station")
 	check.call("water tower -> water", zv.overlay == zv.Overlay.WATER)
 	ev.building_place_requested.emit(&"school_01")
 	check.call("school -> services", zv.overlay == zv.Overlay.SERVICES and hud._active_tab == "services")

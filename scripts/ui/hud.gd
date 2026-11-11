@@ -417,7 +417,7 @@ func _tab_buildings(kind: String) -> Array[BuildingData]:
 	result.sort_custom(func(a: BuildingData, b: BuildingData) -> bool:
 		if a.service != b.service:
 			return a.service < b.service
-		# «Свет и вода»: сначала станции света (ветряки, ТЭЦ), потом воды.
+		# «Свет и вода»: сначала станции света, потом воды.
 		if (a.water_supply > 0) != (b.water_supply > 0):
 			return b.water_supply > 0
 		return a.cost < b.cost or (a.cost == b.cost and a.id < b.id))
@@ -554,6 +554,12 @@ func _service_tooltip(data: BuildingData) -> String:
 		lines.append("Цена земли вокруг: +%d" % data.land_value)
 	if data.pollution > 0:
 		lines.append("Загрязнение вокруг: %d" % data.pollution)
+	if StationModules.is_station(data.id):
+		var modules: PackedStringArray = []
+		for module: StationModules.Module in StationModules.options(data.id):
+			modules.append("%s ($%d)" % [module.name.to_lower(), module.cost])
+		lines.append("Участок %d×%d клетки, первый модуль — сразу" % [data.size.x, data.size.y])
+		lines.append("Достраивается в карточке станции: %s" % ", ".join(modules))
 	if data.service != BuildingData.Service.NONE:
 		var needed_from: int = Services.REQUIRED_FROM.get(data.service, 0)
 		lines.append("Радиус: %d кл.; нужна городу с %d жителей" % [data.service_radius, needed_from])

@@ -4,6 +4,7 @@ extends Node3D
 ## один мультимеш на тип ротора (как краны в ConstructionVisualizer). Ротор стоит на своей оси
 ## (rotor_pivot) тем же трансформом, каким модель вписана в участок (BuildingMeshes.model_placement).
 ## Крутится, пока игра идёт; на стройке ротора нет, у ветряка без дороги (не даёт свет) ротор стоит.
+## Ветряки-модули станции (StationModules) — так же: ось ротора на своей площадке участка.
 
 ## Мультимеш по id типа.
 var _layers: Dictionary[StringName, MultiMeshInstance3D] = {}
@@ -44,15 +45,28 @@ func _sync() -> void:
 	_rotors.clear()
 	for building: BuildingInstance in grid.buildings.values():
 		var data: BuildingData = BuildingCatalog.get_type(building.type_id)
-		if data == null or data.rotor == null or data.model == null or building.construction_ticks > 0:
+		if data == null or building.construction_ticks > 0:
+			continue
+		var place: Transform3D = grid.building_transform(building)
+		var working: bool = grid.has_building_road_access(building)
+		# Модули станции с ротором — на своих площадках.
+		for item: Array in StationModules.placed(building):
+			var visual: BuildingData = StationModules.visual_data(item[0])
+			if visual == null or visual.rotor == null or visual.model == null:
+				continue
+			if not _rotors.has(visual.id):
+				_rotors[visual.id] = []
+			var seat: Transform3D = place * StationModules.pad_transform(item[1]) * BuildingMeshes.model_placement(visual) \
+					* Transform3D(Basis.IDENTITY, visual.rotor_pivot)
+			_rotors[visual.id].append([seat, fposmod((building.id * 7 + item[1]) * 2.399, TAU), working])
+		if data.rotor == null or data.model == null:
 			continue
 		if not _rotors.has(data.id):
 			_rotors[data.id] = []
-		var place: Transform3D = grid.building_transform(building)
 		var pivot: Transform3D = place * BuildingMeshes.model_placement(data) * Transform3D(Basis.IDENTITY, data.rotor_pivot)
 		# Начальный угол по id: соседние ветряки не крутятся в такт.
 		var phase: float = fposmod(building.id * 2.399, TAU)
-		_rotors[data.id].append([pivot, phase, grid.has_building_road_access(building)])
+		_rotors[data.id].append([pivot, phase, working])
 	for id: StringName in _rotors:
 		if not _layers.has(id):
 			_layers[id] = _make_layer(BuildingCatalog.get_type(id))

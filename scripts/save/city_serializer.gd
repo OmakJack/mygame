@@ -53,6 +53,12 @@ static func to_dict(grid: CityGrid, city_name: String, money: int, tax_rate: int
 			"ab": 1 if building.abandoned else 0,
 			"rt": building.recover_ticks,
 		}
+		# Достроенные модули станции (с 2026-11-11).
+		if not building.modules.is_empty():
+			var modules: Array = []
+			for module_id: StringName in building.modules:
+				modules.append(String(module_id))
+			record["m"] = modules
 		# Дом под углом дороги (этап C3): клетки под ним, середина в мире и поворот.
 		if building.is_free():
 			record["fs"] = _cells_to_list(building.shape)
@@ -348,6 +354,11 @@ static func _load_building(grid: CityGrid, entry: Dictionary, occupied: Dictiona
 			return "пропущено здание за картой"
 		if grid.tile_type[grid.index_of(c)] == CityGrid.Tile.ROAD or grid.is_water(c) or occupied.has(c):
 			return "пропущено здание на занятой клетке %s" % c
+	# Модули станции: чужие и лишние отбрасываются (StationModules.add проверяет).
+	var raw_modules: Variant = entry.get("m")
+	if raw_modules is Array:
+		for module_id: Variant in raw_modules:
+			StationModules.add(building, StringName(str(module_id)))
 	building.no_road_ticks = maxi(0, _int(entry.get("nr"), 0))
 	building.no_power_ticks = maxi(0, _int(entry.get("np"), 0))
 	building.no_water_ticks = maxi(0, _int(entry.get("nw"), 0))

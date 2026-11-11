@@ -34,7 +34,7 @@ func _initialize() -> void:
 	meter.show_values(0, 0, 0)
 	check.call("no stations yet", meter._footer.text == "Станций пока нет" and meter._bar.use_share == 0.0)
 	meter.show_values(30, 0, 5)
-	check.call("no stations, need one", meter._footer.text.begins_with("Нет станций — нужна ТЭЦ")
+	check.call("no stations, need one", meter._footer.text.begins_with("Нет станций — нужна ветростанция")
 			and meter._bar.color == UiTheme.BAD and meter._bar.supply_share == 0.0)
 	meter.show_values(150, 100, 20)
 	print("short: ", meter._value.text, " | ", meter._footer.text)
@@ -42,7 +42,7 @@ func _initialize() -> void:
 			and meter._footer.text.ends_with("без света 20 зд.") and meter._bar.color == UiTheme.BAD
 			and meter._bar.use_share > meter._bar.supply_share)
 	meter.show_values(90, 100, 0)
-	check.call("near full", meter._bar.color == UM.WARN and meter._footer.text.contains("пора ставить"))
+	check.call("near full", meter._bar.color == UM.WARN and meter._footer.text.contains("пора достраивать"))
 	meter.show_values(40, 100, 0)
 	check.call("plenty", meter._bar.color == UiTheme.GOOD and meter._footer.text == "Запас 600 кВт"
 			and is_equal_approx(meter._bar.supply_share, 1.0 / UM.Bar.HEADROOM)
@@ -50,7 +50,7 @@ func _initialize() -> void:
 	var water = UM.new(WATER)
 	root.add_child(water)
 	water.show_values(120, 100, 3)
-	check.call("water meter", water._value.text == "120 / 100 м³/сут" and water._footer.text.contains("водокачка")
+	check.call("water meter", water._value.text == "120 / 100 м³/сут" and water._footer.text.contains("насосы на водозаборе")
 			and water._footer.text.ends_with("без воды 3 зд."))
 
 	# Город: ТЭЦ, водокачка, дома.
@@ -94,7 +94,8 @@ func _initialize() -> void:
 	for label in hud.find_children("*", "Label", true, false):
 		text += label.text + "|"
 	check.call("info card units", text.contains("10 кВт, есть") and text.contains("1 м³/сут, есть"))
-	check.call("plant tooltip", hud._service_buttons[&"power_plant_01"].tooltip_text.contains("Даёт свет: 1\u00a0000 кВт"))
+	check.call("station tooltip", hud._service_buttons[&"wind_station"].tooltip_text.contains("Даёт свет: 250 кВт")
+			and hud._service_buttons[&"wind_station"].tooltip_text.contains("Достраивается в карточке станции"))
 
 	print("ALL OK" if fails.is_empty() else "FAIL: " + ", ".join(fails))
 	quit()

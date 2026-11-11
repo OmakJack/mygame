@@ -19,7 +19,7 @@ func _initialize() -> void:
 		tool._set_mode(m); tool._dragging = true; tool._drag_start = a
 		tool._update_drag(b); tool._apply(); tool._end_drag()
 	# Каталог.
-	check.call("catalog", BuildingCatalog.all_types().size() == 460 and BuildingCatalog.types_for_zone(CityGrid.Zone.RESIDENTIAL).size() == 135 and BuildingCatalog.get_type(&"res_small_01") != null)
+	check.call("catalog", BuildingCatalog.all_types().size() == 462 and BuildingCatalog.types_for_zone(CityGrid.Zone.RESIDENTIAL).size() == 135 and BuildingCatalog.get_type(&"res_small_01") != null)
 	# Направление на дорогу.
 	g.set_road(Vector2i(10,10))
 	check.call("dir N", g.find_nearest_road_dir(Vector2i(10,12)) == 0)

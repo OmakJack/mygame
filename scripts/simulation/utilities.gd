@@ -2,7 +2,8 @@ class_name Utilities
 extends RefCounted
 ## Распределение света и воды по компонентам дорожной сети.
 ## В каждом компоненте: сначала служебные здания по id, потом дома R/C/I по id;
-## кому не хватило запаса — без ресурса. Вода идёт только от водокачек со светом.
+## кому не хватило запаса — без ресурса. Вода идёт только от водозаборов со светом.
+## Сколько здание даёт и берёт — с достроенными модулями станции (StationModules).
 
 ## Единицы на экране, как в Cities: Skylines: единица света — 10 кВт (домик 1×1 — 10 кВт,
 ## ТЭЦ — 1 000 кВт), единица воды — 1 м³ в сутки (домик — 1 м³, водокачка — 100 м³).
@@ -57,12 +58,12 @@ static func distribute(grid: CityGrid, network: RoadNetwork) -> Utilities:
 func _distribute_power(component: int, order: Array) -> void:
 	var available: int = 0
 	for building: BuildingInstance in order:
-		available += BuildingCatalog.get_type(building.type_id).power_supply
+		available += StationModules.power_supply(building, BuildingCatalog.get_type(building.type_id))
 	power_supply += available
 	if available > 0:
 		powered_components[component] = true
 	for building: BuildingInstance in order:
-		var use: int = BuildingCatalog.get_type(building.type_id).power_use
+		var use: int = StationModules.power_use(building, BuildingCatalog.get_type(building.type_id))
 		# Брошенное здание свет не берёт; powered — хватило бы ему запаса (чтобы туда въехали снова).
 		if building.abandoned:
 			building.powered = use <= available
@@ -81,7 +82,7 @@ func _distribute_water(component: int, order: Array) -> void:
 	for building: BuildingInstance in order:
 		# Водокачка без света воду не даёт.
 		if building.powered:
-			available += BuildingCatalog.get_type(building.type_id).water_supply
+			available += StationModules.water_supply(building, BuildingCatalog.get_type(building.type_id))
 	water_supply += available
 	if available > 0:
 		watered_components[component] = true

@@ -131,6 +131,17 @@ const WIND: Dictionary = {
 		"blender/services/parts/wind_vawt_rotor", Vector3(0.0, 1.04, 0.0), Vector3(0.0, -1.0, 0.0), 0.33, 220, 4, 45, 4],
 }
 
+## Станции с модулями (StationModules, с 2026-11-11): участок 4×3, модель — tools/blender/make_stations.py.
+## Свет и вода типа — станция со встроенным первым модулем; остальные модули достраивает игрок.
+## id → [название, модель, цена, содержание, свет, вода, расход света, шум].
+const STATIONS: Dictionary = {
+	"wind_station": ["Ветростанция", "blender/stations/wind_station", 250, 3, 25, 0, 0, 10],
+	"water_station": ["Водозабор", "blender/stations/water_station", 200, 3, 0, 40, 1, 0],
+}
+## Служебные здания на покое: остались для старых городов, в меню их нет (BuildingData.buildable).
+## ТЭЦ, водокачка и отдельные ветряки — теперь модули станций.
+const RETIRED_SERVICES: Array[String] = ["power_plant_01", "water_tower_01", "wind_turbine_01", "wind_turbine_02"]
+
 ## Парки (фаза 9): id → [название, вид, цена, содержание, бонус к цене земли].
 const PARKS: Dictionary = {
 	"park_square": ["Сквер", BuildingData.Park.SQUARE, 60, 1, 35],
@@ -228,6 +239,29 @@ func _initialize() -> void:
 		data.noise = entry[9]
 		data.placeholder_color = Color(0.92, 0.94, 0.96)
 		data.placeholder_height = 3.0
+		_save(data)
+	for id: String in STATIONS:
+		var entry: Array = STATIONS[id]
+		var data := _load_or_new(id)
+		data.display_name = entry[0]
+		data.zone = CityGrid.Zone.NONE
+		data.grows = false
+		data.size = Vector2i(4, 3)
+		data.model = load(_model_path(entry[1]))
+		data.model_scale = 1.0
+		data.model_turns = 2
+		data.sign_color = Color(0, 0, 0, 0)
+		data.cost = entry[2]
+		data.upkeep = entry[3]
+		data.power_supply = entry[4]
+		data.water_supply = entry[5]
+		data.power_use = entry[6]
+		data.noise = entry[7]
+		data.placeholder_height = 1.2
+		_save(data)
+	for id: String in RETIRED_SERVICES:
+		var data := _load_or_new(id)
+		data.buildable = false
 		_save(data)
 	for id: String in PARKS:
 		var entry: Array = PARKS[id]

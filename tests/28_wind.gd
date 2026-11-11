@@ -38,7 +38,7 @@ func _initialize() -> void:
 	for data: BuildingData in hud._tab_buildings("utilities"):
 		order.append(String(data.id))
 	print("tab order: ", order)
-	check.call("utilities tab order", order == ["wind_turbine_01", "wind_turbine_02", "power_plant_01", "water_tower_01"])
+	check.call("utilities tab order", order == ["wind_station", "water_station"])
 	check.call("wind icons", ResourceLoader.exists("res://assets/ui/icons/wind_turbine_01.png")
 			and ResourceLoader.exists("res://assets/ui/icons/wind_turbine_02.png"))
 
@@ -97,12 +97,12 @@ func _initialize() -> void:
 	await process_frame
 	var hints: String = "|".join(hud._advisor.texts())
 	print("hints: ", hints)
-	check.call("hint about water only", hints.contains("водокачку") and not hints.contains("ТЭЦ"))
+	check.call("hint about water only", hints.contains("водозабор") and not hints.contains("ветростанц"))
 
 	# Шкала: что даёт каждая станция — в подсказке.
 	var meter: Node = hud._utility_meters[0]
-	check.call("meter tooltip lists stations", meter.tooltip_text.contains("ветряк — 200 кВт")
-			and meter.tooltip_text.contains("вертикальный ветряк — 450 кВт") and meter.tooltip_text.contains("ТЭЦ — 1\u00a0000 кВт"))
+	check.call("meter tooltip lists stations", meter.tooltip_text.contains("ветростанция — 250 кВт")
+			and meter.tooltip_text.contains("ветряк — +250 кВт") and meter.tooltip_text.contains("вертикальный ветряк — +550 кВт"))
 
 	print("ALL OK" if fails.is_empty() else "FAIL: " + ", ".join(fails))
 	quit()

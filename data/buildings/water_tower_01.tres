@@ -8,6 +8,7 @@ script = ExtResource("1_data")
 id = &"water_tower_01"
 display_name = "Водокачка"
 zone = 0
+buildable = false
 cost = 150
 upkeep = 4
 water_supply = 100

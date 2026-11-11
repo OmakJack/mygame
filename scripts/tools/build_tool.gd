@@ -480,8 +480,9 @@ func _free_place(cell: Vector2i) -> Dictionary:
 	var strips: FreeStrips = grid.free_strips
 	var count: int = strips.frames[slot.segment].count
 	var best: Dictionary = {}
-	# На внутренней стороне дуги здание в свои колонки не влезает — участок на колонку шире.
-	for extra: int in [0, 1]:
+	# На внутренней стороне дуги здание в свои колонки не влезает — участок на колонку-две шире
+	# (станция 4×3 — на две).
+	for extra: int in [0, 1, 2]:
 		var columns: int = data.size.x + extra
 		var col: int = clampi(slot.col - (columns - 1) / 2, 0, maxi(0, count - columns))
 		var pose: Dictionary = strips.house_pose(slot.segment, slot.side, col, columns,

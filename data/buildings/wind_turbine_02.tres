@@ -9,6 +9,7 @@ script = ExtResource("3_flqsh")
 id = &"wind_turbine_02"
 display_name = "Вертикальный ветряк"
 zone = 0
+buildable = false
 grows = false
 cost = 220
 upkeep = 4

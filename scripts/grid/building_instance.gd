@@ -19,6 +19,8 @@ var orientation: int
 var shape: Array[Vector2i] = []
 var center := Vector2.ZERO
 var yaw: float = 0.0
+## Достроенные модули станции (StationModules), по порядку постройки; у остальных зданий пусто.
+var modules: Array[StringName] = []
 # Состояние симуляции.
 ## Сколько тиков подряд нет дороги / света / воды (Decay: по сроку здание пустеет).
 var no_road_ticks: int = 0

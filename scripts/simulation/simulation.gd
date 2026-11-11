@@ -148,7 +148,7 @@ func _update_stats(from_tick: bool = false) -> void:
 			CityGrid.Zone.INDUSTRIAL:
 				jobs_industrial += data.jobs
 			CityGrid.Zone.NONE:
-				service_upkeep += data.upkeep
+				service_upkeep += StationModules.upkeep(building, data)
 	GameState.population = population
 	GameState.jobs_commercial = jobs_commercial
 	GameState.jobs_industrial = jobs_industrial

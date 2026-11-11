@@ -53,21 +53,22 @@ func show_values(use: int, supply: int, unserved: int) -> void:
 	var factor: int = Utilities.KW_PER_UNIT if power else Utilities.M3_PER_UNIT
 	var unit_text: Callable = func(units: int) -> String:
 		return Utilities.power_text(units) if power else Utilities.water_text(units)
-	var station: String = "ТЭЦ или ветряк" if power else "водокачка"
+	var station: String = "ветростанция" if power else "водозабор"
+	var more: String = "ветряки на ветростанции" if power else "насосы на водозаборе"
 	_value.text = "%s / %s" % [Utilities.digits(use * factor), unit_text.call(supply)]
 	var color: Color = UiTheme.GOOD
 	var footer := ""
 	if supply == 0:
 		color = UiTheme.BAD if use > 0 else UiTheme.INK_SOFT
-		footer = ("Нет станций — нужна %s" % station) if use > 0 else "Станций пока нет"
+		footer = ("Нет станций — %s %s" % ["нужна" if power else "нужен", station]) if use > 0 else "Станций пока нет"
 	elif use > supply:
 		color = UiTheme.BAD
-		footer = "Не хватает %s — нужна ещё %s" % [unit_text.call(use - supply), station]
+		footer = "Не хватает %s — достройте %s" % [unit_text.call(use - supply), more]
 	else:
 		footer = "Запас %s" % unit_text.call(supply - use)
 		if use >= supply * NEAR_FULL:
 			color = WARN
-			footer += " — пора ставить ещё станцию"
+			footer += " — пора достраивать станцию"
 	if unserved > 0:
 		footer += " · без %s %d зд." % ["света" if power else "воды", unserved]
 	_footer.text = footer
@@ -79,14 +80,19 @@ func show_values(use: int, supply: int, unserved: int) -> void:
 			unit_text.call(supply), "света" if power else "воды", unserved, unit_text.call(1), _stations_text(power)]
 
 
-## «ТЭЦ — 1 000 кВт, ветряк — 200 кВт…» — что даёт каждая станция из каталога.
+## «Ветростанция — 250 кВт, ветряк — +250 кВт…» — что дают станции из каталога и их модули.
 static func _stations_text(power: bool) -> String:
 	var parts: PackedStringArray = []
 	for data: BuildingData in BuildingCatalog.buildable_types():
 		var supply: int = data.power_supply if power else data.water_supply
 		if supply > 0:
-			parts.append("%s — %s" % [data.display_name.to_lower() if data.display_name != "ТЭЦ" else data.display_name,
+			parts.append("%s — %s" % [data.display_name.to_lower(),
 					Utilities.power_text(supply) if power else Utilities.water_text(supply)])
+		for item: StationModules.Module in StationModules.options(data.id):
+			var extra: int = item.power if power else item.water
+			if extra > 0:
+				parts.append("%s — +%s" % [item.name.to_lower(),
+						Utilities.power_text(extra) if power else Utilities.water_text(extra)])
 	return ", ".join(parts)
 
 

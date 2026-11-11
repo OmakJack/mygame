@@ -80,7 +80,11 @@ static func pick_weighted(options: Array, rng: RandomNumberGenerator) -> Buildin
 
 ## Служебные здания (zone = NONE), которые ставит игрок. Возвращает общий массив — не изменять.
 static func buildable_types() -> Array[BuildingData]:
-	return types_for_zone(CityGrid.Zone.NONE)
+	var result: Array[BuildingData] = []
+	for data: BuildingData in types_for_zone(CityGrid.Zone.NONE):
+		if data.buildable:
+			result.append(data)
+	return result
 
 
 static func _ensure_loaded() -> void:

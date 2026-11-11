@@ -145,7 +145,7 @@ func _fill_legend() -> void:
 			_add_swatch(ZoneVisualizer.POWER_ROAD, "дорога со светом")
 		ZoneVisualizer.Overlay.WATER:
 			_add_meter(UtilityMeter.Kind.WATER)
-			_add_swatch(ZoneVisualizer.WATER_SOURCE, "водокачка (нужен свет)")
+			_add_swatch(ZoneVisualizer.WATER_SOURCE, "водозабор (нужен свет)")
 			_add_swatch(ZoneVisualizer.SERVED, "есть вода")
 			_add_swatch(ZoneVisualizer.UNSERVED, "нет воды")
 			_add_swatch(ZoneVisualizer.WATER_ROAD, "дорога с водой")

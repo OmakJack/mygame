@@ -2,6 +2,7 @@
 
 [ext_resource type="PackedScene" path="res://scenes/camera/rts_camera.tscn" id="1_cam"]
 [ext_resource type="Script" path="res://scripts/grid/grid_visualizer.gd" id="2_grid"]
+[ext_resource type="Script" path="res://scripts/grid/module_visualizer.gd" id="31_modules"]
 [ext_resource type="Script" path="res://scripts/tools/cell_cursor.gd" id="3_cursor"]
 [ext_resource type="Script" path="res://scripts/grid/road_visualizer.gd" id="4_roads"]
 [ext_resource type="Script" path="res://scripts/tools/tool_preview.gd" id="5_preview"]
@@ -106,6 +107,9 @@ script = ExtResource("19_badges")
 
 [node name="RotorVisualizer" type="Node3D" parent="."]
 script = ExtResource("21_rotors")
+
+[node name="ModuleVisualizer" type="Node3D" parent="."]
+script = ExtResource("31_modules")
 
 [node name="TreeVisualizer" type="Node3D" parent="."]
 script = ExtResource("13_trees")

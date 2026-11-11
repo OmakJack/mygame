@@ -28,7 +28,7 @@ func _initialize() -> void:
 		return "|".join(hud._advisor.texts())
 	var tick := func(n: int) -> void:
 		for i in n: ev.sim_tick.emit()
-	check.call("catalog", BuildingCatalog.buildable_types().size() == 14 and hud._service_buttons.size() == 14)
+	check.call("catalog", BuildingCatalog.buildable_types().size() == 12 and hud._service_buttons.size() == 12)
 	check.call("step 1 hint", hints_text.call().contains("Шаг 1"))
 	drag.call(tool.Mode.ROAD, Vector2i(5,20), Vector2i(40,20))
 	check.call("step 2 hint", hints_text.call().contains("Шаг 2"))
@@ -40,7 +40,7 @@ func _initialize() -> void:
 	for b: BuildingInstance in g.buildings.values():
 		if not b.powered and not b.has_water: dark_homes += 1
 	check.call("growth without utilities", not g.buildings.is_empty() and dark_homes == g.buildings.size())
-	check.call("hint no utilities", hints_text.call().contains("Нет света у") and hints_text.call().contains("Нет ТЭЦ или водокачки"))
+	check.call("hint no utilities", hints_text.call().contains("Нет света у") and hints_text.call().contains("Нет ветростанции и водозабора"))
 	# Постановка ТЭЦ на клетку жилой зоны: зона стирается, деньги списываются.
 	# Дома растут и до станций — освобождаем клетки под ТЭЦ и водокачку.
 	for c in [Vector2i(20,19), Vector2i(21,21)]:
@@ -51,7 +51,12 @@ func _initialize() -> void:
 	place.call(&"power_plant_01", Vector2i(20,19))
 	var plant: BuildingInstance = g.get_building_at(Vector2i(20,19))
 	check.call("plant placed", plant != null and plant.orientation == 2 and gs.money == m - 250 and g.get_zone(Vector2i(20,19)) == CityGrid.Zone.NONE)
-	check.call("tool mode place", tool.mode == tool.Mode.PLACE and hud._service_buttons[&"power_plant_01"].button_pressed and not hud._tool_buttons[tool.Mode.ROAD].button_pressed)
+	check.call("tool mode place", tool.mode == tool.Mode.PLACE and not hud._tool_buttons[tool.Mode.ROAD].button_pressed)
+	# В меню — станция: её кнопка нажата, пока она выбрана.
+	ev.building_place_requested.emit(&"wind_station")
+	check.call("menu button of a station is pressed", hud._service_buttons[&"wind_station"].button_pressed
+			and not hud._service_buttons.has(&"power_plant_01"))
+	ev.building_place_requested.emit(&"power_plant_01")
 	# Нельзя: занято / нет дороги.
 	check.call("cannot place occupied", not tool._can_place(Vector2i(20,19)))
 	check.call("cannot place no road", not tool._can_place(Vector2i(20,10)))
@@ -136,7 +141,7 @@ func _initialize() -> void:
 	cursor.has_cell = false
 	tool._apply(); tool._end_drag()
 	check.call("no place over UI", g.buildings.size() == n_before)
-	check.call("tooltip", hud._service_buttons[&"school_01"].tooltip_text.contains("с 150 жителей") and hud._service_buttons[&"water_tower_01"].tooltip_text.contains("Даёт воду: 100"))
+	check.call("tooltip", hud._service_buttons[&"school_01"].tooltip_text.contains("с 150 жителей") and hud._service_buttons[&"water_station"].tooltip_text.contains("Даёт воду: 40"))
 	# Восстановить дорогу — школа заработает.
 	drag.call(tool.Mode.ROAD, Vector2i(30,20), Vector2i(30,20))
 	check.call("school active", school.powered and school.has_water and Services.is_active(g, school, BuildingCatalog.get_type(&"school_01")))
