@@ -5,6 +5,8 @@ extends MultiMeshInstance3D
 
 ## Высота над землёй: выше дорог, ниже курсора.
 const PREVIEW_HEIGHT: float = 0.05
+## Подсветка полотна дороги — выше тротуара и бордюра.
+const RIBBON_HEIGHT: float = 0.08
 
 var _material := StandardMaterial3D.new()
 var _quads := MeshInstance3D.new()
@@ -35,13 +37,15 @@ func show_cells(cells: Array[Vector2i], color: Color) -> void:
 	show_selection(cells, [], color)
 
 
-## Клетки и четырёхугольники (углы в мире x, z) одним цветом.
-func show_selection(cells: Array[Vector2i], quads: Array[PackedVector2Array], color: Color) -> void:
+## Клетки и четырёхугольники (углы в мире x, z) одним цветом. quads — плитками с зазором (ячейки,
+## участки); ribbon — сплошь и выше тротуара (полотно дороги под снос).
+func show_selection(cells: Array[Vector2i], quads: Array[PackedVector2Array], color: Color,
+		ribbon: Array[PackedVector2Array] = []) -> void:
 	var colors: Array[Color] = []
 	colors.resize(cells.size())
 	colors.fill(color)
 	show_colored(cells, colors)
-	if quads.is_empty():
+	if quads.is_empty() and ribbon.is_empty():
 		_quads.mesh = null
 		return
 	var points := PackedVector3Array()
@@ -50,6 +54,9 @@ func show_selection(cells: Array[Vector2i], quads: Array[PackedVector2Array], co
 		for i: int in [0, 1, 2, 0, 2, 3]:
 			var p: Vector2 = quad[i].lerp(center, 0.05)
 			points.append(Vector3(p.x, PREVIEW_HEIGHT, p.y))
+	for quad: PackedVector2Array in ribbon:
+		for i: int in [0, 1, 2, 0, 2, 3]:
+			points.append(Vector3(quad[i].x, RIBBON_HEIGHT, quad[i].y))
 	var arrays: Array = []
 	arrays.resize(Mesh.ARRAY_MAX)
 	arrays[Mesh.ARRAY_VERTEX] = points

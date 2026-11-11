@@ -230,6 +230,46 @@ func nearest_on(segment: Segment, pos: Vector2) -> Vector2:
 	return Vector2(t, bezier(points[0], points[1], points[2], t).distance_to(pos))
 
 
+## Отрезок, на чьё полотно попала точка (из нескольких — чья ось ближе), или −1.
+func segment_at(pos: Vector2) -> int:
+	var best: int = -1
+	var best_d: float = INF
+	for segment: Segment in segments.values():
+		var half: float = RoadTypes.HALF_WIDTH.get(segment.type, 1.0)
+		if not _bbox(segment).grow(half).has_point(pos):
+			continue
+		var d: float = nearest_on(segment, pos).y
+		if d < half and d < best_d:
+			best_d = d
+			best = segment.id
+	return best
+
+
+## Полотно отрезка четырёхугольниками вдоль кривой (углы в мире x, z) — для подсветки.
+func ribbon_quads(id: int, step: float = 1.0) -> Array[PackedVector2Array]:
+	var quads: Array[PackedVector2Array] = []
+	var segment: Segment = segments.get(id)
+	if segment == null:
+		return quads
+	var points: PackedVector2Array = curve(segment)
+	var half: float = RoadTypes.HALF_WIDTH.get(segment.type, 1.0)
+	var count: int = maxi(1, ceili(curve_length(points[0], points[1], points[2]) / step))
+	var left := Vector2.ZERO
+	var right := Vector2.ZERO
+	for i: int in count + 1:
+		var t: float = float(i) / count
+		var p: Vector2 = bezier(points[0], points[1], points[2], t)
+		var tangent: Vector2 = bezier_tangent(points[0], points[1], points[2], t)
+		if tangent.length_squared() < 1e-10:
+			tangent = points[2] - points[0]
+		var across: Vector2 = Vector2(tangent.y, -tangent.x).normalized() * half
+		if i > 0:
+			quads.append(PackedVector2Array([left, p + across, p - across, right]))
+		left = p + across
+		right = p - across
+	return quads
+
+
 ## Лежит ли точка на полотне дороги (или не дальше margin от его края).
 func on_ribbon(pos: Vector2, margin: float = 0.0) -> bool:
 	for segment: Segment in segments.values():

@@ -8,6 +8,8 @@ extends Node
 ## «колонки × ряды» изгибается с дорогой и идёт через узлы на следующие отрезки той же стороны),
 ## начал с клетки — прямоугольник карты берёт и ячейки внутри;
 ## служба встаёт под углом дороги; снос и «Инфо» находят дом под углом по его участку.
+## Бульдозер сносит свободную дорогу целым отрезком, от узла до узла (как в Cities: Skylines): под мышью
+## её полотно подсвечено. Дорога по сетке сносится клетками, как раньше, — из неё можно вырезать кусок.
 
 ## Новые режимы — только в конец (номера режимов шлёт HUD через Events.tool_requested).
 enum Mode { NONE, ROAD, BULLDOZE, ZONE_R, ZONE_C, ZONE_I, DEZONE, PLACE, ZONE_R_HIGH, ZONE_C_HIGH, ZONE_O,
@@ -102,6 +104,11 @@ var _drag_strip := Vector2i.ZERO
 var _drag_coords := Vector2i.ZERO
 ## Ячейки свободных полос текущей операции (зоны).
 var _drag_slots: Array[FreeStrips.Slot] = []
+## Свободные отрезки дорог текущей операции (снос — целиком).
+var _drag_segments: Array[int] = []
+## Бульдозер без нажатия: отрезок под мышью (его полотно подсвечено) или −1, и версия графа подсветки.
+var _hover_segment: int = -1
+var _hover_version: int = -1
 
 
 func _ready() -> void:
@@ -130,6 +137,8 @@ func _process(_delta: float) -> void:
 	# В режиме постановки курсор краснеет там, куда поставить нельзя.
 	if mode == Mode.PLACE and cursor.has_cell:
 		cursor.set_color(CURSOR_COLORS[mode] if _can_place(cursor.hovered_cell) else INVALID_COLOR)
+	if mode == Mode.BULLDOZE and not _dragging:
+		_hover_road()
 	if not _dragging or not cursor.has_ground_hit:
 		return
 	# Мышь за картой — прижимаем конец протягивания к краю.
@@ -152,6 +161,35 @@ func _process(_delta: float) -> void:
 		_drag_coords = coords
 	if moved:
 		_update_drag(end)
+
+
+## Свободный отрезок дороги под точкой мира, который можно снести, или −1 (не дорога, дорога по сетке —
+## та сносится клетками, трасса у въезда).
+func _free_segment_at(point: Vector2) -> int:
+	var grid: CityGrid = GameState.grid
+	var graph: RoadGraph = grid.roads
+	graph.sync(grid)
+	var id: int = graph.segment_at(point)
+	if id == -1 or not FreeStrips.is_free(graph, graph.segments[id]) or graph.is_locked(grid, id):
+		return -1
+	return id
+
+
+## Бульдозер над свободной дорогой: подсветка всего отрезка вместо клетки.
+func _hover_road() -> void:
+	var id: int = -1
+	if cursor.has_cell and cursor.has_ground_hit:
+		id = _free_segment_at(Vector2(cursor.ground_point.x, cursor.ground_point.z))
+	var version: int = GameState.grid.roads.version
+	if id == _hover_segment and version == _hover_version:
+		return
+	_hover_segment = id
+	_hover_version = version
+	cursor.suppressed = id != -1
+	if id == -1:
+		preview.clear()
+	else:
+		preview.show_selection([], [], CURSOR_COLORS[mode], GameState.grid.roads.ribbon_quads(id))
 
 
 ## Начало протягивания — здесь, чтобы клик по UI не начинал стройку.
@@ -312,6 +350,8 @@ func _set_mode(new_mode: Mode, type_id: StringName = &"") -> void:
 	# Повторное нажатие той же клавиши не сбрасывает протягивание.
 	if new_mode == mode and type_id == place_type:
 		return
+	if mode == Mode.BULLDOZE:
+		cursor.suppressed = false
 	mode = new_mode
 	place_type = type_id
 	_end_drag()
@@ -322,16 +362,45 @@ func _set_mode(new_mode: Mode, type_id: StringName = &"") -> void:
 func _update_drag(end: Vector2i) -> void:
 	_drag_end = end
 	_drag_slots.clear()
+	_drag_segments.clear()
 	var quads: Array[PackedVector2Array] = []
+	var ribbon: Array[PackedVector2Array] = []
 	match mode:
 		Mode.ROAD, Mode.ROAD_AVENUE, Mode.ROAD_HIGHWAY:
 			_drag_cells = _l_path(_drag_start, _drag_end)
 		Mode.BULLDOZE:
-			_drag_cells = _rect_cells(_drag_start, _drag_end)
-			# Дома под углом дороги — по участкам: ячейки в прямоугольнике и ячейка под мышью.
 			var grid: CityGrid = GameState.grid
 			grid.ensure_strips()
-			var hit: Array[FreeStrips.Slot] = grid.free_strips.slots_in(_drag_rect())
+			# Свободные дороги — целыми отрезками: тот, что под мышью, и те, чьи клетки в прямоугольнике.
+			# Их клетки уйдут вместе с отрезком.
+			var graph: RoadGraph = grid.roads
+			var taken: Dictionary[int, bool] = {}
+			var pointed: int = -1
+			if cursor.has_cell and cursor.has_ground_hit and cursor.hovered_cell == _drag_end:
+				pointed = _free_segment_at(Vector2(cursor.ground_point.x, cursor.ground_point.z))
+			if pointed != -1:
+				taken[pointed] = true
+			# Щелчок по полотну — это дорога, а не клетка или участок, чья середина рядом.
+			var road_click: bool = pointed != -1 and _drag_start == _drag_end
+			_drag_cells.clear()
+			for cell: Vector2i in _rect_cells(_drag_start, _drag_end):
+				var owners: Array[int] = graph.owners_of(cell) if grid.is_road(cell) else ([] as Array[int])
+				var free_only: bool = not owners.is_empty()
+				for id: int in owners:
+					free_only = free_only and FreeStrips.is_free(graph, graph.segments[id])
+				if free_only:
+					for id: int in owners:
+						if not graph.is_locked(grid, id):
+							taken[id] = true
+				elif not road_click:
+					_drag_cells.append(cell)
+			_drag_segments.assign(taken.keys())
+			for id: int in _drag_segments:
+				ribbon.append_array(graph.ribbon_quads(id))
+			# Дома под углом дороги — по участкам: ячейки в прямоугольнике и ячейка под мышью.
+			var hit: Array[FreeStrips.Slot] = []
+			if not road_click:
+				hit = grid.free_strips.slots_in(_drag_rect())
 			if cursor.hovered_slot != null and cursor.has_cell and cursor.hovered_cell == _drag_end:
 				hit.append(cursor.hovered_slot)
 			var lots: Dictionary[int, bool] = {}
@@ -368,7 +437,7 @@ func _update_drag(end: Vector2i) -> void:
 			return
 	_trim_to_budget()
 	quads.append_array(_quads_of(_drag_slots))
-	preview.show_selection(_drag_cells, quads, CURSOR_COLORS[mode])
+	preview.show_selection(_drag_cells, quads, CURSOR_COLORS[mode], ribbon)
 
 
 ## Можно ли поставить выбранное служебное здание: пустой участок, дорога рядом, хватает денег.
@@ -526,7 +595,10 @@ func _end_drag() -> void:
 	_dragging = false
 	_drag_cells.clear()
 	_drag_slots.clear()
+	_drag_segments.clear()
 	_drag_anchor.clear()
+	_hover_segment = -1
+	_hover_version = -1
 	preview.clear()
 
 
@@ -536,6 +608,9 @@ func _apply() -> void:
 		_apply_place(grid)
 		return
 	var changed: Array[Vector2i] = []
+	# Свободные дороги — целыми отрезками; до клеток: снос клетки перекрёстка режет отрезки и меняет номера.
+	if mode == Mode.BULLDOZE and not _drag_segments.is_empty():
+		changed.append_array(grid.roads.remove_segments(grid, _drag_segments))
 	for cell: Vector2i in _drag_cells:
 		var cost: int = _cell_cost(cell)
 		# Деньги могли измениться с момента превью — проверяем ещё раз.
