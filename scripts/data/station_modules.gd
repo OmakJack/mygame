@@ -6,6 +6,7 @@ extends RefCounted
 ## это сама станция с первым, встроенным модулем на площадке 0. Достроенные модули — у здания
 ## (BuildingInstance.modules, по порядку постройки); их свет, вода и содержание прибавляются сверху.
 ## Площадок шесть: три — сразу, ещё три открывает модуль «Служебная дорога» (сам площадку не занимает).
+## Достроенный модуль можно убрать (remove); встроенный — только вместе со станцией.
 ## Раскладка участка — та же, что в моделях (tools/blender/make_stations.py): менять вместе.
 
 ## Модуль станции.
@@ -153,6 +154,25 @@ static func add(building: BuildingInstance, module_id: StringName) -> bool:
 	if not why_not(building, module_id).is_empty():
 		return false
 	building.modules.append(module_id)
+	return true
+
+
+## Почему достроенный модуль нельзя убрать ("" — можно): его тут нет (встроенный первый модуль не
+## убирается — он часть станции) или это служебная дорога, а её площадки ещё заняты.
+static func why_not_remove(building: BuildingInstance, module_id: StringName) -> String:
+	if not building.modules.has(module_id):
+		return "такого достроенного модуля нет"
+	if module_id == ROAD and used_pads(building) > BASE_PADS:
+		return "сначала уберите модули с площадок у служебной дороги"
+	return ""
+
+
+## Убирает один достроенный модуль — последний такой (деньги не возвращаются, как при сносе).
+## Модули после него сдвигаются на освободившиеся площадки. true — убран.
+static func remove(building: BuildingInstance, module_id: StringName) -> bool:
+	if not why_not_remove(building, module_id).is_empty():
+		return false
+	building.modules.remove_at(building.modules.rfind(module_id))
 	return true
 
 

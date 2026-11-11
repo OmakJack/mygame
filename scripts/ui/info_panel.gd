@@ -2,7 +2,8 @@ class_name InfoPanel
 extends PanelContainer
 ## Карточка «Инфо» (фаза 9): клик по клетке без инструмента — что на ней и как ей живётся.
 ## Справа по центру; обновляется с каждым пересчётом города, закрывается крестиком.
-## У станции (StationModules) — её модули и кнопки «достроить»: ветряк, насос, служебная дорога.
+## У станции (StationModules) — её модули и кнопки «достроить» (ветряк, насос, служебная дорога)
+## и «убрать» для каждого вида достроенных модулей.
 
 const WIDTH: float = 296.0
 ## Ниже этого значения показатель хороший (загрязнение, шум) — красим, только если выше.
@@ -17,6 +18,8 @@ var _rows := GridContainer.new()
 ## Кнопки модулей станции: пересобираются, только когда меняется станция или её модули.
 var _modules_box := VBoxContainer.new()
 var _module_buttons: Dictionary[StringName, Button] = {}
+## Кнопки «убрать»: по одной на вид достроенного модуля.
+var _remove_buttons: Dictionary[StringName, Button] = {}
 var _modules_key: String = ""
 
 
@@ -214,6 +217,7 @@ func _show_modules(building: BuildingInstance) -> void:
 		for child: Node in _modules_box.get_children():
 			child.queue_free()
 		_module_buttons.clear()
+		_remove_buttons.clear()
 		if building != null:
 			var caption := Label.new()
 			caption.text = "Достроить на участке"
@@ -227,9 +231,32 @@ func _show_modules(building: BuildingInstance) -> void:
 				button.pressed.connect(buy_module.bind(building.id, module.id))
 				_modules_box.add_child(button)
 				_module_buttons[module.id] = button
+			# Убрать можно только достроенное: по кнопке на вид модуля, за раз — один.
+			var counts: Dictionary[StringName, int] = {}
+			for id: StringName in building.modules:
+				counts[id] = counts.get(id, 0) + 1
+			if not counts.is_empty():
+				var remove_caption := Label.new()
+				remove_caption.text = "Убрать с участка"
+				remove_caption.theme_type_variation = &"Caption"
+				_modules_box.add_child(remove_caption)
+			for id: StringName in counts:
+				var button := Button.new()
+				var name: String = StationModules.module(id).name
+				button.text = "− %s" % name if counts[id] == 1 else "− %s (стоит %d)" % [name, counts[id]]
+				button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+				button.focus_mode = Control.FOCUS_NONE
+				button.pressed.connect(remove_module.bind(building.id, id))
+				_modules_box.add_child(button)
+				_remove_buttons[id] = button
 	_modules_box.visible = building != null
 	if building == null:
 		return
+	for id: StringName in _remove_buttons:
+		var reason: String = StationModules.why_not_remove(building, id)
+		_remove_buttons[id].disabled = not reason.is_empty()
+		_remove_buttons[id].tooltip_text = ("Нельзя: %s" % reason) if not reason.is_empty() \
+				else "Убрать один модуль. Деньги за него не возвращаются"
 	for id: StringName in _module_buttons:
 		var module: StationModules.Module = StationModules.module(id)
 		var reason: String = StationModules.why_not(building, id)
@@ -251,6 +278,17 @@ func buy_module(building_id: int, module_id: StringName) -> bool:
 			or not StationModules.add(building, module_id):
 		return false
 	Economy.spend(module.cost)
+	grid.buildings_version += 1
+	Events.cells_changed.emit(building.cells())
+	return true
+
+
+## Убирает один достроенный модуль станции (без возврата денег). true — убран.
+func remove_module(building_id: int, module_id: StringName) -> bool:
+	var grid: CityGrid = GameState.grid
+	var building: BuildingInstance = grid.buildings.get(building_id)
+	if building == null or not StationModules.remove(building, module_id):
+		return false
 	grid.buildings_version += 1
 	Events.cells_changed.emit(building.cells())
 	return true

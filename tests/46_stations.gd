@@ -182,6 +182,33 @@ func _initialize() -> void:
 			not g.buildings.has(wind.id) and not g.buildings.has(second.id) and rv.counts() == Vector2i.ZERO
 			and not mv.counts().has(&"wind_small") and gs.utilities.power_supply == 0 and gs.utilities.water_supply == 0)
 
+	# --- Убрать модуль: достроенный — можно, встроенный — нет, дорогу — когда её площадки пусты ---
+	var third: BuildingInstance = place.call(&"wind_station", Vector2i(32, 41))
+	info.buy_module(third.id, &"wind_small")
+	info.buy_module(third.id, &"wind_large")
+	money = gs.money
+	var removed: bool = info.remove_module(third.id, &"wind_small")
+	var shifted: Vector3 = (g.building_transform(third) * StationModules.pad_transform(1)).origin
+	check.call("module removed: no refund, power down, the next one moves to its pad",
+			removed and third.modules == [&"wind_large"] and gs.money == money
+			and gs.utilities.power_supply == wind_type.power_supply + large.power
+			and mv.counts().get(&"wind_small", 0) == 1 and mv.counts().get(&"wind_large", 0) == 1
+			and mv.transform_of(&"wind_large", 0).origin.distance_to(shifted) < 0.01 and rv.counts() == Vector2i(2, 2))
+	check.call("the built-in first turbine stays with the station", not info.remove_module(third.id, &"wind_small")
+			and StationModules.why_not_remove(third, &"wind_small").contains("нет"))
+	for id: StringName in [StationModules.ROAD, &"wind_small", &"wind_small"]: info.buy_module(third.id, id)
+	check.call("service road in use: cannot be removed", StationModules.used_pads(third) == 4
+			and StationModules.why_not_remove(third, StationModules.ROAD).contains("сначала")
+			and not info.remove_module(third.id, StationModules.ROAD))
+	ev.cell_inspected.emit(third.cells()[0])
+	check.call("info card: a remove button per kind, the road one is off",
+			info._remove_buttons.size() == 3 and info._remove_buttons[StationModules.ROAD].disabled
+			and not info._remove_buttons[&"wind_small"].disabled and info._remove_buttons[&"wind_small"].text.contains("стоит 2"))
+	info._remove_buttons[&"wind_small"].pressed.emit()
+	check.call("button removes one module; now the road can go", third.modules.count(&"wind_small") == 1
+			and StationModules.used_pads(third) == 3 and info.remove_module(third.id, StationModules.ROAD)
+			and StationModules.pad_count(third) == 3)
+
 	# --- У кривой дороги станция встаёт под её углом, модули — вместе с ней ---
 	var graph: RoadGraph = g.roads
 	graph.sync(g)
