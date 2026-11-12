@@ -11,6 +11,9 @@ const RIBBON_HEIGHT: float = 0.08
 var _material := StandardMaterial3D.new()
 var _quads := MeshInstance3D.new()
 var _quad_material := StandardMaterial3D.new()
+## Модель под мышью (модуль станции).
+var _ghost := MeshInstance3D.new()
+var _ghost_material := StandardMaterial3D.new()
 
 
 func _ready() -> void:
@@ -31,6 +34,12 @@ func _ready() -> void:
 	_quads.material_override = _quad_material
 	_quads.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(_quads)
+	_ghost_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	_ghost_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_ghost.material_override = _ghost_material
+	_ghost.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_ghost.visible = false
+	add_child(_ghost)
 
 
 func show_cells(cells: Array[Vector2i], color: Color) -> void:
@@ -81,6 +90,21 @@ func show_colored(cells: Array[Vector2i], colors: Array[Color]) -> void:
 		multimesh.set_instance_color(i, colors[i])
 
 
+## Полупрозрачная модель на месте (модуль станции под мышью), окрашенная color.
+func show_ghost(mesh: Mesh, place: Transform3D, color: Color) -> void:
+	_ghost.mesh = mesh
+	_ghost.transform = place
+	_ghost_material.albedo_color = color
+	_ghost.visible = mesh != null
+
+
+## Видна ли модель под мышью (для проверок).
+func has_ghost() -> bool:
+	return _ghost.visible and _ghost.mesh != null
+
+
 func clear() -> void:
 	multimesh.instance_count = 0
 	_quads.mesh = null
+	_ghost.mesh = null
+	_ghost.visible = false

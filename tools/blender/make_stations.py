@@ -1,18 +1,19 @@
 """Станции света и воды с модулями (как в SimCity): участок 4×3 клетки, на нём — здание станции,
-служебный проезд и площадки под модули (ветряки, насосы, башни), которые игрок достраивает.
+площадка встроенного модуля, служебный проезд до края участка (от него игрок тянет служебную дорогу),
+стоянка служебных машин и склад. Остальные модули (ветряки, насосы, башни) игрок ставит на карте
+рядом со станцией — их модели свои.
 
 Запуск (без окна, Blender 5.2):
   "C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background --factory-startup --python tools/blender/make_stations.py
 
 Результат — assets/models/blender/stations/:
-  wind_station.glb   — ветростанция: диспетчерская, трансформатор, проезд, три площадки, ограда
-  water_station.glb  — водозабор: насосная, резервуар, трубы, проезд, три площадки, ограда
-  station_road.glb   — модуль «Служебная дорога»: проезд до краёв участка и ещё три площадки
+  wind_station.glb   — ветростанция: диспетчерская, трансформатор, площадка ветряка, катушки кабеля, стоянка
+  water_station.glb  — водозабор: насосная, резервуар, трубы, площадка насоса, штабель труб, стоянка
   water_pump.glb     — модуль «Насос» (скважина с насосом), 1×1
 
 Координаты — как в игре (метры, середина участка в нуле): x — вдоль улицы, z — вглубь, фасад на −z.
 В Blender это (−x, z): игра разворачивает модель на 180° (model_turns = 2, как у остальных моделей).
-Раскладка участка — в scripts/data/station_modules.gd (PADS): менять вместе.
+Площадка встроенного модуля — в scripts/data/station_modules.gd (BUILTIN_PAD): менять вместе.
 """
 
 import os
@@ -50,9 +51,8 @@ HALF_W = 3.9
 HALF_D = 2.9
 LANE_H = 0.03
 PAD_H = 0.06
-# Площадки под модули (x, z в координатах игры): три у станции, три — с модулем «Служебная дорога».
-BASE_PADS = [(1.0, -2.0), (-1.0, 2.0), (1.0, 2.0)]
-ROAD_PADS = [(3.0, -2.0), (3.0, 2.0), (-3.0, 2.0)]
+# Площадка встроенного модуля (x, z в координатах игры).
+BUILTIN_PAD = (1.0, -2.0)
 
 
 def at(x, z, height=0.0):
@@ -110,13 +110,41 @@ def curb_and_fence(b, accent):
 
 
 def base_lanes(b):
-    """Проезд станции: въезд с улицы и поперечный проезд к площадкам."""
+    """Проезд станции: въезд с улицы и поперечный проезд до правого края участка (там начинается
+    служебная дорога), съезд к стоянке."""
     lane(b, -1.5, -0.5, -HALF_D + 0.07, 0.5)
-    lane(b, -1.5, 1.9, -0.5, 0.5)
+    lane(b, -1.5, HALF_W - 0.07, -0.5, 0.5)
     for z in (-2.2, -1.5, -0.8):
         dash(b, -1.0, z, False)
-    for x in (-0.3, 0.5, 1.3):
+    for x in (-0.3, 0.5, 1.3, 2.1, 2.9):
         dash(b, x, 0.0, True)
+    # Ворота проезда у правого края: две стойки.
+    for z in (-0.62, 0.62):
+        b.box(at(HALF_W - 0.16, z, 0.2), (0.08, 0.08, 0.4), GUNMETAL, skip_bottom=True)
+
+
+def parking(b, accent):
+    """Стоянка служебных машин сзади: асфальт, разметка, фургон цвета станции."""
+    lane(b, -1.9, 1.5, 0.5, 2.6)
+    for x in (-1.0, 0.0, 1.0):
+        b.box(at(x, 2.0, LANE_H + 0.004), (0.04, 1.0, 0.006), WALL, grad=False, skip_bottom=True)
+    # Фургон: кузов, кабина, полоса, колёса.
+    vx, vz = -0.5, 1.95
+    b.box(at(vx, vz + 0.12, LANE_H + 0.3), (0.58, 0.9, 0.5), WALL, skip_bottom=True)
+    b.box(at(vx, vz - 0.48, LANE_H + 0.22), (0.56, 0.34, 0.36), WALL, skip_bottom=True)
+    b.box(at(vx, vz - 0.66, LANE_H + 0.3), (0.5, 0.02, 0.16), SLATE, grad=False)
+    b.box(at(vx, vz + 0.12, LANE_H + 0.36), (0.6, 0.92, 0.08), accent, grad=False)
+    for dx in (-0.27, 0.27):
+        for dz in (-0.45, 0.3):
+            b.cylinder(at(vx + dx, vz + dz, LANE_H + 0.09), 0.09, 0.09, 0.08, CHARCOAL, axis="x", segments=8)
+
+
+def shed(b, x, z, accent):
+    """Склад: коробка с двускатной кровлей и воротами."""
+    b.box(at(x, z, 0.04), (1.3, 1.1, 0.08), CONCRETE, skip_bottom=True)
+    b.box(at(x, z, 0.08 + 0.32), (1.2, 1.0, 0.64), ALUM, skip_bottom=True)
+    b.box(at(x, z, 0.08 + 0.66), (1.28, 1.08, 0.06), accent)
+    b.box(at(x, z - 0.51, 0.08 + 0.24), (0.6, 0.02, 0.46), GUNMETAL, grad=False)
 
 
 def control_house(b, x, z, wall, band, roof):
@@ -140,8 +168,14 @@ def build_wind_station():
     b = ArchBuilder("wind_station")
     curb_and_fence(b, EMERALD)
     base_lanes(b)
-    for x, z in BASE_PADS:
-        pad(b, x, z)
+    pad(b, *BUILTIN_PAD)
+    parking(b, EMERALD)
+    shed(b, 3.0, 1.75, EMERALD)
+    # Катушки кабеля у проезда.
+    for dx in (-0.35, 0.35):
+        cx, cy, _ = at(3.0 + dx, -1.85)
+        b.cylinder((cx, cy, 0.28), 0.28, 0.28, 0.3, IRON, axis="y", segments=12)
+        b.cylinder((cx, cy, 0.28), 0.16, 0.16, 0.32, GOLD, axis="y", segments=10, grad=False)
     bx, by, top = control_house(b, -3.1, -1.95, WALL, EMERALD, SLATE)
     # На крыше — мачта с анемометром и блок вентиляции.
     b.rooftop_hvac(bx - 0.3, by + 0.35, top, scale=0.6)
@@ -171,8 +205,13 @@ def build_water_station():
     b = ArchBuilder("water_station")
     curb_and_fence(b, ROYAL_BLUE)
     base_lanes(b)
-    for x, z in BASE_PADS:
-        pad(b, x, z)
+    pad(b, *BUILTIN_PAD)
+    parking(b, ROYAL_BLUE)
+    shed(b, 3.0, 1.75, ROYAL_BLUE)
+    # Штабель труб у проезда.
+    for i, (dz, h) in enumerate([(-0.2, 0.09), (0.0, 0.09), (0.2, 0.09), (-0.1, 0.25), (0.1, 0.25)]):
+        px, py, _ = at(3.0, -1.85 + dz)
+        b.cylinder((px, py, h), 0.09, 0.09, 1.2, ROYAL_BLUE if i < 3 else STEEL, axis="x", segments=10)
     bx, by, top = control_house(b, -3.1, -1.95, WALL, ROYAL_BLUE, SLATE)
     b.rooftop_hvac(bx + 0.2, by + 0.3, top, scale=0.6)
     # Резервуар чистой воды: низкий бак с крышкой и лестницей.
@@ -190,25 +229,6 @@ def build_water_station():
         b.cylinder((px, py, 0.33), 0.09, 0.09, 0.03, CRIMSON, segments=10)
         b.cylinder((px, py, 0.27), 0.02, 0.02, 0.1, IRON, segments=6)
     b.box((tx - 1.38, ty, 0.14), (0.12, 0.24, 0.28), GUNMETAL, skip_bottom=True)
-    return b
-
-
-def build_station_road():
-    clear_scene()
-    b = ArchBuilder("station_road")
-    # Проезд вправо до края участка и узкая дорожка влево, за трансформатор или резервуар станции.
-    lane(b, 1.9, HALF_W - 0.07, -0.5, 0.5)
-    lane(b, -1.5, -1.0, 0.5, 0.86)
-    lane(b, -3.6, -1.0, 0.86, 1.18)
-    for x in (2.4, 3.2):
-        dash(b, x, 0.0, True)
-    for x, z in ROAD_PADS:
-        pad(b, x, z)
-    # Разворотный карман и фонарь у дальнего конца проезда.
-    lx, ly, _ = at(HALF_W - 0.5, -0.75)
-    b.cylinder((lx, ly, 0.5), 0.03, 0.022, 1.0, STEEL, segments=6)
-    b.box((lx, ly + 0.14, 1.0), (0.07, 0.3, 0.04), GUNMETAL)
-    b.box((lx, ly + 0.24, 0.975), (0.06, 0.1, 0.02), GOLD, grad=False)
     return b
 
 
@@ -253,7 +273,7 @@ def export(builder):
 
 
 def main():
-    for build in (build_wind_station, build_water_station, build_station_road, build_water_pump):
+    for build in (build_wind_station, build_water_station, build_water_pump):
         export(build())
 
 

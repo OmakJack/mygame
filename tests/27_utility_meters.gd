@@ -95,7 +95,7 @@ func _initialize() -> void:
 		text += label.text + "|"
 	check.call("info card units", text.contains("10 кВт, есть") and text.contains("1 м³/сут, есть"))
 	check.call("station tooltip", hud._service_buttons[&"wind_station"].tooltip_text.contains("Даёт свет: 250 кВт")
-			and hud._service_buttons[&"wind_station"].tooltip_text.contains("Достраивается в карточке станции"))
+			and hud._service_buttons[&"wind_station"].tooltip_text.contains("Модули ставятся рядом на карте"))
 
 	print("ALL OK" if fails.is_empty() else "FAIL: " + ", ".join(fails))
 	quit()

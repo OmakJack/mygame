@@ -30,6 +30,10 @@ signal tool_mode_changed(mode: int, type_id: StringName)
 @warning_ignore("unused_signal")
 signal building_place_requested(type_id: StringName)
 
+## UI просит поставить модуль станции (карточка станции): режим BuildTool.Mode.MODULE.
+@warning_ignore("unused_signal")
+signal module_place_requested(station_id: int, module_id: StringName)
+
 ## Сохранения (для сообщений в HUD).
 @warning_ignore("unused_signal")
 signal save_done(name: String)

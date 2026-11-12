@@ -53,11 +53,12 @@ static func to_dict(grid: CityGrid, city_name: String, money: int, tax_rate: int
 			"ab": 1 if building.abandoned else 0,
 			"rt": building.recover_ticks,
 		}
-		# Достроенные модули станции (с 2026-11-11).
+		# Модули станции на карте (с 2026-11-12): [id, x, y, id, x, y, …]. В сохранениях 2026-11-11 —
+		# только id (модули стояли на площадках участка) — их расставляет place_legacy.
 		if not building.modules.is_empty():
 			var modules: Array = []
-			for module_id: StringName in building.modules:
-				modules.append(String(module_id))
+			for i: int in building.modules.size():
+				modules.append_array([String(building.modules[i]), building.module_cells[i].x, building.module_cells[i].y])
 			record["m"] = modules
 		# Дом под углом дороги (этап C3): клетки под ним, середина в мире и поворот.
 		if building.is_free():
@@ -91,7 +92,13 @@ static func to_dict(grid: CityGrid, city_name: String, money: int, tax_rate: int
 	}
 
 
+## Модули станций из сохранений 2026-11-11 (только id): номер станции → id модулей; расставляются
+## после загрузки зданий.
+static var _legacy_modules: Dictionary[int, Array] = {}
+
+
 static func from_dict(data: Variant) -> LoadResult:
+	_legacy_modules.clear()
 	var result := LoadResult.new()
 	if not data is Dictionary:
 		return _fail(result, "файл не похож на сохранение")
@@ -156,6 +163,20 @@ static func from_dict(data: Variant) -> LoadResult:
 		if not problem.is_empty():
 			result.warnings.append(problem)
 	grid.rebuild_caches()
+	# Модули станций: не держатся — прочь; старого вида (площадки участка) — на клетки рядом.
+	var pruned: int = 0
+	for building: BuildingInstance in grid.buildings.values():
+		if not building.modules.is_empty():
+			pruned += StationModules.prune(grid, building)
+	for building_id: int in _legacy_modules:
+		var station: BuildingInstance = grid.buildings.get(building_id)
+		if station != null:
+			var ids: Array[StringName] = []
+			ids.assign(_legacy_modules[building_id])
+			StationModules.place_legacy(grid, station, ids)
+	_legacy_modules.clear()
+	if pruned > 0:
+		result.warnings.append("убрано модулей станций не на своём месте: %d" % pruned)
 	# Участки: [x, y, ширина, глубина по сетке, сторона фасада]; вдоль свободной дороги (этап C3) —
 	# {dir, poly — углы в мире, cells — клетки}; нет поля — участков нет.
 	# Участок без дома (старые сохранения: его нарезала разметка) молча отбрасывается — застройщик нарежет заново.
@@ -354,11 +375,28 @@ static func _load_building(grid: CityGrid, entry: Dictionary, occupied: Dictiona
 			return "пропущено здание за картой"
 		if grid.tile_type[grid.index_of(c)] == CityGrid.Tile.ROAD or grid.is_water(c) or occupied.has(c):
 			return "пропущено здание на занятой клетке %s" % c
-	# Модули станции: чужие и лишние отбрасываются (StationModules.add проверяет).
+	# Модули станции: [id, x, y, …] на клетках рядом (чужие и не держащиеся убирает prune после
+	# загрузки); только id — сохранение 2026-11-11, модули расставятся после загрузки (place_legacy).
 	var raw_modules: Variant = entry.get("m")
-	if raw_modules is Array:
-		for module_id: Variant in raw_modules:
-			StationModules.add(building, StringName(str(module_id)))
+	if raw_modules is Array and StationModules.is_station(type_id):
+		var list: Array = raw_modules
+		var legacy: Array[StringName] = []
+		var i: int = 0
+		while i < list.size():
+			var numbers: bool = i + 2 < list.size() and (list[i + 1] is int or list[i + 1] is float) \
+					and (list[i + 2] is int or list[i + 2] is float)
+			if numbers:
+				var at := Vector2i(_int(list[i + 1], -1), _int(list[i + 2], -1))
+				if grid.is_in_bounds(at) and not cells.has(at) and not occupied.has(at) and not building.module_cells.has(at) \
+						and not grid.is_water(at) and grid.tile_type[grid.index_of(at)] != CityGrid.Tile.ROAD:
+					building.modules.append(StringName(str(list[i])))
+					building.module_cells.append(at)
+				i += 3
+			else:
+				legacy.append(StringName(str(list[i])))
+				i += 1
+		if not legacy.is_empty():
+			_legacy_modules[id] = legacy
 	building.no_road_ticks = maxi(0, _int(entry.get("nr"), 0))
 	building.no_power_ticks = maxi(0, _int(entry.get("np"), 0))
 	building.no_water_ticks = maxi(0, _int(entry.get("nw"), 0))
@@ -372,6 +410,9 @@ static func _load_building(grid: CityGrid, entry: Dictionary, occupied: Dictiona
 	building.abandoned = _int(entry.get("ab"), 0) == 1 and data.zone != CityGrid.Zone.NONE
 	building.recover_ticks = maxi(0, _int(entry.get("rt"), 0)) if building.abandoned else 0
 	grid.buildings[id] = building
+	for c: Vector2i in building.module_cells:
+		occupied[c] = true
+		grid.zone[grid.index_of(c)] = CityGrid.Zone.NONE
 	for c: Vector2i in cells:
 		occupied[c] = true
 		# Под служебным зданием зоны нет (как при постройке): после сноса там не вырастет дом.

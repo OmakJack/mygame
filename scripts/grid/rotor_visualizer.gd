@@ -4,7 +4,7 @@ extends Node3D
 ## один мультимеш на тип ротора (как краны в ConstructionVisualizer). Ротор стоит на своей оси
 ## (rotor_pivot) тем же трансформом, каким модель вписана в участок (BuildingMeshes.model_placement).
 ## Крутится, пока игра идёт; на стройке ротора нет, у ветряка без дороги (не даёт свет) ротор стоит.
-## Ветряки-модули станции (StationModules) — так же: ось ротора на своей площадке участка.
+## Ветряки-модули станции (StationModules) — так же: ось ротора там, где стоит модуль.
 
 ## Мультимеш по id типа.
 var _layers: Dictionary[StringName, MultiMeshInstance3D] = {}
@@ -49,16 +49,17 @@ func _sync() -> void:
 			continue
 		var place: Transform3D = grid.building_transform(building)
 		var working: bool = grid.has_building_road_access(building)
-		# Модули станции с ротором — на своих площадках.
-		for item: Array in StationModules.placed(building):
-			var visual: BuildingData = StationModules.visual_data(item[0])
+		# Модули станции с ротором — встроенный на площадке участка, достроенные — на своих клетках.
+		var items: Array[Array] = StationModules.placed(grid, building)
+		for k: int in items.size():
+			var visual: BuildingData = StationModules.visual_data(items[k][0])
 			if visual == null or visual.rotor == null or visual.model == null:
 				continue
 			if not _rotors.has(visual.id):
 				_rotors[visual.id] = []
-			var seat: Transform3D = place * StationModules.pad_transform(item[1]) * BuildingMeshes.model_placement(visual) \
+			var seat: Transform3D = items[k][1] * BuildingMeshes.model_placement(visual) \
 					* Transform3D(Basis.IDENTITY, visual.rotor_pivot)
-			_rotors[visual.id].append([seat, fposmod((building.id * 7 + item[1]) * 2.399, TAU), working])
+			_rotors[visual.id].append([seat, fposmod((building.id * 7 + k) * 2.399, TAU), working])
 		if data.rotor == null or data.model == null:
 			continue
 		if not _rotors.has(data.id):

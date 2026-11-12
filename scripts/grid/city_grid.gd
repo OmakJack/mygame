@@ -272,6 +272,11 @@ func bulldoze(cell: Vector2i) -> bool:
 		return false
 	var building_id: int = building_at[index_of(cell)]
 	if building_id != -1:
+		# Модуль станции сносится один, без станции (и не сносится, пока на нём держатся другие).
+		var station: BuildingInstance = buildings.get(building_id)
+		var index: int = station.module_cells.find(cell) if station != null else -1
+		if index != -1:
+			return StationModules.remove(self, station, index) != NO_CELL
 		return remove_building(building_id)
 	# Двор сносится вместе с домом.
 	var owner: BuildingInstance = get_building_or_yard(cell)
@@ -889,17 +894,52 @@ func remove_building(instance_id: int) -> bool:
 	var building: BuildingInstance = buildings.get(instance_id)
 	if building == null:
 		return false
-	var occupied: Array[Vector2i] = building.cells()
+	var occupied: Array[Vector2i] = building.all_cells()
 	buildings.erase(instance_id)
 	buildings_version += 1
 	for c: Vector2i in occupied:
 		var i: int = index_of(c)
 		tile_type[i] = Tile.EMPTY
 		building_at[i] = -1
-	_dissolve_lot_at(occupied[0] if building.is_free() else building.cell)
+	_dissolve_lot_at(building.anchor_cell())
 	for c: Vector2i in occupied:
 		_update_zoned_cache(c)
 	return true
+
+
+## Ставит модуль станции (StationModules) на пустую клетку суши: клетка — здания станции, зона стирается.
+## Правила, где модуль может стоять, проверяет StationModules. true — поставлен.
+func add_station_module(building: BuildingInstance, module_id: StringName, cell: Vector2i) -> bool:
+	if not is_in_bounds(cell) or not buildings.has(building.id):
+		return false
+	var i: int = index_of(cell)
+	if tile_type[i] != Tile.EMPTY or water[i] != 0:
+		return false
+	_dissolve_lot_at(cell)
+	building.modules.append(module_id)
+	building.module_cells.append(cell)
+	tile_type[i] = Tile.BUILDING
+	building_at[i] = building.id
+	zone[i] = Zone.NONE
+	_update_zoned_cache(cell)
+	buildings_version += 1
+	return true
+
+
+## Убирает модуль станции номер index: клетка снова пустая. Клетка модуля или NO_CELL.
+func remove_station_module(building: BuildingInstance, index: int) -> Vector2i:
+	if index < 0 or index >= building.modules.size():
+		return NO_CELL
+	var cell: Vector2i = building.module_cells[index]
+	building.modules.remove_at(index)
+	building.module_cells.remove_at(index)
+	if is_in_bounds(cell) and building_at[index_of(cell)] == building.id:
+		var i: int = index_of(cell)
+		tile_type[i] = Tile.EMPTY
+		building_at[i] = -1
+		_update_zoned_cache(cell)
+	buildings_version += 1
+	return cell
 
 
 ## Здание на клетке или null. Клетка должна быть в границах.
@@ -934,7 +974,7 @@ func rebuild_caches() -> void:
 		var data: BuildingData = BuildingCatalog.get_type(building.type_id)
 		if data != null and not building.is_free():
 			building.size = data.footprint(building.orientation)
-		for c: Vector2i in building.cells():
+		for c: Vector2i in building.all_cells():
 			if is_in_bounds(c):
 				var i: int = index_of(c)
 				tile_type[i] = Tile.BUILDING

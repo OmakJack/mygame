@@ -557,9 +557,9 @@ func _service_tooltip(data: BuildingData) -> String:
 	if StationModules.is_station(data.id):
 		var modules: PackedStringArray = []
 		for module: StationModules.Module in StationModules.options(data.id):
-			modules.append("%s ($%d)" % [module.name.to_lower(), module.cost])
+			modules.append("%s (%s)" % [module.name.to_lower(), "бесплатно" if module.cost == 0 else "$%d" % module.cost])
 		lines.append("Участок %d×%d клетки, первый модуль — сразу" % [data.size.x, data.size.y])
-		lines.append("Достраивается в карточке станции: %s" % ", ".join(modules))
+		lines.append("Модули ставятся рядом на карте (кнопки в карточке станции): %s" % ", ".join(modules))
 	if data.service != BuildingData.Service.NONE:
 		var needed_from: int = Services.REQUIRED_FROM.get(data.service, 0)
 		lines.append("Радиус: %d кл.; нужна городу с %d жителей" % [data.service_radius, needed_from])

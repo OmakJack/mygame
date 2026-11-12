@@ -1,8 +1,9 @@
 extends SceneTree
 ## Станции с модулями (как в SimCity): вместо ТЭЦ, водокачки и отдельных ветряков в меню — ветростанция
-## и водозабор на участке 4×3; первый модуль стоит сразу, остальные достраиваются в карточке «Инфо»
-## (три площадки, со служебной дорогой — шесть); свет, вода, расход и содержание — с модулями; модули
-## и роторы рисуются на площадках и поворачиваются со станцией; сохранение; старые здания работают.
+## и водозабор на участке 4×3; первый модуль стоит сразу, остальные игрок ставит на карте рядом
+## (кнопка в карточке «Инфо» → щелчок по клетке): ветряки — вдоль служебной дороги (тянется мышью,
+## бесплатно) или у станции, насосы и башни — вплотную к станции или друг к другу; бульдозер сносит
+## модуль один; свет, вода, расход и содержание — с модулями; сохранение; старые здания работают.
 
 
 func _initialize() -> void:
@@ -97,138 +98,192 @@ func _initialize() -> void:
 			and money - gs.money == wind_type.cost and g.has_building_road_access(wind))
 	check.call("gives the power of its first turbine (%d)" % gs.utilities.power_supply,
 			gs.utilities.power_supply == wind_type.power_supply and wind_type.power_supply == StationModules.module(&"wind_small").power)
-	var pad0: Vector3 = (g.building_transform(wind) * StationModules.pad_transform(0)).origin
+	var pad0: Vector3 = (g.building_transform(wind) * Transform3D(Basis.IDENTITY,
+			Vector3(StationModules.BUILTIN_PAD.x, StationModules.PAD_TOP, StationModules.BUILTIN_PAD.y))).origin
 	check.call("first turbine drawn on its pad, rotor spins", mv.counts() == {&"wind_small": 1}
 			and mv.transform_of(&"wind_small", 0).origin.distance_to(pad0) < 0.01 and rv.counts() == Vector2i(1, 1))
 
-	# --- Модули: три площадки, служебная дорога открывает ещё три ---
-	money = gs.money
-	var bought: bool = info.buy_module(wind.id, &"wind_small") and info.buy_module(wind.id, &"wind_large")
+	# --- Модули ставятся на карте, как в SimCity: щелчок по клетке рядом со станцией ---
+	var put := func(station: BuildingInstance, id: StringName, cell: Vector2i) -> bool:
+		tool.start_module(station.id, id)
+		tool.cursor.has_cell = true
+		tool.cursor.hovered_slot = null
+		tool.cursor.hovered_cell = cell
+		tool._dragging = true
+		tool._drag_start = cell
+		tool._update_drag(cell)
+		var had: int = station.modules.size()
+		tool._apply()
+		tool._end_drag()
+		return station.modules.size() > had and station.module_cells.has(cell)
+	var drag_road := func(station: BuildingInstance, from: Vector2i, to: Vector2i) -> int:
+		tool.start_module(station.id, StationModules.ROAD)
+		tool.cursor.has_cell = true
+		tool.cursor.hovered_slot = null
+		tool.cursor.hovered_cell = to
+		tool._dragging = true
+		tool._drag_start = from
+		tool._update_drag(to)
+		var had: int = StationModules.road_count(station)
+		tool._apply()
+		tool._end_drag()
+		return StationModules.road_count(station) - had
 	var small: StationModules.Module = StationModules.module(&"wind_small")
 	var large: StationModules.Module = StationModules.module(&"wind_large")
-	check.call("two modules bought: paid $%d, power %d" % [money - gs.money, gs.utilities.power_supply],
-			bought and money - gs.money == small.cost + large.cost
-			and gs.utilities.power_supply == wind_type.power_supply + small.power + large.power)
 	money = gs.money
-	check.call("three pads taken: the next turbine needs a service road",
-			StationModules.why_not(wind, &"wind_small").contains("служебная дорога")
-			and not info.buy_module(wind.id, &"wind_small") and gs.money == money and wind.modules.size() == 2)
-	check.call("a module of another station does not fit", not info.buy_module(wind.id, &"water_pump"))
-	var road_ok: bool = info.buy_module(wind.id, StationModules.ROAD)
-	check.call("service road: six pads, only one road", road_ok and StationModules.pad_count(wind) == 6
-			and not info.buy_module(wind.id, StationModules.ROAD))
-	for id: StringName in [&"wind_large", &"wind_large", &"wind_small"]: info.buy_module(wind.id, id)
-	check.call("station full: 6 of 6, no more modules", StationModules.used_pads(wind) == 6
-			and StationModules.why_not(wind, &"wind_small") == "все площадки заняты" and not info.buy_module(wind.id, &"wind_large"))
-	var full_power: int = wind_type.power_supply + small.power * 2 + large.power * 3
+	check.call("turbine right by the station: placed on its cell, paid, power up",
+			put.call(wind, &"wind_small", Vector2i(14, 41)) and money - gs.money == small.cost
+			and gs.utilities.power_supply == wind_type.power_supply + small.power
+			and g.get_building_at(Vector2i(14, 41)) == wind and g.tile_type[g.index_of(Vector2i(14, 41))] == CityGrid.Tile.BUILDING)
+	money = gs.money
+	check.call("turbine away from the station and its road: refused",
+			not put.call(wind, &"wind_small", Vector2i(20, 47)) and gs.money == money
+			and StationModules.why_not_at(g, wind, &"wind_small", Vector2i(20, 47)).contains("вдоль служебной дороги"))
+	check.call("a module of another station does not fit",
+			StationModules.why_not_at(g, wind, &"water_pump", Vector2i(14, 42)).contains("не подходит"))
+	check.call("not on the street", StationModules.why_not_at(g, wind, &"wind_small", Vector2i(12, 40)) == "клетка занята")
+	# Служебная дорога — бесплатно, тянется мышью от участка станции.
+	money = gs.money
+	var laid: int = drag_road.call(wind, Vector2i(14, 43), Vector2i(14, 50))
+	check.call("service road dragged from the lot: 8 cells, free (%d)" % laid, laid == 8 and gs.money == money
+			and StationModules.road_count(wind) == 8 and mv.road_cells == 8)
+	check.call("road must start at the station or its end", drag_road.call(wind, Vector2i(30, 50), Vector2i(32, 50)) == 0
+			and StationModules.why_not_at(g, wind, StationModules.ROAD, Vector2i(30, 50)).contains("тянется"))
+	check.call("dragging from the road end extends it", drag_road.call(wind, Vector2i(14, 50), Vector2i(16, 50)) == 2)
+	check.call("turbines along the service road", put.call(wind, &"wind_large", Vector2i(15, 47))
+			and put.call(wind, &"wind_small", Vector2i(13, 49)))
+	var farm_power: int = wind_type.power_supply + small.power * 2 + large.power
 	check.call("power and upkeep with modules (%d, $%d)" % [gs.utilities.power_supply, StationModules.upkeep(wind, wind_type)],
-			gs.utilities.power_supply == full_power and StationModules.power_supply(wind, wind_type) == full_power
-			and StationModules.upkeep(wind, wind_type) == wind_type.upkeep + small.upkeep * 2 + large.upkeep * 3)
-	# Все модули — на участке станции, каждый на своей площадке; роторов — по числу ветряков.
-	var drawn: Dictionary = mv.counts()
-	var spots: Dictionary = {}
-	var inside: bool = true
-	var lot := Rect2(Vector2(wind.cell) * 2.0, Vector2(wind.size) * 2.0)
-	for id: StringName in [&"wind_small", &"wind_large"]:
-		for i in drawn.get(id, 0):
-			var at: Vector3 = mv.transform_of(id, i).origin
-			spots[Vector2i(roundi(at.x * 10.0), roundi(at.z * 10.0))] = true
-			if not lot.has_point(Vector2(at.x, at.z)): inside = false
-	check.call("modules drawn: 3 small, 3 large, the road; each on its own pad inside the lot",
-			drawn == {&"wind_small": 3, &"wind_large": 3, &"service_road": 1} and spots.size() == 6 and inside)
-	check.call("six rotors spin", rv.counts() == Vector2i(6, 6))
+			gs.utilities.power_supply == farm_power and StationModules.power_supply(wind, wind_type) == farm_power
+			and StationModules.upkeep(wind, wind_type) == wind_type.upkeep + small.upkeep * 2 + large.upkeep)
+	check.call("modules drawn on their cells, rotors spin", mv.counts() == {&"wind_small": 3, &"wind_large": 1}
+			and mv.transform_of(&"wind_large", 0).origin.distance_to(g.grid_to_world(Vector2i(15, 47))) < 0.01
+			and rv.counts() == Vector2i(4, 4))
 
-	# --- Карточка «Инфо»: модули и кнопки ---
-	ev.cell_inspected.emit(wind.cells()[5])
-	check.call("info card: three module buttons, all off on a full station", info.visible and info._module_buttons.size() == 3
-			and info._module_buttons[&"wind_small"].disabled and info._module_buttons[&"wind_small"].tooltip_text.contains("Нельзя"))
-	var second: BuildingInstance = place.call(&"wind_station", Vector2i(16, 37))
-	ev.cell_inspected.emit(second.cells()[0])
-	var button: Button = info._module_buttons[&"wind_large"]
-	money = gs.money
-	button.pressed.emit()
-	check.call("button adds a module", not button.disabled and second.modules == [&"wind_large"] and money - gs.money == large.cost)
+	# --- Постановка до щелчка: свободные клетки подсвечены, под мышью — модель ветряка ---
+	tool.start_module(wind.id, &"wind_small")
+	tool.cursor.has_cell = true
+	tool.cursor.hovered_slot = null
+	tool.cursor.hovered_cell = Vector2i(15, 48)
+	tool._process(0.0)
+	var lit: int = tool.preview.multimesh.instance_count
+	check.call("hover: free cells along the road lit (%d), model under the mouse" % lit,
+			lit >= 10 and tool.preview.has_ghost() and tool.cursor.suppressed
+			and lit == StationModules.free_cells(g, wind, &"wind_small").size())
+	tool.cursor.hovered_cell = Vector2i(25, 50)
+	tool._process(0.0)
+	check.call("hover far away: the model turns red", tool.preview.has_ghost()
+			and tool.preview._ghost_material.albedo_color == tool.INVALID_COLOR)
+	tool._set_mode(tool.Mode.NONE)
+
+	# --- Карточка «Инфо»: щелчок по ветряку открывает станцию, кнопки включают постановку ---
+	ev.cell_inspected.emit(Vector2i(15, 47))
+	check.call("clicking a turbine opens its station card", info.visible and info._title.text == wind_type.display_name
+			and info._module_buttons.size() == 3)
+	info._module_buttons[StationModules.ROAD].pressed.emit()
+	check.call("road button starts placing the road for this station", tool.mode == tool.Mode.MODULE
+			and tool.place_type == StationModules.ROAD and tool.place_station == wind.id)
 	gs.money = 10
 	ev.stats_changed.emit()
-	check.call("no money: buttons off", info._module_buttons[&"wind_small"].disabled
-			and info._module_buttons[&"wind_small"].tooltip_text.contains("денег"))
+	check.call("no money: turbine buttons off, the free road still on", info._module_buttons[&"wind_small"].disabled
+			and info._module_buttons[&"wind_small"].tooltip_text.contains("денег")
+			and not info._module_buttons[StationModules.ROAD].disabled)
 	gs.money = 5000
-	# Станция через улицу смотрит на неё: модули повёрнуты вместе с ней.
-	var turned: Vector3 = (g.building_transform(second) * StationModules.pad_transform(1)).origin
-	var seen: bool = false
-	for i in mv.counts().get(&"wind_large", 0):
-		if mv.transform_of(&"wind_large", i).origin.distance_to(turned) < 0.01: seen = true
-	check.call("station across the street: faces it, its module follows", second.orientation != wind.orientation and seen
-			and Rect2(Vector2(second.cell) * 2.0, Vector2(second.size) * 2.0).has_point(Vector2(turned.x, turned.z)))
+	tool._set_mode(tool.Mode.NONE)
 
-	# --- Водозабор: вода идёт, пока есть свет; насосам и башням нужен свет ---
+	# --- Бульдозер: модуль сносится один; то, на чём держатся другие, — нет ---
+	var bulldoze := func(from: Vector2i, to: Vector2i) -> void:
+		tool._set_mode(tool.Mode.BULLDOZE)
+		tool._dragging = true
+		tool._drag_start = from
+		tool._update_drag(to)
+		tool._apply()
+		tool._end_drag()
+	bulldoze.call(Vector2i(14, 47), Vector2i(14, 47))
+	check.call("road piece holding a turbine and the far road: stays",
+			StationModules.road_count(wind) == 10 and g.buildings.has(wind.id)
+			and StationModules.why_not_remove(g, wind, StationModules.index_at(wind, Vector2i(14, 47))).contains("держатся"))
+	money = gs.money
+	bulldoze.call(Vector2i(15, 47), Vector2i(15, 47))
+	check.call("turbine bulldozed alone: station stays, no refund, power down",
+			g.buildings.has(wind.id) and not wind.module_cells.has(Vector2i(15, 47)) and gs.money == money
+			and gs.utilities.power_supply == farm_power - large.power
+			and g.tile_type[g.index_of(Vector2i(15, 47))] == CityGrid.Tile.EMPTY and rv.counts() == Vector2i(3, 3))
+	bulldoze.call(Vector2i(13, 44), Vector2i(16, 50))
+	check.call("bulldozer over the farm: turbine and road gone (turbine first), station stays",
+			g.buildings.has(wind.id) and wind.modules == [&"wind_small", StationModules.ROAD]
+			and wind.module_cells == [Vector2i(14, 41), Vector2i(14, 43)] and mv.road_cells == 1)
+
+	# --- Водозабор: насосы и башни — вплотную к станции или друг к другу; им нужен свет ---
 	var water: BuildingInstance = place.call(&"water_station", Vector2i(24, 41))
 	var pump: StationModules.Module = StationModules.module(&"water_pump")
 	var tower: StationModules.Module = StationModules.module(&"water_tower")
 	check.call("water station: water of its first pump (%d)" % gs.utilities.water_supply,
 			water != null and gs.utilities.water_supply == water_type.water_supply and water_type.water_supply == pump.water)
-	info.buy_module(water.id, &"water_tower")
-	info.buy_module(water.id, &"water_pump")
+	check.call("tower by the station, pump by the tower", put.call(water, &"water_tower", Vector2i(28, 41))
+			and put.call(water, &"water_pump", Vector2i(29, 41)))
+	check.call("pump far from the station and its modules: refused", not put.call(water, &"water_pump", Vector2i(31, 44))
+			and StationModules.why_not_at(g, water, &"water_pump", Vector2i(31, 44)).contains("вплотную"))
 	check.call("tower and pump added: water %d, takes power %d" % [gs.utilities.water_supply, StationModules.power_use(water, water_type)],
 			gs.utilities.water_supply == water_type.water_supply + tower.water + pump.water
 			and StationModules.power_use(water, water_type) == water_type.power_use + tower.power_use + pump.power_use
 			and gs.utilities.power_use == StationModules.power_use(water, water_type))
+	bulldoze.call(Vector2i(28, 41), Vector2i(28, 41))
+	check.call("tower holding the pump: stays", water.module_cells.has(Vector2i(28, 41)))
 	check.call("pump and tower drawn", mv.counts().get(&"water_pump", 0) == 2 and mv.counts().get(&"water_tower", 0) == 1)
 
-	# --- Сохранение: модули на месте, чужие и лишние отбрасываются ---
+	# --- Сохранение: модули на своих клетках; чужие и не держащиеся отбрасываются; старый вид — рядом ---
+	var second: BuildingInstance = place.call(&"wind_station", Vector2i(16, 37))
+	var third: BuildingInstance = place.call(&"wind_station", Vector2i(32, 41))
+	var second_right: int = second.cell.x + second.size.x
 	var saved: Dictionary = JSON.parse_string(JSON.stringify(CS.to_dict(g, "S", 1000, 10, 0, 0)))
 	for entry: Dictionary in saved.buildings:
 		if int(entry.id) == second.id:
-			entry["m"] = ["bogus", "water_pump", "wind_small", "wind_small", "wind_small", "wind_small"]
+			entry["m"] = ["wind_small", second_right, second.cell.y, "bogus", second_right, second.cell.y + 1,
+					"water_pump", second_right, second.cell.y + 2, "wind_small", 50, 20, "wind_small", second.cell.x - 1, second.cell.y]
+		if int(entry.id) == third.id:
+			entry["m"] = ["wind_small", "service_road", "wind_large"]
 	var loaded = CS.from_dict(saved)
 	var g2: CityGrid = loaded.grid if loaded.ok else null
-	check.call("save/load keeps modules", g2 != null and loaded.warnings.is_empty() and g2.buildings[wind.id].modules == wind.modules
-			and g2.buildings[water.id].modules == water.modules)
-	check.call("load drops foreign and extra modules", g2 != null and g2.buildings[second.id].modules == [&"wind_small", &"wind_small"])
+	check.call("save/load keeps modules on their cells", g2 != null and g2.buildings[wind.id].modules == wind.modules
+			and g2.buildings[wind.id].module_cells == wind.module_cells and g2.buildings[water.id].module_cells == water.module_cells
+			and g2.get_building_at(Vector2i(29, 41)).id == water.id)
+	check.call("load drops foreign, unknown and loose modules", g2 != null
+			and g2.buildings[second.id].modules == [&"wind_small", &"wind_small"]
+			and g2.buildings[second.id].module_cells == [Vector2i(second_right, second.cell.y), Vector2i(second.cell.x - 1, second.cell.y)]
+			and not loaded.warnings.is_empty() and g2.tile_type[g2.index_of(Vector2i(50, 20))] == CityGrid.Tile.EMPTY)
+	var legacy_ok: bool = g2 != null and g2.buildings[third.id].modules == [&"wind_small", &"wind_large"]
+	if legacy_ok:
+		for cell: Vector2i in g2.buildings[third.id].module_cells:
+			legacy_ok = legacy_ok and StationModules.index_at(g2.buildings[third.id], cell) != -1 \
+					and g2.get_building_at(cell) == g2.buildings[third.id]
+	check.call("old save (modules on lot pads): turbines set right by the station, old road dropped", legacy_ok)
+
+	# --- Предел модулей у станции ---
+	drag_road.call(third, Vector2i(36, 43), Vector2i(36, 52))
+	for y in range(43, 53):
+		put.call(third, &"wind_small", Vector2i(37, y))
+	put.call(third, &"wind_small", Vector2i(31, 41))
+	put.call(third, &"wind_small", Vector2i(31, 42))
+	check.call("station full: %d modules, no more" % StationModules.module_count(third),
+			StationModules.module_count(third) == StationModules.MAX_MODULES
+			and StationModules.why_not(third, &"wind_small").contains("больше нельзя")
+			and not put.call(third, &"wind_small", Vector2i(35, 44)))
 
 	# --- Старая ТЭЦ из сохранений работает; без света водозабор воды не даёт ---
+	var before_plant: int = gs.utilities.power_supply
 	g.place_building(&"power_plant_01", Vector2i(40, 41), 0, true)
 	ev.cells_changed.emit([Vector2i(40, 41)] as Array[Vector2i])
-	var with_plant: int = gs.utilities.power_supply
-	tool._set_mode(tool.Mode.BULLDOZE)
-	for cell: Vector2i in [Vector2i(40, 41), wind.cells()[0], second.cells()[0]]:
-		tool._dragging = true
-		tool._drag_start = cell
-		tool._update_drag(cell)
-		tool._apply()
-		tool._end_drag()
-	check.call("old power plant still gives its 100 (%d)" % with_plant,
-			with_plant == full_power + wind_type.power_supply + large.power + 100)
-	check.call("stations bulldozed: modules and rotors gone, no power — no water",
-			not g.buildings.has(wind.id) and not g.buildings.has(second.id) and rv.counts() == Vector2i.ZERO
-			and not mv.counts().has(&"wind_small") and gs.utilities.power_supply == 0 and gs.utilities.water_supply == 0)
-
-	# --- Убрать модуль: достроенный — можно, встроенный — нет, дорогу — когда её площадки пусты ---
-	var third: BuildingInstance = place.call(&"wind_station", Vector2i(32, 41))
-	info.buy_module(third.id, &"wind_small")
-	info.buy_module(third.id, &"wind_large")
-	money = gs.money
-	var removed: bool = info.remove_module(third.id, &"wind_small")
-	var shifted: Vector3 = (g.building_transform(third) * StationModules.pad_transform(1)).origin
-	check.call("module removed: no refund, power down, the next one moves to its pad",
-			removed and third.modules == [&"wind_large"] and gs.money == money
-			and gs.utilities.power_supply == wind_type.power_supply + large.power
-			and mv.counts().get(&"wind_small", 0) == 1 and mv.counts().get(&"wind_large", 0) == 1
-			and mv.transform_of(&"wind_large", 0).origin.distance_to(shifted) < 0.01 and rv.counts() == Vector2i(2, 2))
-	check.call("the built-in first turbine stays with the station", not info.remove_module(third.id, &"wind_small")
-			and StationModules.why_not_remove(third, &"wind_small").contains("нет"))
-	for id: StringName in [StationModules.ROAD, &"wind_small", &"wind_small"]: info.buy_module(third.id, id)
-	check.call("service road in use: cannot be removed", StationModules.used_pads(third) == 4
-			and StationModules.why_not_remove(third, StationModules.ROAD).contains("сначала")
-			and not info.remove_module(third.id, StationModules.ROAD))
-	ev.cell_inspected.emit(third.cells()[0])
-	check.call("info card: a remove button per kind, the road one is off",
-			info._remove_buttons.size() == 3 and info._remove_buttons[StationModules.ROAD].disabled
-			and not info._remove_buttons[&"wind_small"].disabled and info._remove_buttons[&"wind_small"].text.contains("стоит 2"))
-	info._remove_buttons[&"wind_small"].pressed.emit()
-	check.call("button removes one module; now the road can go", third.modules.count(&"wind_small") == 1
-			and StationModules.used_pads(third) == 3 and info.remove_module(third.id, StationModules.ROAD)
-			and StationModules.pad_count(third) == 3)
+	check.call("old power plant still gives its 100 (%d)" % gs.utilities.power_supply,
+			gs.utilities.power_supply == before_plant + 100)
+	for cell: Vector2i in [Vector2i(40, 41), wind.cells()[0], second.cells()[0], third.cells()[0]]:
+		bulldoze.call(cell, cell)
+	check.call("stations bulldozed: modules, road and rotors gone, no power — no water",
+			not g.buildings.has(wind.id) and not g.buildings.has(second.id) and not g.buildings.has(third.id)
+			and rv.counts() == Vector2i.ZERO and not mv.counts().has(&"wind_small") and mv.road_cells == 0
+			and g.tile_type[g.index_of(Vector2i(14, 41))] == CityGrid.Tile.EMPTY
+			and g.tile_type[g.index_of(Vector2i(37, 45))] == CityGrid.Tile.EMPTY
+			and gs.utilities.power_supply == 0 and gs.utilities.water_supply == 0)
 
 	# --- У кривой дороги станция встаёт под её углом, модули — вместе с ней ---
 	var graph: RoadGraph = g.roads
@@ -258,15 +313,18 @@ func _initialize() -> void:
 		tool._end_drag()
 		for id: int in g.buildings:
 			if not ids.has(id): angled = g.buildings[id]
-	var follows: bool = angled != null and angled.is_free() and info.buy_module(angled.id, &"wind_large")
+	var follows: bool = angled != null and angled.is_free()
 	if follows:
-		var want: Transform3D = g.building_transform(angled) * StationModules.pad_transform(1)
-		follows = false
-		for i in mv.counts().get(&"wind_large", 0):
-			var got: Transform3D = mv.transform_of(&"wind_large", i)
-			if got.origin.distance_to(want.origin) < 0.01 and got.basis.is_equal_approx(want.basis): follows = true
+		var spots: Array[Vector2i] = StationModules.free_cells(g, angled, &"wind_large")
+		follows = not spots.is_empty() and put.call(angled, &"wind_large", spots[0])
+		if follows:
+			var want := Transform3D(g.building_transform(angled).basis, g.grid_to_world(spots[0]))
+			follows = false
+			for i in mv.counts().get(&"wind_large", 0):
+				var got: Transform3D = mv.transform_of(&"wind_large", i)
+				if got.origin.distance_to(want.origin) < 0.01 and got.basis.is_equal_approx(want.basis): follows = true
 		follows = follows and absf(fposmod(angled.yaw, PI * 0.5)) > 0.05
-	check.call("station by a diagonal road: at its angle, the module turns with it", follows)
+	check.call("station by a diagonal road: at its angle, a module next to it turns with it", follows)
 
 	print("ALL OK" if fails.is_empty() else "FAIL: " + ", ".join(fails))
 	quit()

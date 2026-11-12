@@ -10,10 +10,14 @@ extends Node
 ## служба встаёт под углом дороги; снос и «Инфо» находят дом под углом по его участку.
 ## Бульдозер сносит свободную дорогу целым отрезком, от узла до узла (как в Cities: Skylines): под мышью
 ## её полотно подсвечено. Дорога по сетке сносится клетками, как раньше, — из неё можно вырезать кусок.
+## Модули станции (как в SimCity): кнопка в карточке станции включает режим MODULE — клетки, куда модуль
+## можно поставить, подсвечены, под мышью — его полупрозрачная модель; щелчок ставит модуль, режим
+## остаётся (ставить следующий). Служебную дорогу тянут мышью, как дорогу по клеткам. Бульдозер сносит
+## модуль один, без станции.
 
 ## Новые режимы — только в конец (номера режимов шлёт HUD через Events.tool_requested).
 enum Mode { NONE, ROAD, BULLDOZE, ZONE_R, ZONE_C, ZONE_I, DEZONE, PLACE, ZONE_R_HIGH, ZONE_C_HIGH, ZONE_O,
-		ROAD_AVENUE, ROAD_HIGHWAY }
+		ROAD_AVENUE, ROAD_HIGHWAY, MODULE }
 
 const CURSOR_COLORS: Dictionary[Mode, Color] = {
 	Mode.NONE: Color(1.0, 1.0, 1.0, 0.35),
@@ -29,7 +33,12 @@ const CURSOR_COLORS: Dictionary[Mode, Color] = {
 	Mode.ZONE_O: Color(0.6, 0.35, 0.9, 0.75),
 	Mode.ROAD_AVENUE: Color(1.0, 0.45, 0.15, 0.6),
 	Mode.ROAD_HIGHWAY: Color(0.95, 0.3, 0.1, 0.65),
+	Mode.MODULE: Color(0.45, 1.0, 0.55, 0.7),
 }
+## Клетки, куда модуль станции можно поставить, — подсветка послабее.
+const MODULE_FREE_COLOR := Color(0.45, 1.0, 0.55, 0.22)
+## Модель модуля под мышью: светлая полупрозрачная (красная — сюда нельзя).
+const MODULE_GHOST_COLOR := Color(0.92, 1.0, 0.95, 0.62)
 
 ## Какой тип дороги кладёт режим (фаза 11). Поверх дороги другого типа — замена типа.
 const MODE_ROADS: Dictionary[Mode, int] = {
@@ -87,8 +96,10 @@ const MODE_ACTIONS: Dictionary[StringName, Mode] = {
 @export var preview: ToolPreview
 
 var mode: Mode = Mode.NONE
-## Тип служебного здания для режима PLACE.
+## Тип служебного здания для режима PLACE (в режиме MODULE — id модуля).
 var place_type: StringName = &""
+## Станция, которой ставим модуль (режим MODULE), или −1.
+var place_station: int = -1
 
 var _dragging: bool = false
 var _drag_start: Vector2i = Vector2i.ZERO
@@ -117,6 +128,7 @@ func _ready() -> void:
 	cursor.set_color(CURSOR_COLORS[mode])
 	Events.tool_requested.connect(func(requested: int) -> void: _set_mode(requested as Mode))
 	Events.building_place_requested.connect(func(type_id: StringName) -> void: _set_mode(Mode.PLACE, type_id))
+	Events.module_place_requested.connect(start_module)
 	# Деньги могли измениться на тике, пока мышь стоит, — обновляем превью.
 	Events.stats_changed.connect(func() -> void:
 		if _dragging:
@@ -139,6 +151,12 @@ func _process(_delta: float) -> void:
 	# В режиме постановки под мышью сразу виден контур здания в полный размер (красный — нельзя).
 	if mode == Mode.PLACE and not _dragging:
 		_hover_place()
+	if mode == Mode.MODULE:
+		if _module_station() == null:
+			_set_mode(Mode.NONE)
+			return
+		if not _dragging:
+			_hover_module()
 	if mode == Mode.BULLDOZE and not _dragging:
 		_hover_road()
 	if not _dragging or not cursor.has_ground_hit:
@@ -220,6 +238,123 @@ func _show_place(cell: Vector2i) -> void:
 	if not plan.is_empty():
 		quads.append(plan.corners)
 	preview.show_selection(target, quads, CURSOR_COLORS[mode] if valid else INVALID_COLOR)
+
+
+## Включает постановку модуля module_id станции station_id (кнопка в карточке станции).
+func start_module(station_id: int, module_id: StringName) -> void:
+	if mode == Mode.MODULE and place_station == station_id and place_type == module_id:
+		return
+	_set_mode(Mode.NONE)
+	place_station = station_id
+	_set_mode(Mode.MODULE, module_id)
+
+
+func _module_station() -> BuildingInstance:
+	return GameState.grid.buildings.get(place_station)
+
+
+## Постановка модуля до щелчка: клетки, куда можно, и модель под мышью (зелёная — можно, красная — нет).
+func _hover_module() -> void:
+	var grid: CityGrid = GameState.grid
+	var key: Array = [cursor.has_cell, cursor.hovered_cell, grid.buildings_version, GameState.money, place_type]
+	if key == _hover_place_key:
+		return
+	_hover_place_key = key
+	cursor.suppressed = cursor.has_cell
+	var targets: Array[Vector2i] = []
+	if cursor.has_cell:
+		targets.append(cursor.hovered_cell)
+	_show_module(targets)
+
+
+## Превью модуля: подсветка свободных клеток, клетки targets — цветом «можно» или «нельзя»; у одного
+## модуля (не дороги) — его модель на клетке.
+func _show_module(targets: Array[Vector2i]) -> void:
+	var grid: CityGrid = GameState.grid
+	var station: BuildingInstance = _module_station()
+	var item: StationModules.Module = StationModules.module(place_type)
+	if station == null or item == null:
+		preview.clear()
+		return
+	preview.clear()
+	var cells: Array[Vector2i] = StationModules.free_cells(grid, station, place_type)
+	var colors: Array[Color] = []
+	colors.resize(cells.size())
+	colors.fill(MODULE_FREE_COLOR)
+	var planned: Array[Vector2i] = StationModules.road_plan(grid, station, targets) if item.is_road else targets
+	var affordable: bool = Economy.can_afford(item.cost)
+	for cell: Vector2i in targets:
+		var ok: bool = affordable and planned.has(cell) and (item.is_road
+				or StationModules.why_not_at(grid, station, place_type, cell).is_empty())
+		# Клетки самой станции и уже лежащей дороги протягивание пропускает — их не красим.
+		if item.is_road and not ok and grid.is_in_bounds(cell) and grid.get_building_at(cell) == station:
+			continue
+		var at: int = cells.find(cell)
+		if at == -1:
+			cells.append(cell)
+			colors.append(CURSOR_COLORS[Mode.MODULE] if ok else INVALID_COLOR)
+		else:
+			colors[at] = CURSOR_COLORS[Mode.MODULE] if ok else INVALID_COLOR
+	preview.show_colored(cells, colors)
+	if not item.is_road and targets.size() == 1 and grid.is_in_bounds(targets[0]):
+		var ok_one: bool = affordable and StationModules.why_not_at(grid, station, place_type, targets[0]).is_empty()
+		var place := Transform3D(grid.building_transform(station).basis, grid.grid_to_world(targets[0]))
+		preview.show_ghost(StationModules.ghost_mesh(item), place, MODULE_GHOST_COLOR if ok_one else INVALID_COLOR)
+
+
+## Ставит модуль module_id станции на клетку за деньги города. true — поставлен.
+func place_module(station: BuildingInstance, module_id: StringName, cell: Vector2i) -> bool:
+	var item: StationModules.Module = StationModules.module(module_id)
+	if station == null or item == null or not Economy.can_afford(item.cost):
+		return false
+	if not StationModules.add(GameState.grid, station, module_id, cell):
+		return false
+	Economy.spend(item.cost)
+	return true
+
+
+## Модуль по щелчку или служебная дорога по протягиванию.
+func _apply_module(grid: CityGrid) -> void:
+	var station: BuildingInstance = _module_station()
+	var item: StationModules.Module = StationModules.module(place_type)
+	if station == null or item == null or not cursor.has_cell:
+		return
+	var changed: Array[Vector2i] = []
+	var cells: Array[Vector2i] = StationModules.road_plan(grid, station, _l_path(_drag_start, _drag_end)) \
+			if item.is_road else ([_drag_end] as Array[Vector2i])
+	for cell: Vector2i in cells:
+		if place_module(station, place_type, cell):
+			changed.append(cell)
+	if not changed.is_empty():
+		changed.append_array(station.cells())
+		Events.cells_changed.emit(changed)
+
+
+## Бульдозер по модулям станций в протягивании: сносит их до самой станции, сначала те, на которых никто
+## не держится (дорогу под ветряком — после ветряка). Возвращает клетки протягивания без модулей.
+func _bulldoze_modules(grid: CityGrid, cells: Array[Vector2i], changed: Array[Vector2i]) -> Array[Vector2i]:
+	var rest: Array[Vector2i] = []
+	var modules: Array[Vector2i] = []
+	for cell: Vector2i in cells:
+		var owner: BuildingInstance = grid.get_building_at(cell) if grid.is_in_bounds(cell) else null
+		if owner != null and StationModules.index_at(owner, cell) != -1:
+			modules.append(cell)
+		else:
+			rest.append(cell)
+	var progress: bool = true
+	while progress and not modules.is_empty():
+		progress = false
+		for cell: Vector2i in modules.duplicate():
+			var owner: BuildingInstance = grid.get_building_at(cell)
+			if owner == null or StationModules.index_at(owner, cell) == -1:
+				modules.erase(cell)
+				continue
+			if StationModules.remove(grid, owner, StationModules.index_at(owner, cell)) != CityGrid.NO_CELL:
+				modules.erase(cell)
+				changed.append(cell)
+				changed.append_array(owner.cells())
+				progress = true
+	return rest
 
 
 ## Начало протягивания — здесь, чтобы клик по UI не начинал стройку.
@@ -380,8 +515,10 @@ func _set_mode(new_mode: Mode, type_id: StringName = &"") -> void:
 	# Повторное нажатие той же клавиши не сбрасывает протягивание.
 	if new_mode == mode and type_id == place_type:
 		return
-	if mode == Mode.BULLDOZE or mode == Mode.PLACE:
+	if mode == Mode.BULLDOZE or mode == Mode.PLACE or mode == Mode.MODULE:
 		cursor.suppressed = false
+	if new_mode != Mode.MODULE:
+		place_station = -1
 	mode = new_mode
 	place_type = type_id
 	_end_drag()
@@ -398,6 +535,13 @@ func _update_drag(end: Vector2i) -> void:
 	match mode:
 		Mode.ROAD, Mode.ROAD_AVENUE, Mode.ROAD_HIGHWAY:
 			_drag_cells = _l_path(_drag_start, _drag_end)
+		Mode.MODULE:
+			# Модуль — на клетку под мышью, служебная дорога — буквой «Г» от клетки нажатия.
+			var item: StationModules.Module = StationModules.module(place_type)
+			var single: Array[Vector2i] = [_drag_end]
+			_drag_cells = _l_path(_drag_start, _drag_end) if item != null and item.is_road else single
+			_show_module(_drag_cells)
+			return
 		Mode.BULLDOZE:
 			var grid: CityGrid = GameState.grid
 			grid.ensure_strips()
@@ -634,7 +778,12 @@ func _apply() -> void:
 	if mode == Mode.PLACE:
 		_apply_place(grid)
 		return
+	if mode == Mode.MODULE:
+		_apply_module(grid)
+		return
 	var changed: Array[Vector2i] = []
+	if mode == Mode.BULLDOZE:
+		_drag_cells = _bulldoze_modules(grid, _drag_cells, changed)
 	# Свободные дороги — целыми отрезками; до клеток: снос клетки перекрёстка режет отрезки и меняет номера.
 	if mode == Mode.BULLDOZE and not _drag_segments.is_empty():
 		changed.append_array(grid.roads.remove_segments(grid, _drag_segments))

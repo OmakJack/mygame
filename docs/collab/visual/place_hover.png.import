@@ -2,19 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://c1qqhmtnaidpv"
-path="res://.godot/imported/station_road_colormap.png-eeb4134ac374a0a78724671c2a83bff2.ctex"
+uid="uid://ddaote706r7i0"
+path="res://.godot/imported/place_hover.png-94b224cb3ec885326c8b9368c4967e7f.ctex"
 metadata={
 "vram_texture": false
-}
-generator_parameters={
-"md5": "75a02bdbe531f1d377e96bcd8cd9ec50"
 }
 
 [deps]
 
-source_file="res://assets/models/blender/stations/station_road_colormap.png"
-dest_files=["res://.godot/imported/station_road_colormap.png-eeb4134ac374a0a78724671c2a83bff2.ctex"]
+source_file="res://docs/collab/visual/place_hover.png"
+dest_files=["res://.godot/imported/place_hover.png-94b224cb3ec885326c8b9368c4967e7f.ctex"]
 
 [params]
 
@@ -26,7 +23,7 @@ compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
-mipmaps/generate=true
+mipmaps/generate=false
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""

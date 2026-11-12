@@ -19,8 +19,10 @@ var orientation: int
 var shape: Array[Vector2i] = []
 var center := Vector2.ZERO
 var yaw: float = 0.0
-## Достроенные модули станции (StationModules), по порядку постройки; у остальных зданий пусто.
+## Достроенные модули станции (StationModules), по порядку постройки, и их клетки на карте (рядом
+## со станцией; клетки тоже станции — building_at). У остальных зданий пусто. В cells() не входят.
 var modules: Array[StringName] = []
+var module_cells: Array[Vector2i] = []
 # Состояние симуляции.
 ## Сколько тиков подряд нет дороги / света / воды (Decay: по сроку здание пустеет).
 var no_road_ticks: int = 0
@@ -71,6 +73,11 @@ func cells() -> Array[Vector2i]:
 		for dx: int in size.x:
 			result.append(Vector2i(cell.x + dx, cell.y + dy))
 	return result
+
+
+## Клетки здания и его модулей (станция): всё, что оно занимает на карте.
+func all_cells() -> Array[Vector2i]:
+	return cells() + module_cells
 
 
 ## Клетки фасадного края здания (со стороны orientation: 0=N, 1=E, 2=S, 3=W).

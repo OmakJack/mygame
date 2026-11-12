@@ -2,8 +2,8 @@ class_name InfoPanel
 extends PanelContainer
 ## Карточка «Инфо» (фаза 9): клик по клетке без инструмента — что на ней и как ей живётся.
 ## Справа по центру; обновляется с каждым пересчётом города, закрывается крестиком.
-## У станции (StationModules) — её модули и кнопки «достроить» (ветряк, насос, служебная дорога)
-## и «убрать» для каждого вида достроенных модулей.
+## У станции (StationModules) — её модули и кнопки «поставить рядом» (ветряк, насос, служебная
+## дорога): кнопка включает постановку модуля на карте (BuildTool, режим MODULE), как в SimCity.
 
 const WIDTH: float = 296.0
 ## Ниже этого значения показатель хороший (загрязнение, шум) — красим, только если выше.
@@ -18,8 +18,6 @@ var _rows := GridContainer.new()
 ## Кнопки модулей станции: пересобираются, только когда меняется станция или её модули.
 var _modules_box := VBoxContainer.new()
 var _module_buttons: Dictionary[StringName, Button] = {}
-## Кнопки «убрать»: по одной на вид достроенного модуля.
-var _remove_buttons: Dictionary[StringName, Button] = {}
 var _modules_key: String = ""
 
 
@@ -129,8 +127,8 @@ func _refresh() -> void:
 			_add("Даёт воду", Utilities.water_text(StationModules.water_supply(building, data)),
 					power_use > 0 and not building.powered)
 		if StationModules.is_station(data.id):
-			_add("Модули", _modules_text(building))
-			_add("Площадки", "%d из %d занято" % [StationModules.used_pads(building), StationModules.pad_count(building)])
+			_add("Модули", _modules_text(grid, building))
+			_add("Достроено", "%d из %d модулей" % [StationModules.module_count(building), StationModules.MAX_MODULES])
 			_add("Содержание", "$%d/ч" % roundi(GameTime.per_hour(StationModules.upkeep(building, data))))
 		if data.land_value > 0:
 			_add("Цена земли вокруг", "+%d" % data.land_value)
@@ -180,11 +178,11 @@ func _refresh() -> void:
 			_add("Налог с участка", "×%.2f" % Economy.land_factor(value))
 
 
-## «Ветряк ×3, вертикальный ветряк, служебная дорога» — что стоит на участке станции.
-static func _modules_text(building: BuildingInstance) -> String:
+## «Ветряк ×3, вертикальный ветряк, служебная дорога 6 кл.» — что стоит у станции.
+static func _modules_text(grid: CityGrid, building: BuildingInstance) -> String:
 	var order: Array[StringName] = []
 	var count: Dictionary[StringName, int] = {}
-	for item: Array in StationModules.placed(building):
+	for item: Array in StationModules.placed(grid, building):
 		var module: StationModules.Module = item[0]
 		if not count.has(module.id):
 			order.append(module.id)
@@ -193,104 +191,76 @@ static func _modules_text(building: BuildingInstance) -> String:
 	for id: StringName in order:
 		var name: String = StationModules.module(id).name.to_lower()
 		parts.append(name if count[id] == 1 else "%s ×%d" % [name, count[id]])
+	var road: int = StationModules.road_count(building)
+	if road > 0:
+		parts.append("служебная дорога %d кл." % road)
 	return ", ".join(parts)
 
 
 ## Что даёт модуль — для кнопки и подсказки.
 static func _module_gain(module: StationModules.Module) -> String:
 	if module.is_road:
-		return "ещё %d площадки" % (StationModules.PADS.size() - StationModules.BASE_PADS)
+		return "бесплатно, тянется мышью"
 	if module.power > 0:
 		return "+" + Utilities.power_text(module.power)
 	return "+" + Utilities.water_text(module.water)
 
 
-## Кнопки «достроить модуль» у станции (building = null — не станция: кнопок нет).
+## Где модуль ставится — для подсказки кнопки.
+static func _module_rule(module: StationModules.Module) -> String:
+	if module.is_road:
+		return "Тяните от участка станции или от конца дороги. Вдоль неё ставятся ветряки"
+	if module.along_road:
+		return "Ставится вдоль служебной дороги или у самой станции"
+	return "Ставится вплотную к станции, её дороге или к другим насосам и башням"
+
+
+## Кнопки «поставить рядом» у станции (building = null — не станция: кнопок нет).
 func _show_modules(building: BuildingInstance) -> void:
-	var key: String = ""
-	if building != null:
-		key = str(building.id)
-		for id: StringName in building.modules:
-			key += "," + String(id)
+	var key: String = str(building.id) if building != null else ""
 	if key != _modules_key:
 		_modules_key = key
 		for child: Node in _modules_box.get_children():
 			child.queue_free()
 		_module_buttons.clear()
-		_remove_buttons.clear()
 		if building != null:
 			var caption := Label.new()
-			caption.text = "Достроить на участке"
+			caption.text = "Поставить рядом со станцией"
 			caption.theme_type_variation = &"Caption"
 			_modules_box.add_child(caption)
 			for module: StationModules.Module in StationModules.options(building.type_id):
 				var button := Button.new()
-				button.text = "+ %s · $%d · %s" % [module.name, module.cost, _module_gain(module)]
+				button.text = "+ %s · %s" % [module.name, _module_gain(module)] if module.is_road \
+						else "+ %s · $%d · %s" % [module.name, module.cost, _module_gain(module)]
 				button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 				button.focus_mode = Control.FOCUS_NONE
-				button.pressed.connect(buy_module.bind(building.id, module.id))
+				button.pressed.connect(place_module.bind(building.id, module.id))
 				_modules_box.add_child(button)
 				_module_buttons[module.id] = button
-			# Убрать можно только достроенное: по кнопке на вид модуля, за раз — один.
-			var counts: Dictionary[StringName, int] = {}
-			for id: StringName in building.modules:
-				counts[id] = counts.get(id, 0) + 1
-			if not counts.is_empty():
-				var remove_caption := Label.new()
-				remove_caption.text = "Убрать с участка"
-				remove_caption.theme_type_variation = &"Caption"
-				_modules_box.add_child(remove_caption)
-			for id: StringName in counts:
-				var button := Button.new()
-				var name: String = StationModules.module(id).name
-				button.text = "− %s" % name if counts[id] == 1 else "− %s (стоит %d)" % [name, counts[id]]
-				button.alignment = HORIZONTAL_ALIGNMENT_LEFT
-				button.focus_mode = Control.FOCUS_NONE
-				button.pressed.connect(remove_module.bind(building.id, id))
-				_modules_box.add_child(button)
-				_remove_buttons[id] = button
+			var remove := Label.new()
+			remove.text = "Убрать модуль — бульдозером по нему"
+			remove.theme_type_variation = &"Caption"
+			_modules_box.add_child(remove)
 	_modules_box.visible = building != null
 	if building == null:
 		return
-	for id: StringName in _remove_buttons:
-		var reason: String = StationModules.why_not_remove(building, id)
-		_remove_buttons[id].disabled = not reason.is_empty()
-		_remove_buttons[id].tooltip_text = ("Нельзя: %s" % reason) if not reason.is_empty() \
-				else "Убрать один модуль. Деньги за него не возвращаются"
 	for id: StringName in _module_buttons:
 		var module: StationModules.Module = StationModules.module(id)
 		var reason: String = StationModules.why_not(building, id)
 		if reason.is_empty() and not Economy.can_afford(module.cost):
 			reason = "не хватает денег"
 		_module_buttons[id].disabled = not reason.is_empty()
-		var upkeep: String = "содержание +$%d/ч" % roundi(GameTime.per_hour(module.upkeep))
+		var upkeep: String = ", содержание +$%d/ч" % roundi(GameTime.per_hour(module.upkeep)) if module.upkeep > 0 else ""
 		var needs: String = ", берёт свет %s" % Utilities.power_text(module.power_use) if module.power_use > 0 else ""
 		_module_buttons[id].tooltip_text = ("Нельзя: %s" % reason) if not reason.is_empty() \
-				else "%s: %s, %s%s" % [module.name, _module_gain(module), upkeep, needs]
+				else "%s: %s%s%s.\n%s" % [module.name, _module_gain(module), upkeep, needs, _module_rule(module)]
 
 
-## Достраивает модуль станции за деньги города. true — достроен.
-func buy_module(building_id: int, module_id: StringName) -> bool:
-	var grid: CityGrid = GameState.grid
-	var building: BuildingInstance = grid.buildings.get(building_id)
-	var module: StationModules.Module = StationModules.module(module_id)
-	if building == null or module == null or not Economy.can_afford(module.cost) \
-			or not StationModules.add(building, module_id):
+## Включает постановку модуля станции на карте (BuildTool, режим MODULE). false — станции нет.
+func place_module(building_id: int, module_id: StringName) -> bool:
+	if not GameState.grid.buildings.has(building_id):
 		return false
-	Economy.spend(module.cost)
-	grid.buildings_version += 1
-	Events.cells_changed.emit(building.cells())
-	return true
-
-
-## Убирает один достроенный модуль станции (без возврата денег). true — убран.
-func remove_module(building_id: int, module_id: StringName) -> bool:
-	var grid: CityGrid = GameState.grid
-	var building: BuildingInstance = grid.buildings.get(building_id)
-	if building == null or not StationModules.remove(building, module_id):
-		return false
-	grid.buildings_version += 1
-	Events.cells_changed.emit(building.cells())
+	Events.module_place_requested.emit(building_id, module_id)
 	return true
 
 
