@@ -57,6 +57,7 @@ func _on_sim_tick() -> void:
 	_ticks_since_land += 1
 	_update_stats(true)
 	Economy.apply_tick()
+	GameState.budget_history.record(GameState.minutes, GameState.income, GameState.expenses, GameState.money)
 	if not changed.is_empty():
 		_in_tick = true
 		Events.cells_changed.emit(changed)
@@ -184,6 +185,7 @@ func _update_stats(from_tick: bool = false) -> void:
 	for road: Vector2i in grid.road_cells:
 		road_upkeep += RoadTypes.UPKEEP.get(grid.road_type[grid.index_of(road)], Economy.ROAD_UPKEEP)
 	GameState.expenses = Economy.daily_expenses(road_upkeep, service_upkeep)
+	GameState.budget = Budget.compute(grid, GameState.land, tax_rate, GameState.income, GameState.expenses)
 
 
 ## Звание растёт с населением и не падает. Старое сохранение (−1) — по населению, без награды.

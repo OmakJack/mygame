@@ -67,7 +67,7 @@ func load_city(file_id: String) -> bool:
 		return false
 	for warning: String in result.warnings:
 		push_warning("Загрузка «%s»: %s" % [file_id, warning])
-	_apply(result.grid, result.name, result.money, result.tax_rate, result.minutes, result.rank)
+	_apply(result.grid, result.name, result.money, result.tax_rate, result.minutes, result.rank, result.budget_history)
 	if result.rng_state.is_empty():
 		GameState.rng.randomize()
 	else:
@@ -85,7 +85,8 @@ func new_city() -> void:
 		MapGenerator.add_river(grid, map_seed)
 	if with_highway:
 		MapGenerator.add_highway(grid, map_seed)
-	_apply(grid, DEFAULT_CITY_NAME, Economy.START_MONEY, Economy.DEFAULT_TAX_RATE, GameTime.START_MINUTES, 0)
+	_apply(grid, DEFAULT_CITY_NAME, Economy.START_MONEY, Economy.DEFAULT_TAX_RATE, GameTime.START_MINUTES, 0,
+			Budget.History.new())
 	GameState.rng.seed = map_seed
 
 
@@ -155,7 +156,8 @@ static func file_id_for(city_name: String) -> String:
 func _write(file_id: String, label: String) -> bool:
 	DirAccess.make_dir_recursive_absolute(save_dir)
 	var data: Dictionary = CitySerializer.to_dict(GameState.grid, GameState.city_name, GameState.money,
-			GameState.tax_rate, GameState.minutes, GameState.population, GameState.rank, GameState.rng)
+			GameState.tax_rate, GameState.minutes, GameState.population, GameState.rank, GameState.rng,
+			GameState.budget_history)
 	var path: String = _path(file_id)
 	var temp_path: String = path + ".tmp"
 	# Сначала во временный файл, потом поверх старого: при сбое старое сохранение цело.
@@ -174,8 +176,10 @@ func _write(file_id: String, label: String) -> bool:
 	return true
 
 
-func _apply(grid: CityGrid, city_name: String, money: int, tax_rate: int, minutes: int, rank: int) -> void:
+func _apply(grid: CityGrid, city_name: String, money: int, tax_rate: int, minutes: int, rank: int,
+		budget_history: Budget.History) -> void:
 	GameState.grid = grid
+	GameState.budget_history = budget_history
 	GameState.rank = rank
 	GameState.city_name = city_name
 	GameState.money = money

@@ -24,10 +24,13 @@ class LoadResult extends RefCounted:
 	var rank: int = -1
 	## Случайность симуляции: [зерно, положение]; пусто — старое сохранение (случайное зерно).
 	var rng_state: Array[int] = []
+	## Доходы и расходы по часам (графики бюджета); нет поля — пустая история.
+	var budget_history := Budget.History.new()
 
 
 static func to_dict(grid: CityGrid, city_name: String, money: int, tax_rate: int, minutes: int,
-		population: int, rank: int = -1, rng: RandomNumberGenerator = null) -> Dictionary:
+		population: int, rank: int = -1, rng: RandomNumberGenerator = null,
+		budget_history: Budget.History = null) -> Dictionary:
 	grid.ensure_strips()
 	var roads := PackedByteArray()
 	roads.resize(grid.size * grid.size)
@@ -74,7 +77,8 @@ static func to_dict(grid: CityGrid, city_name: String, money: int, tax_rate: int
 		"meta": {"name": city_name, "day": GameTime.day_of(minutes), "population": population, "money": money},
 		# Зерно и положение случайности — строками: в JSON числа становятся float и теряют 64-битную точность.
 		"state": {"money": money, "tax_rate": tax_rate, "minutes": minutes, "rank": rank,
-				"rng": [str(rng.seed), str(rng.state)] if rng != null else []},
+				"rng": [str(rng.seed), str(rng.state)] if rng != null else [],
+				"budget": budget_history.to_dict() if budget_history != null else {}},
 		"grid": {
 			"size": grid.size,
 			"next_building_id": grid.next_building_id,
@@ -218,6 +222,7 @@ static func from_dict(data: Variant) -> LoadResult:
 	var rng: Variant = state.get("rng", [])
 	if rng is Array and (rng as Array).size() == 2 and str(rng[0]).is_valid_int() and str(rng[1]).is_valid_int():
 		result.rng_state = [str(rng[0]).to_int(), str(rng[1]).to_int()]
+	result.budget_history = Budget.History.from_dict(state.get("budget"))
 	var meta: Dictionary = _dict(root.get("meta"))
 	result.name = str(meta.get("name", "Город"))
 	result.grid = grid

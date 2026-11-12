@@ -76,6 +76,9 @@ var _toast_label := Label.new()
 var _info := InfoPanel.new()
 ## Карточка жителя над фигуркой (щелчок по пешеходу, велосипедисту или машинке).
 var _citizen_card := CitizenCard.new()
+## Вкладка «Бюджет»: доходы и расходы по статьям с графиками (кнопка внизу или щелчок по деньгам).
+var _budget := BudgetPanel.new()
+var _budget_button: Button
 ## Советник: кнопка со счётчиком в верхней панели, список проблем и строчка о новой — вместо плашки подсказок.
 var _advisor := Advisor.new()
 ## Плашка звания (фаза 10) — создаётся кодом рядом с «Жителями»; счастье — в плашке «Жители».
@@ -105,6 +108,8 @@ func _ready() -> void:
 	_build_city_controls()
 	$Root.add_child(_info)
 	$Root.add_child(_citizen_card)
+	$Root.add_child(_budget)
+	_budget.visibility_changed.connect(func() -> void: _budget_button.set_pressed_no_signal(_budget.visible))
 	Events.rank_changed.connect(_on_rank_changed)
 	_new_city_confirm.theme = theme
 	for window: Node in _save_dialog.find_children("*", "Window", true, false):
@@ -132,6 +137,13 @@ func _decorate_top_bar() -> void:
 	_attach_chip_icon(%PopLabel, "stat_pop")
 	_attach_chip_icon(_rank_label, "stat_rank")
 	_attach_chip_icon(%JobsLabel, "stat_jobs")
+	# Щелчок по деньгам открывает бюджет (как в Cities: Skylines).
+	%MoneyLabel.mouse_filter = Control.MOUSE_FILTER_STOP
+	%MoneyLabel.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	%MoneyLabel.gui_input.connect(func(event: InputEvent) -> void:
+		var click := event as InputEventMouseButton
+		if click != null and click.pressed and click.button_index == MOUSE_BUTTON_LEFT:
+			toggle_budget())
 
 
 ## Часы — отдельной надписью постоянной ширины: цифры у шрифта разной ширины, и плашки рядом
@@ -189,7 +201,7 @@ func _attach_chip_icon(label: Label, icon_name: String) -> void:
 func _refresh_stats() -> void:
 	var balance: int = GameState.income - GameState.expenses
 	%MoneyLabel.text = "$%d (%+d/ч)" % [GameState.money, roundi(GameTime.per_hour(balance))]
-	var money_tip: String = "За игровой час:\nдоход +$%d\nсодержание дорог и служб −$%d"
+	var money_tip: String = "За игровой час:\nдоход +$%d\nсодержание дорог и служб −$%d\nЩелчок — бюджет"
 	%MoneyLabel.tooltip_text = money_tip % [roundi(GameTime.per_hour(GameState.income)),
 			roundi(GameTime.per_hour(GameState.expenses))]
 	_mark_bad(%MoneyLabel, GameState.money < 0)
@@ -471,10 +483,26 @@ func _build_bottom_extras() -> void:
 		_select_tab("" if _active_tab == FILTER_TAB else FILTER_TAB))
 	%Tabs.add_child(filters)
 	_tab_buttons[FILTER_TAB] = filters
+	# Бюджет — большое окно поверх карты, не карточки в панели: открывается вместо вкладки.
+	_budget_button = _make_button("Бюджет", &"Tab")
+	UiTheme.tab_styles(_budget_button, "budget")
+	_budget_button.toggle_mode = true
+	_budget_button.tooltip_text = "Доходы и расходы города по статьям, налог и графики по часам"
+	_budget_button.pressed.connect(toggle_budget)
+	%Tabs.add_child(_budget_button)
+
+
+## Открывает или закрывает бюджет; открытый — закрывает вкладку инструментов.
+func toggle_budget() -> void:
+	_budget.toggle()
+	if _budget.visible:
+		_select_tab("")
 
 
 func _select_tab(id: String) -> void:
 	_active_tab = id
+	if not id.is_empty():
+		_budget.hide()
 	for tab_id: String in _tab_cards:
 		_tab_cards[tab_id].visible = tab_id == id
 		_tab_buttons[tab_id].set_pressed_no_signal(tab_id == id)
