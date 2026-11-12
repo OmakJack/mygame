@@ -109,6 +109,8 @@ var _drag_segments: Array[int] = []
 ## Бульдозер без нажатия: отрезок под мышью (его полотно подсвечено) или −1, и версия графа подсветки.
 var _hover_segment: int = -1
 var _hover_version: int = -1
+## Постановка службы: от чего строили контур под мышью (_hover_place).
+var _hover_place_key: Array = []
 
 
 func _ready() -> void:
@@ -134,9 +136,9 @@ func _cell_cost(cell: Vector2i) -> int:
 
 
 func _process(_delta: float) -> void:
-	# В режиме постановки курсор краснеет там, куда поставить нельзя.
-	if mode == Mode.PLACE and cursor.has_cell:
-		cursor.set_color(CURSOR_COLORS[mode] if _can_place(cursor.hovered_cell) else INVALID_COLOR)
+	# В режиме постановки под мышью сразу виден контур здания в полный размер (красный — нельзя).
+	if mode == Mode.PLACE and not _dragging:
+		_hover_place()
 	if mode == Mode.BULLDOZE and not _dragging:
 		_hover_road()
 	if not _dragging or not cursor.has_ground_hit:
@@ -190,6 +192,34 @@ func _hover_road() -> void:
 		preview.clear()
 	else:
 		preview.show_selection([], [], CURSOR_COLORS[mode], GameState.grid.roads.ribbon_quads(id))
+
+
+## Постановка службы до клика: контур здания под мышью вместо курсора в одну клетку.
+## Перестраиваем, только когда сменилась клетка, ячейка, город или деньги.
+func _hover_place() -> void:
+	var grid: CityGrid = GameState.grid
+	var key: Array = [cursor.has_cell, cursor.hovered_cell,
+			cursor.hovered_slot.id if cursor.hovered_slot != null else -1,
+			grid.buildings_version, grid.roads.version, GameState.money]
+	if key == _hover_place_key:
+		return
+	_hover_place_key = key
+	cursor.suppressed = cursor.has_cell
+	if not cursor.has_cell:
+		preview.clear()
+		return
+	_show_place(cursor.hovered_cell)
+
+
+## Превью постановки службы с углом в клетке cell: участок под углом дороги или клетки по сетке.
+func _show_place(cell: Vector2i) -> void:
+	var valid: bool = _can_place(cell)
+	var plan: Dictionary = _free_place(cell)
+	var target: Array[Vector2i] = _place_cells(cell) if plan.is_empty() else ([] as Array[Vector2i])
+	var quads: Array[PackedVector2Array] = []
+	if not plan.is_empty():
+		quads.append(plan.corners)
+	preview.show_selection(target, quads, CURSOR_COLORS[mode] if valid else INVALID_COLOR)
 
 
 ## Начало протягивания — здесь, чтобы клик по UI не начинал стройку.
@@ -350,7 +380,7 @@ func _set_mode(new_mode: Mode, type_id: StringName = &"") -> void:
 	# Повторное нажатие той же клавиши не сбрасывает протягивание.
 	if new_mode == mode and type_id == place_type:
 		return
-	if mode == Mode.BULLDOZE:
+	if mode == Mode.BULLDOZE or mode == Mode.PLACE:
 		cursor.suppressed = false
 	mode = new_mode
 	place_type = type_id
@@ -425,15 +455,10 @@ func _update_drag(end: Vector2i) -> void:
 			_drag_slots = _zone_slots(zone_type)
 		Mode.PLACE:
 			# Здание ставится на участок с углом в клетке, где отпустили мышь.
-			var valid: bool = _can_place(_drag_end)
-			var plan: Dictionary = _free_place(_drag_end)
-			var target: Array[Vector2i] = _place_cells(_drag_end) if plan.is_empty() else ([] as Array[Vector2i])
-			if not plan.is_empty():
-				quads.append(plan.corners)
 			_drag_cells.clear()
-			if valid:
+			if _can_place(_drag_end):
 				_drag_cells.append(_drag_end)
-			preview.show_selection(target, quads, CURSOR_COLORS[mode] if valid else INVALID_COLOR)
+			_show_place(_drag_end)
 			return
 	_trim_to_budget()
 	quads.append_array(_quads_of(_drag_slots))
@@ -600,6 +625,7 @@ func _end_drag() -> void:
 	_drag_anchor.clear()
 	_hover_segment = -1
 	_hover_version = -1
+	_hover_place_key.clear()
 	preview.clear()
 
 

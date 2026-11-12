@@ -70,6 +70,27 @@ func _initialize() -> void:
 		for id: int in g.buildings:
 			if not ids.has(id): return g.buildings[id]
 		return null
+	# --- До щелчка: под мышью контур станции в полный размер, а не курсор в одну клетку ---
+	var hover := func(type: StringName, cell: Vector2i, slot: FreeStrips.Slot) -> void:
+		tool._set_mode(tool.Mode.PLACE, type)
+		tool.cursor.has_cell = true
+		tool.cursor.hovered_slot = slot
+		tool.cursor.hovered_cell = cell
+		tool._process(0.0)
+	hover.call(&"wind_station", Vector2i(10, 41), null)
+	var shown: int = tool.preview.multimesh.instance_count
+	check.call("hover before the click: the whole 4×3 lot outlined (%d cells), cell marker hidden" % shown,
+			shown == 12 and tool.cursor.suppressed
+			and tool.preview.multimesh.get_instance_color(0) == tool.CURSOR_COLORS[tool.Mode.PLACE])
+	hover.call(&"wind_station", Vector2i(10, 20), null)
+	check.call("hover away from roads: the outline is red", tool.preview.multimesh.instance_count == 12
+			and tool.preview.multimesh.get_instance_color(0) == tool.INVALID_COLOR)
+	tool.cursor.has_cell = false
+	tool._process(0.0)
+	check.call("pointer off the map: outline gone", tool.preview.multimesh.instance_count == 0)
+	tool._set_mode(tool.Mode.NONE)
+	check.call("another tool: the cell marker is back", not tool.cursor.suppressed)
+
 	var money: int = gs.money
 	var wind: BuildingInstance = place.call(&"wind_station", Vector2i(10, 41))
 	check.call("wind station placed: 12 cells, paid $%d" % (money - gs.money), wind != null and wind.cells().size() == 12
@@ -222,6 +243,9 @@ func _initialize() -> void:
 	var seat: FreeStrips.Slot = g.free_strips.slot_in(diagonal, 1, g.free_strips.frames[diagonal].count / 2, 1) if diagonal != -1 else null
 	var angled: BuildingInstance = null
 	if seat != null:
+		hover.call(&"wind_station", RoadGraph.cell_of(seat.center), seat)
+		check.call("hover by a diagonal road: the station outline at the road angle",
+				tool.preview.quad_count() == 1 and tool.preview.multimesh.instance_count == 0)
 		tool._set_mode(tool.Mode.PLACE, &"wind_station")
 		tool.cursor.has_cell = true
 		tool.cursor.hovered_slot = seat
