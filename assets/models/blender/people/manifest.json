@@ -1,0 +1,258 @@
+{
+  "pack_name": "CityBuilder Citizens & Cyclists Low-Poly Pack v1",
+  "godot_conventions": {
+    "palette_texture": "res://assets/models/kenney/suburban/Textures/colormap.png",
+    "visualizer_script": "res://scripts/grid/people_visualizer.gd",
+    "people_scale": 0.22,
+    "car_model_turns": 2,
+    "forward_in_blender": "-Y",
+    "forward_in_godot_with_turns_2": "-Z",
+    "recolorable_via_instance_custom": true
+  },
+  "walker_paths": [
+    "res://assets/models/blender/people/citizen_casual_m.glb",
+    "res://assets/models/blender/people/citizen_dress_f.glb",
+    "res://assets/models/blender/people/citizen_business_m.glb",
+    "res://assets/models/blender/people/citizen_shopper_f.glb",
+    "res://assets/models/blender/people/citizen_student_m.glb",
+    "res://assets/models/blender/people/citizen_coffee_f.glb",
+    "res://assets/models/blender/people/citizen_hiker_m.glb",
+    "res://assets/models/blender/people/citizen_coat_f.glb"
+  ],
+  "cyclist_paths": [
+    "res://assets/models/blender/people/cyclist_road.glb",
+    "res://assets/models/blender/people/cyclist_city_cruiser.glb",
+    "res://assets/models/blender/people/cyclist_courier.glb",
+    "res://assets/models/blender/people/cyclist_commuter.glb"
+  ],
+  "models": [
+    {
+      "id": "citizen_casual_m",
+      "kind": "walker",
+      "display_name": "Горожанин в куртке с рюкзаком",
+      "legacy_replaces": "person-a",
+      "file": "assets/models/blender/people/citizen_casual_m.glb",
+      "godot_res_path": "res://assets/models/blender/people/citizen_casual_m.glb",
+      "dimensions_m": [
+        0.596,
+        0.616,
+        1.634
+      ],
+      "scaled_height_in_game_m": 0.359,
+      "vertices": 696,
+      "triangles": 368,
+      "recommended_people_scale": 0.22,
+      "recommended_turns": 2,
+      "recolorable_via_instance_custom": true
+    },
+    {
+      "id": "citizen_dress_f",
+      "kind": "walker",
+      "display_name": "Горожанка в летнем платье с сумочкой",
+      "legacy_replaces": "person-b",
+      "file": "assets/models/blender/people/citizen_dress_f.glb",
+      "godot_res_path": "res://assets/models/blender/people/citizen_dress_f.glb",
+      "dimensions_m": [
+        0.558,
+        0.573,
+        1.601
+      ],
+      "scaled_height_in_game_m": 0.352,
+      "vertices": 876,
+      "triangles": 460,
+      "recommended_people_scale": 0.22,
+      "recommended_turns": 2,
+      "recolorable_via_instance_custom": true
+    },
+    {
+      "id": "citizen_business_m",
+      "kind": "walker",
+      "display_name": "Офисный работник в костюме с портфелем",
+      "legacy_replaces": null,
+      "file": "assets/models/blender/people/citizen_business_m.glb",
+      "godot_res_path": "res://assets/models/blender/people/citizen_business_m.glb",
+      "dimensions_m": [
+        0.636,
+        0.573,
+        1.636
+      ],
+      "scaled_height_in_game_m": 0.36,
+      "vertices": 816,
+      "triangles": 424,
+      "recommended_people_scale": 0.22,
+      "recommended_turns": 2,
+      "recolorable_via_instance_custom": true
+    },
+    {
+      "id": "citizen_shopper_f",
+      "kind": "walker",
+      "display_name": "Покупательница в шляпке с пакетами",
+      "legacy_replaces": null,
+      "file": "assets/models/blender/people/citizen_shopper_f.glb",
+      "godot_res_path": "res://assets/models/blender/people/citizen_shopper_f.glb",
+      "dimensions_m": [
+        0.676,
+        0.573,
+        1.665
+      ],
+      "scaled_height_in_game_m": 0.366,
+      "vertices": 984,
+      "triangles": 532,
+      "recommended_people_scale": 0.22,
+      "recommended_turns": 2,
+      "recolorable_via_instance_custom": true
+    },
+    {
+      "id": "citizen_student_m",
+      "kind": "walker",
+      "display_name": "Студент в худи и кепке с рюкзаком",
+      "legacy_replaces": null,
+      "file": "assets/models/blender/people/citizen_student_m.glb",
+      "godot_res_path": "res://assets/models/blender/people/citizen_student_m.glb",
+      "dimensions_m": [
+        0.596,
+        0.638,
+        1.638
+      ],
+      "scaled_height_in_game_m": 0.36,
+      "vertices": 792,
+      "triangles": 424,
+      "recommended_people_scale": 0.22,
+      "recommended_turns": 2,
+      "recolorable_via_instance_custom": true
+    },
+    {
+      "id": "citizen_coffee_f",
+      "kind": "walker",
+      "display_name": "Девушка в тренче и берете со стаканчиком кофе",
+      "legacy_replaces": null,
+      "file": "assets/models/blender/people/citizen_coffee_f.glb",
+      "godot_res_path": "res://assets/models/blender/people/citizen_coffee_f.glb",
+      "dimensions_m": [
+        0.576,
+        0.659,
+        1.645
+      ],
+      "scaled_height_in_game_m": 0.362,
+      "vertices": 996,
+      "triangles": 544,
+      "recommended_people_scale": 0.22,
+      "recommended_turns": 2,
+      "recolorable_via_instance_custom": true
+    },
+    {
+      "id": "citizen_hiker_m",
+      "kind": "walker",
+      "display_name": "Турист в ветровке и панаме с ранцем",
+      "legacy_replaces": null,
+      "file": "assets/models/blender/people/citizen_hiker_m.glb",
+      "godot_res_path": "res://assets/models/blender/people/citizen_hiker_m.glb",
+      "dimensions_m": [
+        0.598,
+        0.66,
+        1.657
+      ],
+      "scaled_height_in_game_m": 0.365,
+      "vertices": 912,
+      "triangles": 492,
+      "recommended_people_scale": 0.22,
+      "recommended_turns": 2,
+      "recolorable_via_instance_custom": true
+    },
+    {
+      "id": "citizen_coat_f",
+      "kind": "walker",
+      "display_name": "Дама в пальто с пакетом и французским багетом",
+      "legacy_replaces": null,
+      "file": "assets/models/blender/people/citizen_coat_f.glb",
+      "godot_res_path": "res://assets/models/blender/people/citizen_coat_f.glb",
+      "dimensions_m": [
+        0.603,
+        0.6,
+        1.675
+      ],
+      "scaled_height_in_game_m": 0.368,
+      "vertices": 828,
+      "triangles": 440,
+      "recommended_people_scale": 0.22,
+      "recommended_turns": 2,
+      "recolorable_via_instance_custom": true
+    },
+    {
+      "id": "cyclist_road",
+      "kind": "cyclist",
+      "display_name": "Шоссейный велосипедист в велошлеме",
+      "legacy_replaces": "cyclist",
+      "file": "assets/models/blender/people/cyclist_road.glb",
+      "godot_res_path": "res://assets/models/blender/people/cyclist_road.glb",
+      "dimensions_m": [
+        0.518,
+        1.7,
+        1.723
+      ],
+      "scaled_height_in_game_m": 0.379,
+      "vertices": 1860,
+      "triangles": 1012,
+      "recommended_people_scale": 0.22,
+      "recommended_turns": 2,
+      "recolorable_via_instance_custom": true
+    },
+    {
+      "id": "cyclist_city_cruiser",
+      "kind": "cyclist",
+      "display_name": "Горожанка на сити-байке с корзиной",
+      "legacy_replaces": null,
+      "file": "assets/models/blender/people/cyclist_city_cruiser.glb",
+      "godot_res_path": "res://assets/models/blender/people/cyclist_city_cruiser.glb",
+      "dimensions_m": [
+        0.52,
+        1.7,
+        1.79
+      ],
+      "scaled_height_in_game_m": 0.394,
+      "vertices": 2148,
+      "triangles": 1180,
+      "recommended_people_scale": 0.22,
+      "recommended_turns": 2,
+      "recolorable_via_instance_custom": true
+    },
+    {
+      "id": "cyclist_courier",
+      "kind": "cyclist",
+      "display_name": "Велокурьер с термо-коробом доставки",
+      "legacy_replaces": null,
+      "file": "assets/models/blender/people/cyclist_courier.glb",
+      "godot_res_path": "res://assets/models/blender/people/cyclist_courier.glb",
+      "dimensions_m": [
+        0.52,
+        1.7,
+        1.735
+      ],
+      "scaled_height_in_game_m": 0.382,
+      "vertices": 1980,
+      "triangles": 1076,
+      "recommended_people_scale": 0.22,
+      "recommended_turns": 2,
+      "recolorable_via_instance_custom": true
+    },
+    {
+      "id": "cyclist_commuter",
+      "kind": "cyclist",
+      "display_name": "Вело-коммьютер с багажными велосумками",
+      "legacy_replaces": null,
+      "file": "assets/models/blender/people/cyclist_commuter.glb",
+      "godot_res_path": "res://assets/models/blender/people/cyclist_commuter.glb",
+      "dimensions_m": [
+        0.52,
+        1.7,
+        1.759
+      ],
+      "scaled_height_in_game_m": 0.387,
+      "vertices": 2052,
+      "triangles": 1116,
+      "recommended_people_scale": 0.22,
+      "recommended_turns": 2,
+      "recolorable_via_instance_custom": true
+    }
+  ]
+}

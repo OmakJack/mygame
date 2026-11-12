@@ -70,6 +70,16 @@ func _initialize() -> void:
 		cyclists._process(0.05)
 	check.call("cyclists shown (%d)" % cyclists.visible_people_count(), cyclists.visible_people_count() == mini(120, roundi(t.cyclists / cyclists.WORKERS_PER_PERSON)))
 	check.call("walkers shown (%d)" % walkers.visible_people_count(), walkers.visible_people_count() == mini(200, roundi(t.walkers / walkers.WORKERS_PER_PERSON)))
+	# Пак Argon: 8 видов пешеходов и 4 велосипедиста, все загружены, рост фигурки — как у прежних.
+	var sizes_ok: bool = walkers._layers.size() == 8 and cyclists._layers.size() == 4
+	for layer: MultiMeshInstance3D in walkers._layers + cyclists._layers:
+		var box: AABB = layer.multimesh.mesh.get_aabb()
+		if box.size.y < 0.3 or box.size.y > 0.45: sizes_ok = false
+	check.call("all 8 walker and 4 cyclist models loaded, 0.3–0.45 m tall", sizes_ok)
+	var kinds: Dictionary = {}
+	for car in walkers._cars + cyclists._cars:
+		kinds[str(car.model) + ("c" if cyclists._cars.has(car) else "w")] = true
+	check.call("several kinds on the streets (%d)" % kinds.size(), kinds.size() >= 6)
 	if cyclists._cars.size() > 1:
 		check.call("own colors", cyclists._cars[0].custom != cyclists._cars[1].custom)
 		var p: Vector3 = cyclists.car_origin(0)

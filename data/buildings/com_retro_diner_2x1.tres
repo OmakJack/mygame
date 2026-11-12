@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/blender/commercial/com_retro_diner_2x1.glb" id="1_2tf16"]
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="2_fwsdh"]
+
+[resource]
+script = ExtResource("2_fwsdh")
+id = &"com_retro_diner_2x1"
+display_name = "Ретро-дайнер с неоновой вывеской · ур. 1"
+zone = 2
+size = Vector2i(2, 1)
+jobs = 4
+weight = 4.0
+preferred = true
+power_use = 4
+water_use = 2
+noise = 12
+model = ExtResource("1_2tf16")

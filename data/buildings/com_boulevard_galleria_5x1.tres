@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/blender/commercial/com_boulevard_galleria_5x1.glb" id="1_evpqk"]
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="2_afdck"]
+
+[resource]
+script = ExtResource("2_afdck")
+id = &"com_boulevard_galleria_5x1"
+display_name = "Проспектная торговая галерея · ур. 3"
+zone = 5
+size = Vector2i(5, 1)
+jobs = 100
+level = 3
+weight = 4.0
+preferred = true
+power_use = 80
+water_use = 40
+noise = 22
+model = ExtResource("1_evpqk")

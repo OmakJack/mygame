@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/blender/commercial/com_farmers_bazaar_2x2.glb" id="1_tsx2m"]
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="2_snxku"]
+
+[resource]
+script = ExtResource("2_snxku")
+id = &"com_farmers_bazaar_2x2"
+display_name = "Крытый городской рынок и фудкорт · ур. 2"
+zone = 2
+size = Vector2i(2, 2)
+jobs = 12
+level = 2
+weight = 4.0
+preferred = true
+power_use = 16
+water_use = 8
+noise = 14
+model = ExtResource("1_tsx2m")

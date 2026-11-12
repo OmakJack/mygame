@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/blender/commercial/com_grand_avenue_mall_7x1.glb" id="1_ajr6b"]
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="2_il26v"]
+
+[resource]
+script = ExtResource("2_il26v")
+id = &"com_grand_avenue_mall_7x1_l2"
+display_name = "Гранд-пассаж с куполами и верандами · ур. 2"
+zone = 5
+size = Vector2i(7, 1)
+jobs = 105
+level = 2
+weight = 1.5
+preferred = true
+power_use = 84
+water_use = 42
+noise = 20
+model = ExtResource("1_ajr6b")

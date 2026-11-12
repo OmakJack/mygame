@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/blender/commercial/com_rooftop_lounge_1x1.glb" id="1_h8xl5"]
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="2_3g26t"]
+
+[resource]
+script = ExtResource("2_3g26t")
+id = &"com_rooftop_lounge_1x1"
+display_name = "Ресторан с лаунж-террасой на крыше · ур. 1"
+zone = 5
+jobs = 10
+weight = 4.0
+preferred = true
+power_use = 8
+water_use = 4
+noise = 18
+model = ExtResource("1_h8xl5")

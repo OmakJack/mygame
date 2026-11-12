@@ -1,0 +1,434 @@
+{
+  "pack_name": "CityBuilder Commercial Low-Poly Pack v1 (Shops, Cafes, Restaurants & Malls)",
+  "cell_size_m": 2.0,
+  "godot_conventions": {
+    "palette_texture": "res://assets/models/kenney/suburban/Textures/colormap.png",
+    "district_recolor_compatible": true,
+    "front_in_blender": "-Y",
+    "front_in_godot_with_turns_2": "-Z",
+    "recommended_model_scale": 1.0,
+    "recommended_model_turns": 2
+  },
+  "models": [
+    {
+      "id": "com_corner_bakery_1x1",
+      "category": "commercial",
+      "display_name": "Угловая пекарня «Бриошь»",
+      "suggested_zone": "COMMERCIAL",
+      "suggested_level": 1,
+      "file": "assets/models/blender/commercial/com_corner_bakery_1x1.glb",
+      "godot_kit_path": "blender/commercial/com_corner_bakery_1x1",
+      "cells": [
+        1,
+        1
+      ],
+      "area_cells": 1,
+      "dimensions_m": [
+        1.74,
+        1.74,
+        2.12
+      ],
+      "vertices": 1686,
+      "triangles": 870
+    },
+    {
+      "id": "com_street_cafe_1x1",
+      "category": "commercial",
+      "display_name": "Уличная кофейня с верандой",
+      "suggested_zone": "COMMERCIAL",
+      "suggested_level": 2,
+      "file": "assets/models/blender/commercial/com_street_cafe_1x1.glb",
+      "godot_kit_path": "blender/commercial/com_street_cafe_1x1",
+      "cells": [
+        1,
+        1
+      ],
+      "area_cells": 1,
+      "dimensions_m": [
+        1.74,
+        1.74,
+        2.063
+      ],
+      "vertices": 2432,
+      "triangles": 1300
+    },
+    {
+      "id": "com_boutique_giftshop_1x1",
+      "category": "commercial",
+      "display_name": "Бутик с мансардой и часами",
+      "suggested_zone": "COMMERCIAL",
+      "suggested_level": 3,
+      "file": "assets/models/blender/commercial/com_boutique_giftshop_1x1.glb",
+      "godot_kit_path": "blender/commercial/com_boutique_giftshop_1x1",
+      "cells": [
+        1,
+        1
+      ],
+      "area_cells": 1,
+      "dimensions_m": [
+        1.74,
+        1.74,
+        2.6
+      ],
+      "vertices": 2696,
+      "triangles": 1364
+    },
+    {
+      "id": "com_retro_diner_2x1",
+      "category": "commercial",
+      "display_name": "Ретро-дайнер с неоновой вывеской",
+      "suggested_zone": "COMMERCIAL",
+      "suggested_level": 1,
+      "file": "assets/models/blender/commercial/com_retro_diner_2x1.glb",
+      "godot_kit_path": "blender/commercial/com_retro_diner_2x1",
+      "cells": [
+        2,
+        1
+      ],
+      "area_cells": 2,
+      "dimensions_m": [
+        3.74,
+        1.74,
+        1.82
+      ],
+      "vertices": 3058,
+      "triangles": 1598
+    },
+    {
+      "id": "com_bistro_terrace_2x1",
+      "category": "commercial",
+      "display_name": "Траттория-бистро с перголой",
+      "suggested_zone": "COMMERCIAL",
+      "suggested_level": 2,
+      "file": "assets/models/blender/commercial/com_bistro_terrace_2x1.glb",
+      "godot_kit_path": "blender/commercial/com_bistro_terrace_2x1",
+      "cells": [
+        2,
+        1
+      ],
+      "area_cells": 2,
+      "dimensions_m": [
+        3.74,
+        1.76,
+        2.29
+      ],
+      "vertices": 3302,
+      "triangles": 1686
+    },
+    {
+      "id": "com_neighborhood_market_2x1",
+      "category": "commercial",
+      "display_name": "Фермерский гастроном и кулинария",
+      "suggested_zone": "COMMERCIAL",
+      "suggested_level": 3,
+      "file": "assets/models/blender/commercial/com_neighborhood_market_2x1.glb",
+      "godot_kit_path": "blender/commercial/com_neighborhood_market_2x1",
+      "cells": [
+        2,
+        1
+      ],
+      "area_cells": 2,
+      "dimensions_m": [
+        3.698,
+        1.78,
+        1.968
+      ],
+      "vertices": 2310,
+      "triangles": 1174
+    },
+    {
+      "id": "com_strip_shops_3x1",
+      "category": "commercial",
+      "display_name": "Торговый ряд с кафе-мороженым",
+      "suggested_zone": "COMMERCIAL",
+      "suggested_level": 1,
+      "file": "assets/models/blender/commercial/com_strip_shops_3x1.glb",
+      "godot_kit_path": "blender/commercial/com_strip_shops_3x1",
+      "cells": [
+        3,
+        1
+      ],
+      "area_cells": 3,
+      "dimensions_m": [
+        5.74,
+        1.74,
+        2.283
+      ],
+      "vertices": 5156,
+      "triangles": 2624
+    },
+    {
+      "id": "com_artisan_row_4x1",
+      "category": "commercial",
+      "display_name": "Староместский променад с кафе",
+      "suggested_zone": "COMMERCIAL",
+      "suggested_level": 2,
+      "file": "assets/models/blender/commercial/com_artisan_row_4x1.glb",
+      "godot_kit_path": "blender/commercial/com_artisan_row_4x1",
+      "cells": [
+        4,
+        1
+      ],
+      "area_cells": 4,
+      "dimensions_m": [
+        7.74,
+        1.76,
+        2.4
+      ],
+      "vertices": 10856,
+      "triangles": 5456
+    },
+    {
+      "id": "com_market_promenade_5x1",
+      "category": "commercial",
+      "display_name": "Гастрономический бульвар",
+      "suggested_zone": "COMMERCIAL",
+      "suggested_level": 2,
+      "file": "assets/models/blender/commercial/com_market_promenade_5x1.glb",
+      "godot_kit_path": "blender/commercial/com_market_promenade_5x1",
+      "cells": [
+        5,
+        1
+      ],
+      "area_cells": 5,
+      "dimensions_m": [
+        9.74,
+        1.76,
+        2.778
+      ],
+      "vertices": 8730,
+      "triangles": 4454
+    },
+    {
+      "id": "com_farmers_bazaar_2x2",
+      "category": "commercial",
+      "display_name": "Крытый городской рынок и фудкорт",
+      "suggested_zone": "COMMERCIAL",
+      "suggested_level": 2,
+      "file": "assets/models/blender/commercial/com_farmers_bazaar_2x2.glb",
+      "godot_kit_path": "blender/commercial/com_farmers_bazaar_2x2",
+      "cells": [
+        2,
+        2
+      ],
+      "area_cells": 4,
+      "dimensions_m": [
+        3.74,
+        3.74,
+        2.69
+      ],
+      "vertices": 4688,
+      "triangles": 2392
+    },
+    {
+      "id": "com_supermarket_plaza_3x2",
+      "category": "commercial",
+      "display_name": "Супермаркет с кафетерием",
+      "suggested_zone": "COMMERCIAL",
+      "suggested_level": 3,
+      "file": "assets/models/blender/commercial/com_supermarket_plaza_3x2.glb",
+      "godot_kit_path": "blender/commercial/com_supermarket_plaza_3x2",
+      "cells": [
+        3,
+        2
+      ],
+      "area_cells": 6,
+      "dimensions_m": [
+        5.74,
+        3.74,
+        3.213
+      ],
+      "vertices": 5656,
+      "triangles": 2940
+    },
+    {
+      "id": "com_rooftop_lounge_1x1",
+      "category": "commercial",
+      "display_name": "Ресторан с лаунж-террасой на крыше",
+      "suggested_zone": "COMMERCIAL_HIGH",
+      "suggested_level": 1,
+      "file": "assets/models/blender/commercial/com_rooftop_lounge_1x1.glb",
+      "godot_kit_path": "blender/commercial/com_rooftop_lounge_1x1",
+      "cells": [
+        1,
+        1
+      ],
+      "area_cells": 1,
+      "dimensions_m": [
+        1.74,
+        1.74,
+        2.82
+      ],
+      "vertices": 2208,
+      "triangles": 1128
+    },
+    {
+      "id": "com_flagship_store_1x1",
+      "category": "commercial",
+      "display_name": "Флагманский Дом моды",
+      "suggested_zone": "COMMERCIAL_HIGH",
+      "suggested_level": 3,
+      "file": "assets/models/blender/commercial/com_flagship_store_1x1.glb",
+      "godot_kit_path": "blender/commercial/com_flagship_store_1x1",
+      "cells": [
+        1,
+        1
+      ],
+      "area_cells": 1,
+      "dimensions_m": [
+        1.74,
+        1.77,
+        4.83
+      ],
+      "vertices": 2484,
+      "triangles": 1272
+    },
+    {
+      "id": "com_cinema_palace_2x1",
+      "category": "commercial",
+      "display_name": "Кинотеатр и кафе «Синема»",
+      "suggested_zone": "COMMERCIAL_HIGH",
+      "suggested_level": 2,
+      "file": "assets/models/blender/commercial/com_cinema_palace_2x1.glb",
+      "godot_kit_path": "blender/commercial/com_cinema_palace_2x1",
+      "cells": [
+        2,
+        1
+      ],
+      "area_cells": 2,
+      "dimensions_m": [
+        3.74,
+        1.76,
+        2.95
+      ],
+      "vertices": 1728,
+      "triangles": 940
+    },
+    {
+      "id": "com_grand_emporium_3x1",
+      "category": "commercial",
+      "display_name": "Центральный универмаг с куполом",
+      "suggested_zone": "COMMERCIAL_HIGH",
+      "suggested_level": 2,
+      "file": "assets/models/blender/commercial/com_grand_emporium_3x1.glb",
+      "godot_kit_path": "blender/commercial/com_grand_emporium_3x1",
+      "cells": [
+        3,
+        1
+      ],
+      "area_cells": 3,
+      "dimensions_m": [
+        5.74,
+        1.76,
+        3.83
+      ],
+      "vertices": 9130,
+      "triangles": 4634
+    },
+    {
+      "id": "com_glass_arcade_4x1",
+      "category": "commercial",
+      "display_name": "Торговый пассаж со стеклянным сводом",
+      "suggested_zone": "COMMERCIAL_HIGH",
+      "suggested_level": 3,
+      "file": "assets/models/blender/commercial/com_glass_arcade_4x1.glb",
+      "godot_kit_path": "blender/commercial/com_glass_arcade_4x1",
+      "cells": [
+        4,
+        1
+      ],
+      "area_cells": 4,
+      "dimensions_m": [
+        7.74,
+        1.76,
+        3.12
+      ],
+      "vertices": 7470,
+      "triangles": 3782
+    },
+    {
+      "id": "com_boulevard_galleria_5x1",
+      "category": "commercial",
+      "display_name": "Проспектная торговая галерея",
+      "suggested_zone": "COMMERCIAL_HIGH",
+      "suggested_level": 3,
+      "file": "assets/models/blender/commercial/com_boulevard_galleria_5x1.glb",
+      "godot_kit_path": "blender/commercial/com_boulevard_galleria_5x1",
+      "cells": [
+        5,
+        1
+      ],
+      "area_cells": 5,
+      "dimensions_m": [
+        9.74,
+        1.76,
+        3.624
+      ],
+      "vertices": 10256,
+      "triangles": 5264
+    },
+    {
+      "id": "com_grand_avenue_mall_7x1",
+      "category": "commercial",
+      "display_name": "Гранд-пассаж с куполами и верандами",
+      "suggested_zone": "COMMERCIAL_HIGH",
+      "suggested_level": 3,
+      "file": "assets/models/blender/commercial/com_grand_avenue_mall_7x1.glb",
+      "godot_kit_path": "blender/commercial/com_grand_avenue_mall_7x1",
+      "cells": [
+        7,
+        1
+      ],
+      "area_cells": 7,
+      "dimensions_m": [
+        13.74,
+        1.76,
+        5.03
+      ],
+      "vertices": 14214,
+      "triangles": 7250
+    },
+    {
+      "id": "com_atrium_department_2x2",
+      "category": "commercial",
+      "display_name": "Торговый Дом «Атриум»",
+      "suggested_zone": "COMMERCIAL_HIGH",
+      "suggested_level": 2,
+      "file": "assets/models/blender/commercial/com_atrium_department_2x2.glb",
+      "godot_kit_path": "blender/commercial/com_atrium_department_2x2",
+      "cells": [
+        2,
+        2
+      ],
+      "area_cells": 4,
+      "dimensions_m": [
+        3.74,
+        3.74,
+        3.875
+      ],
+      "vertices": 5284,
+      "triangles": 2696
+    },
+    {
+      "id": "com_metropolis_mall_3x2",
+      "category": "commercial",
+      "display_name": "Торгово-развлекательный молл «Метрополис»",
+      "suggested_zone": "COMMERCIAL_HIGH",
+      "suggested_level": 3,
+      "file": "assets/models/blender/commercial/com_metropolis_mall_3x2.glb",
+      "godot_kit_path": "blender/commercial/com_metropolis_mall_3x2",
+      "cells": [
+        3,
+        2
+      ],
+      "area_cells": 6,
+      "dimensions_m": [
+        5.665,
+        3.78,
+        4.7
+      ],
+      "vertices": 10262,
+      "triangles": 5314
+    }
+  ]
+}

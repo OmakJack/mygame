@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/blender/commercial/com_grand_emporium_3x1.glb" id="1_lc2r5"]
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="2_v0bcv"]
+
+[resource]
+script = ExtResource("2_v0bcv")
+id = &"com_grand_emporium_3x1_l3"
+display_name = "Центральный универмаг с куполом · ур. 3"
+zone = 5
+size = Vector2i(3, 1)
+jobs = 60
+level = 3
+weight = 1.5
+preferred = true
+power_use = 48
+water_use = 24
+noise = 22
+model = ExtResource("1_lc2r5")

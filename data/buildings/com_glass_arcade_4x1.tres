@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/blender/commercial/com_glass_arcade_4x1.glb" id="1_cusbg"]
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="2_60v81"]
+
+[resource]
+script = ExtResource("2_60v81")
+id = &"com_glass_arcade_4x1"
+display_name = "Торговый пассаж со стеклянным сводом · ур. 3"
+zone = 5
+size = Vector2i(4, 1)
+jobs = 80
+level = 3
+weight = 4.0
+preferred = true
+power_use = 64
+water_use = 32
+noise = 22
+model = ExtResource("1_cusbg")

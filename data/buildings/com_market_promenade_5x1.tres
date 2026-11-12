@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/blender/commercial/com_market_promenade_5x1.glb" id="1_iw7ig"]
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="2_mdrbh"]
+
+[resource]
+script = ExtResource("2_mdrbh")
+id = &"com_market_promenade_5x1"
+display_name = "Гастрономический бульвар · ур. 2"
+zone = 2
+size = Vector2i(5, 1)
+jobs = 15
+level = 2
+weight = 4.0
+preferred = true
+power_use = 20
+water_use = 10
+noise = 14
+model = ExtResource("1_iw7ig")

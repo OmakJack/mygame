@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/blender/commercial/com_corner_bakery_1x1.glb" id="1_gnpty"]
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="2_t4jt3"]
+
+[resource]
+script = ExtResource("2_t4jt3")
+id = &"com_corner_bakery_1x1_l2"
+display_name = "Угловая пекарня «Бриошь» · ур. 2"
+zone = 2
+jobs = 3
+level = 2
+weight = 1.5
+preferred = true
+power_use = 4
+water_use = 2
+noise = 14
+model = ExtResource("1_gnpty")

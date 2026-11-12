@@ -3,17 +3,30 @@ extends TrafficVisualizer
 ## Пешеходы (по тротуарам) и велосипедисты (у края проезжей части) — только визуал, как машинки.
 ## Пути — из выборок Traffic.walk_paths / bike_paths; число — по тому, сколько работников
 ## выбрали ходьбу или велосипед (больше в пробках и на коротких путях).
-## Модели — из Blender (tools/blender/make_people.py) в палитре Kenney: одежда и рама велосипеда
-## перекрашиваются по INSTANCE_CUSTOM, у каждого свой цвет.
+## Модели — пак Argon (assets/models/blender/people/, tools/blender/pack_people.py) в палитре Kenney:
+## 8 пешеходов и 4 велосипедиста, каждый вид — свой слой, вид выбирается случайно. Одежда и рама
+## велосипеда перекрашиваются по INSTANCE_CUSTOM, у каждого свой цвет; кожа, джинсы и колёса — свои.
 
 ## true — велосипедисты, false — пешеходы.
 @export var cyclists: bool = false
 
+const PEOPLE_DIR: String = "res://assets/models/blender/people/"
 const WALKER_MODELS: Array[String] = [
-	"res://assets/models/blender/person-a.glb",
-	"res://assets/models/blender/person-b.glb",
+	PEOPLE_DIR + "citizen_casual_m.glb",
+	PEOPLE_DIR + "citizen_dress_f.glb",
+	PEOPLE_DIR + "citizen_business_m.glb",
+	PEOPLE_DIR + "citizen_shopper_f.glb",
+	PEOPLE_DIR + "citizen_student_m.glb",
+	PEOPLE_DIR + "citizen_coffee_f.glb",
+	PEOPLE_DIR + "citizen_hiker_m.glb",
+	PEOPLE_DIR + "citizen_coat_f.glb",
 ]
-const CYCLIST_MODELS: Array[String] = ["res://assets/models/blender/cyclist.glb"]
+const CYCLIST_MODELS: Array[String] = [
+	PEOPLE_DIR + "cyclist_road.glb",
+	PEOPLE_DIR + "cyclist_city_cruiser.glb",
+	PEOPLE_DIR + "cyclist_courier.glb",
+	PEOPLE_DIR + "cyclist_commuter.glb",
+]
 ## Человек 1.75 м → ~0.39 м: чуть крупнее масштаба машин Kenney (те мультяшно высокие), чтобы фигурки читались сверху.
 const PEOPLE_SCALE: float = 0.22
 ## Сколько работников «изображает» одна фигурка и сколько фигурок не больше.
