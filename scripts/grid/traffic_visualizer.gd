@@ -9,6 +9,9 @@ extends MultiMeshInstance3D
 ## на проспектах и шоссе — две полосы в каждую сторону (RoadGeometry.lane_offsets).
 ## Пешеходы и велосипедисты (PeopleVisualizer) — тот же код без правил: переопределяют _paths,
 ## _target_count, _speed, _offset, _slowdown, _obeys_rules, _load_layers, _dress и _bob.
+## Щелчок по машинке или фигурке (BuildTool без инструмента → pick) открывает карточку жителя
+## (CitizenCard): у агента есть дом пути (home_id) и зерно (citizen_seed) — из них Citizens выводит человека.
+## За выбранным агентом (followed) карточка следит; доехав, он едет обратно тем же путём.
 
 const MAX_CARS: int = 300
 ## Сколько работников «изображает» одна машинка (≈ сколько людей в машине).
@@ -76,6 +79,12 @@ class Car extends RefCounted:
 	var speed: float = 1.0
 	## Сколько стоит на месте, с игрового времени.
 	var stuck: float = 0.0
+	## id дома, откуда путь (Traffic.*_homes; −1 — приезжий с трассы или не знаем).
+	var home_id: int = -1
+	## Зерно жителя: новое на каждую новую поездку — новый человек.
+	var citizen_seed: int = 0
+	## Открыта карточка жителя: доехав, разворачивается и едет обратно (человек тот же).
+	var followed: bool = false
 
 
 var _cars: Array[Car] = []
@@ -93,9 +102,16 @@ var _routes: Dictionary[int, RoadRoute] = {}
 var _occupancy: Dictionary[int, PackedFloat32Array] = {}
 
 
+## Радиус щелчка по агенту на экране, пикселей (не меньше; крупнее — если агент крупно на экране).
+const PICK_RADIUS: float = 16.0
+## На какой высоте над дорогой «середина» агента для щелчка, м.
+const PICK_HEIGHT: float = 0.18
+
+
 func _ready() -> void:
 	_rng.randomize()
 	_load_layers()
+	add_to_group(&"agents")
 
 
 ## Слои моделей: по MultiMesh на модель машины (пешеходы — свои модели).
@@ -201,6 +217,11 @@ func _paths() -> Array[PackedInt32Array]:
 	return GameState.traffic.sample_paths
 
 
+## id домов путей _paths() — в том же порядке.
+func _homes() -> PackedInt32Array:
+	return GameState.traffic.sample_homes
+
+
 ## Скорость, м в секунду на ×1.
 func _speed() -> float:
 	return SPEED
@@ -236,6 +257,12 @@ func _sync_car_count() -> void:
 	# Не меньше нуля: roundi(NaN) — самое малое целое, и цикл ниже снимал бы машинки с пустого списка вечно.
 	var target: int = maxi(0, _target_count())
 	while _cars.size() > target:
+		# Выбранного (с карточкой) не убираем, пока есть кого убрать вместо него.
+		if _cars.back().followed and _cars.size() > 1:
+			var last: int = _cars.size() - 1
+			var other: Car = _cars[last - 1]
+			_cars[last - 1] = _cars[last]
+			_cars[last] = other
 		_cars.pop_back()
 	while _cars.size() < target:
 		var car := Car.new()
@@ -259,11 +286,16 @@ func _assign_path(car: Car) -> bool:
 	if paths.is_empty():
 		return false
 	for attempt: int in 8:
-		var path: PackedInt32Array = paths[_rng.randi_range(0, paths.size() - 1)]
+		var pick: int = _rng.randi_range(0, paths.size() - 1)
+		var path: PackedInt32Array = paths[pick]
 		# Выборка может отстать от дорог (пересчёт трафика ещё не случился) — сломанный путь не берём.
 		if path.size() < 2 or not _path_is_intact(path, grid):
 			continue
 		car.path = path
+		var homes: PackedInt32Array = _homes()
+		car.home_id = homes[pick] if pick < homes.size() else -1
+		car.citizen_seed = _rng.randi()
+		car.followed = false
 		# Из дома на работу или с работы домой.
 		car.forward = _rng.randf() < 0.5
 		car.lane = _rng.randi_range(0, 1)
@@ -339,6 +371,13 @@ func _advance(car: Car, grid: CityGrid, step: float, dt: float) -> void:
 	if car.distance < car.route.length() and car.stuck < STUCK_TIME:
 		return
 	car.stuck = 0.0
+	# За выбранным следят: доехав, он едет обратно (с работы домой и снова), человек тот же.
+	if car.followed and _path_is_intact(car.path, grid):
+		car.forward = not car.forward
+		car.route = _route_for(car, grid)
+		car.distance = 0.0
+		car.speed = 0.0
+		return
 	# Доехали (или застряли): машина «паркуется», вместо неё — новая поездка.
 	if not _assign_path(car):
 		car.distance = 0.0
@@ -387,6 +426,49 @@ func _fill_occupancy() -> void:
 		if not _occupancy.has(leg.key):
 			_occupancy[leg.key] = PackedFloat32Array()
 		_occupancy[leg.key].append(leg.frame + car.distance - leg.start)
+
+
+## Ближайший к точке экрана screen агент (в радиусе щелчка): [Car, расстояние в пикселях] или [].
+func pick(camera: Camera3D, screen: Vector2) -> Array:
+	var best: Array = []
+	var radius: float = PICK_RADIUS
+	for car: Car in _cars:
+		if car.route == null:
+			continue
+		var at: Vector3 = agent_position(car) + Vector3.UP * PICK_HEIGHT
+		if camera.is_position_behind(at):
+			continue
+		var d: float = camera.unproject_position(at).distance_to(screen)
+		if d <= radius and (best.is_empty() or d < best[1]):
+			best = [car, d]
+	return best
+
+
+## Где агент сейчас (точка на дороге под ним).
+func agent_position(car: Car) -> Vector3:
+	return _car_transform(car).origin
+
+
+## Есть ли ещё этот агент на улицах (карточка закрывается, если нет).
+func has_agent(car: Car) -> bool:
+	return _cars.has(car)
+
+
+## Как добирается: «на машине», «пешком», «на велосипеде» (у пешеходов и велосипедистов — свой текст).
+func travel_mode() -> String:
+	return "на машине"
+
+
+## Пол жителя по модели (у машин — любой).
+func agent_gender(_car: Car) -> Citizens.Gender:
+	return Citizens.Gender.ANY
+
+
+## Сколько игровых минут занимает весь путь агента (скорость — на ×1, тик — SimClock.TICK_SECONDS).
+func trip_minutes(car: Car) -> int:
+	if car.route == null:
+		return 0
+	return maxi(1, roundi(car.route.length() / _speed() / SimClock.TICK_SECONDS * GameTime.TICK_MINUTES))
 
 
 ## Индекс клетки пути с учётом направления (обратно — путь задом наперёд).

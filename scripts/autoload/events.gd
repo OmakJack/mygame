@@ -50,6 +50,11 @@ signal modal_changed(open: bool)
 @warning_ignore("unused_signal")
 signal cell_inspected(cell: Vector2i)
 
+## Щелчок по фигурке или машинке без инструмента — HUD показывает карточку жителя над ним
+## (agents — TrafficVisualizer или PeopleVisualizer, agent — его TrafficVisualizer.Car).
+@warning_ignore("unused_signal")
+signal citizen_selected(agents: Node, agent: RefCounted)
+
 ## Город получил новое звание (Ranks, фаза 10) — HUD показывает сообщение.
 @warning_ignore("unused_signal")
 signal rank_changed(rank: int)

@@ -57,6 +57,12 @@ var sample_paths: Array[PackedInt32Array] = []
 ## Выборки путей пешеходов и велосипедистов — для фигурок на тротуарах.
 var walk_paths: Array[PackedInt32Array] = []
 var bike_paths: Array[PackedInt32Array] = []
+## id дома каждого пути выборки (тот же порядок; −1 — приезжий с трассы) — для карточки жителя.
+var sample_homes := PackedInt32Array()
+var walk_homes := PackedInt32Array()
+var bike_homes := PackedInt32Array()
+## Индекс клетки дороги → id зданий с рабочими местами у неё (куда ведут пути) — для карточки жителя.
+var job_sites: Dictionary[int, PackedInt32Array] = {}
 ## Сколько работников (жителей города) идут пешком и едут на велосипеде.
 var walkers: float = 0.0
 var cyclists: float = 0.0
@@ -138,6 +144,10 @@ static func compute(grid: CityGrid) -> Traffic:
 		elif data.jobs > 0 and building.powered and building.has_water \
 				and data.zone != CityGrid.Zone.NONE:
 			jobs_at[grid.index_of(road)] += data.jobs
+			var road_index: int = grid.index_of(road)
+			if not traffic.job_sites.has(road_index):
+				traffic.job_sites[road_index] = PackedInt32Array()
+			traffic.job_sites[road_index].append(building.id)
 	var sources := PackedInt32Array()
 	var total_jobs: float = 0.0
 	for index: int in cell_count:
@@ -234,10 +244,13 @@ static func compute(grid: CityGrid) -> Traffic:
 			if (home + pass_index) % sample_stride == 0:
 				if traffic.sample_paths.size() < MAX_SAMPLE_PATHS and shares.x >= PEOPLE_PATH_SHARE:
 					traffic.sample_paths.append(_walk(start, next))
+					traffic.sample_homes.append(home_ids[home])
 				if traffic.bike_paths.size() < MAX_PEOPLE_PATHS and shares.y >= PEOPLE_PATH_SHARE:
 					traffic.bike_paths.append(_walk(start, next))
+					traffic.bike_homes.append(home_ids[home])
 				if traffic.walk_paths.size() < MAX_PEOPLE_PATHS and shares.z >= PEOPLE_PATH_SHARE:
 					traffic.walk_paths.append(_walk(start, next))
+					traffic.walk_homes.append(home_ids[home])
 		# Пути образуют дерево к местам работы: поток собираем одним проходом с конца порядка Дейкстры
 		# (O(дороги) вместо O(дома · длина пути)).
 		for i: int in range(order.size() - 1, -1, -1):

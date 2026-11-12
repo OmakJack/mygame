@@ -368,9 +368,12 @@ func _unhandled_input(event: InputEvent) -> void:
 	if button == null:
 		return
 	if mode == Mode.NONE:
-		# Без инструмента клик показывает, что на клетке (карточка «Инфо»).
-		if button.button_index == MOUSE_BUTTON_LEFT and button.pressed and cursor.has_cell:
-			Events.cell_inspected.emit(_inspect_cell())
+		# Без инструмента клик по жителю — его карточка; иначе — что на клетке (карточка «Инфо»).
+		if button.button_index == MOUSE_BUTTON_LEFT and button.pressed:
+			if pick_citizen(button.position):
+				get_viewport().set_input_as_handled()
+			elif cursor.has_cell:
+				Events.cell_inspected.emit(_inspect_cell())
 		return
 	# Дороги мышью строит RoadTool (по точкам, как в Cities: Skylines). Протягивание по клеткам
 	# (_update_drag / _apply) осталось для тестов и сценариев.
@@ -487,6 +490,27 @@ static func _quads_of(slots: Array[FreeStrips.Slot]) -> Array[PackedVector2Array
 	for slot: FreeStrips.Slot in slots:
 		quads.append(slot.corners)
 	return quads
+
+
+## Житель под точкой экрана screen (пешеход, велосипедист или водитель — ближайший из группы
+## «agents») → Events.citizen_selected. false — никого рядом.
+func pick_citizen(screen: Vector2) -> bool:
+	var camera: Camera3D = get_viewport().get_camera_3d()
+	if camera == null:
+		return false
+	var best_node: Node = null
+	var best: Array = []
+	for node: Node in get_tree().get_nodes_in_group(&"agents"):
+		if not node.is_visible_in_tree():
+			continue
+		var hit: Array = node.pick(camera, screen)
+		if not hit.is_empty() and (best.is_empty() or hit[1] < best[1]):
+			best = hit
+			best_node = node
+	if best_node == null:
+		return false
+	Events.citizen_selected.emit(best_node, best[0])
+	return true
 
 
 ## Отпускание и отмена — здесь, чтобы UI не «съел» их и протягивание не залипло.

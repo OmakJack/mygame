@@ -65,6 +65,10 @@ func _paths() -> Array[PackedInt32Array]:
 	return GameState.traffic.bike_paths if cyclists else GameState.traffic.walk_paths
 
 
+func _homes() -> PackedInt32Array:
+	return GameState.traffic.bike_homes if cyclists else GameState.traffic.walk_homes
+
+
 func _target_count() -> int:
 	if _layers.is_empty() or _paths().is_empty():
 		return 0
@@ -104,6 +108,22 @@ func _bob(car: Car) -> float:
 ## Свой цвет одежды (рамы): тон и насыщенность акцента палитры.
 func _dress(car: Car) -> void:
 	car.custom = Color(_rng.randf(), _rng.randf_range(0.45, 1.0), 0.0, 1.0)
+
+
+func travel_mode() -> String:
+	return "на велосипеде" if cyclists else "пешком"
+
+
+## У пешеходов пол — по модели (имя файла кончается на _m или _f).
+func agent_gender(car: Car) -> Citizens.Gender:
+	if cyclists:
+		return Citizens.Gender.ANY
+	var path: String = WALKER_MODELS[car.model] if car.model < WALKER_MODELS.size() else ""
+	if path.ends_with("_f.glb"):
+		return Citizens.Gender.FEMALE
+	if path.ends_with("_m.glb"):
+		return Citizens.Gender.MALE
+	return Citizens.Gender.ANY
 
 
 ## Сколько фигурок видно (для проверок).

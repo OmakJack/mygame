@@ -74,6 +74,8 @@ var _new_city_confirm := ConfirmationDialog.new()
 var _toast := PanelContainer.new()
 var _toast_label := Label.new()
 var _info := InfoPanel.new()
+## Карточка жителя над фигуркой (щелчок по пешеходу, велосипедисту или машинке).
+var _citizen_card := CitizenCard.new()
 ## Советник: кнопка со счётчиком в верхней панели, список проблем и строчка о новой — вместо плашки подсказок.
 var _advisor := Advisor.new()
 ## Плашка звания (фаза 10) — создаётся кодом рядом с «Жителями»; счастье — в плашке «Жители».
@@ -102,6 +104,7 @@ func _ready() -> void:
 	_build_bottom_extras()
 	_build_city_controls()
 	$Root.add_child(_info)
+	$Root.add_child(_citizen_card)
 	Events.rank_changed.connect(_on_rank_changed)
 	_new_city_confirm.theme = theme
 	for window: Node in _save_dialog.find_children("*", "Window", true, false):
