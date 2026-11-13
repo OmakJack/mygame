@@ -157,3 +157,14 @@ load_quick={
 [rendering]
 
 rendering_device/driver.windows="d3d12"
+
+[shader_globals]
+
+fx_time={
+"type": "float",
+"value": 0.0
+}
+fx_clock={
+"type": "float",
+"value": 0.0
+}

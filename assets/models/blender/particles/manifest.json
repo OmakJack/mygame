@@ -1,0 +1,1019 @@
+{
+  "pack_name": "CityBuilder Low-Poly Particles & VFX Pack v1",
+  "godot_conventions": {
+    "origin": "(0, 0, 0) at emission point (chimney top, fountain nozzle, ground center)",
+    "up_axis_in_godot": "+Y",
+    "wind_default_in_godot": "+X",
+    "shader_uv_encoding": {
+      "UV.x": "Normalized lifecycle phase t in 0.0..1.0 from emitter to tip",
+      "UV.y": "Per-element deterministic random seed in 0.0..1.0",
+      "UV2.xy": "Radial/directional vector (dx, dz) of the element",
+      "NORMAL": "Outward normal of each individual puff/droplet/crystal (use VERTEX += NORMAL * pulse to scale puffs in place)"
+    }
+  },
+  "plumes": [
+    {
+      "id": "fx_smoke_chimney_light",
+      "category": "smoke_steam",
+      "display_name": "Лёгкий печной/каминный дым",
+      "target_usage": "Жилые дома (RESIDENTIAL 1x1..3x2), пекарни (com_corner_bakery_1x1), пиццерии (com_bistro_terrace_2x1)",
+      "anim_mode": "plume_rise_sway",
+      "recommended_scale": 1.0,
+      "file": "assets/models/blender/particles/fx_smoke_chimney_light.glb",
+      "godot_res_path": "res://assets/models/blender/particles/fx_smoke_chimney_light.glb",
+      "dimensions_m": [
+        0.633,
+        0.514,
+        1.465
+      ],
+      "aabb_min_m": [
+        -0.088,
+        -0.271,
+        0.032
+      ],
+      "aabb_max_m": [
+        0.545,
+        0.243,
+        1.498
+      ],
+      "vertices": 324,
+      "triangles": 540
+    },
+    {
+      "id": "fx_smoke_factory_heavy",
+      "category": "smoke_steam",
+      "display_name": "Густой тёмный заводской дым и смог",
+      "target_usage": "Трубы заводов (INDUSTRIAL smokestack) и угольная ТЭЦ (power_plant)",
+      "anim_mode": "plume_rise_sway",
+      "recommended_scale": 1.0,
+      "file": "assets/models/blender/particles/fx_smoke_factory_heavy.glb",
+      "godot_res_path": "res://assets/models/blender/particles/fx_smoke_factory_heavy.glb",
+      "dimensions_m": [
+        1.725,
+        0.934,
+        2.591
+      ],
+      "aabb_min_m": [
+        -0.207,
+        -0.493,
+        -0.03
+      ],
+      "aabb_max_m": [
+        1.518,
+        0.441,
+        2.561
+      ],
+      "vertices": 636,
+      "triangles": 1060
+    },
+    {
+      "id": "fx_smoke_twin_stacks",
+      "category": "smoke_steam",
+      "display_name": "Двойной шлейф заводских труб",
+      "target_usage": "Крупные заводы и комбинаты (2x1..7x1, 3x2) с парными трубами",
+      "anim_mode": "plume_rise_sway",
+      "recommended_scale": 1.0,
+      "file": "assets/models/blender/particles/fx_smoke_twin_stacks.glb",
+      "godot_res_path": "res://assets/models/blender/particles/fx_smoke_twin_stacks.glb",
+      "dimensions_m": [
+        1.816,
+        0.894,
+        2.253
+      ],
+      "aabb_min_m": [
+        -0.404,
+        -0.422,
+        0.111
+      ],
+      "aabb_max_m": [
+        1.411,
+        0.472,
+        2.364
+      ],
+      "vertices": 720,
+      "triangles": 1200
+    },
+    {
+      "id": "fx_steam_cooling_tower",
+      "category": "smoke_steam",
+      "display_name": "Густой белый пар градирни / котельной",
+      "target_usage": "Градирни, котельные (ind_boiler_house_1x1), геотермальные и тепловые станции",
+      "anim_mode": "plume_rise_sway",
+      "recommended_scale": 1.0,
+      "file": "assets/models/blender/particles/fx_steam_cooling_tower.glb",
+      "godot_res_path": "res://assets/models/blender/particles/fx_steam_cooling_tower.glb",
+      "dimensions_m": [
+        1.356,
+        1.348,
+        2.188
+      ],
+      "aabb_min_m": [
+        -0.57,
+        -0.617,
+        -0.061
+      ],
+      "aabb_max_m": [
+        0.786,
+        0.731,
+        2.127
+      ],
+      "vertices": 864,
+      "triangles": 1440
+    },
+    {
+      "id": "fx_steam_vent_puff",
+      "category": "smoke_steam",
+      "display_name": "Клубы пара крышной вентиляции и кухонь",
+      "target_usage": "Крышные блоки HVAC офисов, ТРЦ, больниц и ресторанов",
+      "anim_mode": "plume_rise_sway",
+      "recommended_scale": 1.0,
+      "file": "assets/models/blender/particles/fx_steam_vent_puff.glb",
+      "godot_res_path": "res://assets/models/blender/particles/fx_steam_vent_puff.glb",
+      "dimensions_m": [
+        0.559,
+        0.386,
+        0.948
+      ],
+      "aabb_min_m": [
+        -0.096,
+        -0.198,
+        0.058
+      ],
+      "aabb_max_m": [
+        0.463,
+        0.189,
+        1.006
+      ],
+      "vertices": 252,
+      "triangles": 420
+    },
+    {
+      "id": "fx_cafe_aroma_swirl",
+      "category": "smoke_steam",
+      "display_name": "Спиральный пар и аромат горячего кофе",
+      "target_usage": "Гигантские 3D-чашки эспрессо на крышах кофеен, фудкортов и пекарен (COMMERCIAL)",
+      "anim_mode": "spiral_swirl",
+      "recommended_scale": 1.0,
+      "file": "assets/models/blender/particles/fx_cafe_aroma_swirl.glb",
+      "godot_res_path": "res://assets/models/blender/particles/fx_cafe_aroma_swirl.glb",
+      "dimensions_m": [
+        0.4,
+        0.354,
+        1.005
+      ],
+      "aabb_min_m": [
+        -0.179,
+        -0.183,
+        0.027
+      ],
+      "aabb_max_m": [
+        0.221,
+        0.172,
+        1.033
+      ],
+      "vertices": 408,
+      "triangles": 624
+    },
+    {
+      "id": "fx_fire_building_blaze",
+      "category": "fire_sparks",
+      "display_name": "Пожар здания: пламя, искры и чёрный дым",
+      "target_usage": "Горящие здания и выезды пожарных машин (fire_station / fire_depot_2x1)",
+      "anim_mode": "fire_flicker",
+      "recommended_scale": 1.0,
+      "file": "assets/models/blender/particles/fx_fire_building_blaze.glb",
+      "godot_res_path": "res://assets/models/blender/particles/fx_fire_building_blaze.glb",
+      "dimensions_m": [
+        1.111,
+        0.899,
+        2.15
+      ],
+      "aabb_min_m": [
+        -0.336,
+        -0.44,
+        0.0
+      ],
+      "aabb_max_m": [
+        0.775,
+        0.459,
+        2.15
+      ],
+      "vertices": 486,
+      "triangles": 820
+    },
+    {
+      "id": "fx_fire_refinery_flare",
+      "category": "fire_sparks",
+      "display_name": "Газовый факел нефтезавода (Refinery Flare)",
+      "target_usage": "Факельные башни нефтехимии, НПЗ и сталелитейных цехов (INDUSTRIAL)",
+      "anim_mode": "fire_flicker",
+      "recommended_scale": 1.0,
+      "file": "assets/models/blender/particles/fx_fire_refinery_flare.glb",
+      "godot_res_path": "res://assets/models/blender/particles/fx_fire_refinery_flare.glb",
+      "dimensions_m": [
+        0.618,
+        0.407,
+        1.388
+      ],
+      "aabb_min_m": [
+        -0.215,
+        -0.203,
+        -0.055
+      ],
+      "aabb_max_m": [
+        0.403,
+        0.204,
+        1.333
+      ],
+      "vertices": 111,
+      "triangles": 198
+    },
+    {
+      "id": "fx_sparks_welding_burst",
+      "category": "fire_sparks",
+      "display_name": "Снопы сварочных искр и вспышка дуги",
+      "target_usage": "Стройплощадки (ConstructionVisualizer — у крюка крана или верхнего яруса лесов) и цеха",
+      "anim_mode": "burst_radial",
+      "recommended_scale": 1.0,
+      "file": "assets/models/blender/particles/fx_sparks_welding_burst.glb",
+      "godot_res_path": "res://assets/models/blender/particles/fx_sparks_welding_burst.glb",
+      "dimensions_m": [
+        0.995,
+        1.002,
+        0.496
+      ],
+      "aabb_min_m": [
+        -0.472,
+        -0.424,
+        -0.006
+      ],
+      "aabb_max_m": [
+        0.523,
+        0.579,
+        0.49
+      ],
+      "vertices": 134,
+      "triangles": 188
+    },
+    {
+      "id": "fx_dust_bulldoze_burst",
+      "category": "dust_traffic",
+      "display_name": "Облако пыли и обломков при сносе бульдозером",
+      "target_usage": "Момент сноса здания, дороги или модуля станции бульдозером (BuildTool)",
+      "anim_mode": "burst_expand",
+      "recommended_scale": 1.0,
+      "file": "assets/models/blender/particles/fx_dust_bulldoze_burst.glb",
+      "godot_res_path": "res://assets/models/blender/particles/fx_dust_bulldoze_burst.glb",
+      "dimensions_m": [
+        1.82,
+        1.627,
+        0.677
+      ],
+      "aabb_min_m": [
+        -0.947,
+        -0.776,
+        -0.072
+      ],
+      "aabb_max_m": [
+        0.873,
+        0.852,
+        0.605
+      ],
+      "vertices": 528,
+      "triangles": 872
+    },
+    {
+      "id": "fx_dust_construction_site",
+      "category": "dust_traffic",
+      "display_name": "Строительная пыль у фундамента",
+      "target_usage": "Основание строящихся зданий (ConstructionVisualizer) и грузовые дворы заводов",
+      "anim_mode": "ground_billow",
+      "recommended_scale": 1.0,
+      "file": "assets/models/blender/particles/fx_dust_construction_site.glb",
+      "godot_res_path": "res://assets/models/blender/particles/fx_dust_construction_site.glb",
+      "dimensions_m": [
+        1.42,
+        0.669,
+        0.553
+      ],
+      "aabb_min_m": [
+        -0.716,
+        -0.364,
+        -0.055
+      ],
+      "aabb_max_m": [
+        0.704,
+        0.304,
+        0.498
+      ],
+      "vertices": 216,
+      "triangles": 360
+    },
+    {
+      "id": "fx_car_exhaust_puff",
+      "category": "dust_traffic",
+      "display_name": "Выхлопной дымок машин и грузовиков",
+      "target_usage": "Грузовики, автобусы и плотные очереди машин на загруженных дорогах (TrafficVisualizer)",
+      "anim_mode": "trail_puff",
+      "recommended_scale": 1.0,
+      "file": "assets/models/blender/particles/fx_car_exhaust_puff.glb",
+      "godot_res_path": "res://assets/models/blender/particles/fx_car_exhaust_puff.glb",
+      "dimensions_m": [
+        0.277,
+        0.695,
+        0.351
+      ],
+      "aabb_min_m": [
+        -0.149,
+        0.038,
+        -0.007
+      ],
+      "aabb_max_m": [
+        0.128,
+        0.733,
+        0.343
+      ],
+      "vertices": 72,
+      "triangles": 120
+    },
+    {
+      "id": "fx_fountain_park_jets",
+      "category": "water",
+      "display_name": "Городской фонтан со струями и каскадом брызг",
+      "target_usage": "Парки и площади (Park.PLAZA, Park.SQUARE, скверы у многоэтажек и ТРЦ)",
+      "anim_mode": "fountain_pulse",
+      "recommended_scale": 1.0,
+      "file": "assets/models/blender/particles/fx_fountain_park_jets.glb",
+      "godot_res_path": "res://assets/models/blender/particles/fx_fountain_park_jets.glb",
+      "dimensions_m": [
+        1.198,
+        1.142,
+        1.287
+      ],
+      "aabb_min_m": [
+        -0.599,
+        -0.571,
+        -0.006
+      ],
+      "aabb_max_m": [
+        0.599,
+        0.571,
+        1.281
+      ],
+      "vertices": 594,
+      "triangles": 1044
+    },
+    {
+      "id": "fx_water_fire_hose",
+      "category": "water",
+      "display_name": "Водяная струя пожарного брандспойта / прорыва трубы",
+      "target_usage": "Тушение пожаров пожарными машинами, полив парков или авария водопровода",
+      "anim_mode": "jet_arc",
+      "recommended_scale": 1.0,
+      "file": "assets/models/blender/particles/fx_water_fire_hose.glb",
+      "godot_res_path": "res://assets/models/blender/particles/fx_water_fire_hose.glb",
+      "dimensions_m": [
+        0.515,
+        1.819,
+        1.097
+      ],
+      "aabb_min_m": [
+        -0.256,
+        -1.819,
+        0.083
+      ],
+      "aabb_max_m": [
+        0.259,
+        0.0,
+        1.18
+      ],
+      "vertices": 240,
+      "triangles": 408
+    },
+    {
+      "id": "fx_water_ripples_splash",
+      "category": "water",
+      "display_name": "Круги на воде и пенные брызги",
+      "target_usage": "У водозаборных станций (water_station), насосов (water_pump), мостов и берегов",
+      "anim_mode": "ripple_expand",
+      "recommended_scale": 1.0,
+      "file": "assets/models/blender/particles/fx_water_ripples_splash.glb",
+      "godot_res_path": "res://assets/models/blender/particles/fx_water_ripples_splash.glb",
+      "dimensions_m": [
+        1.32,
+        1.3,
+        0.325
+      ],
+      "aabb_min_m": [
+        -0.66,
+        -0.65,
+        0.015
+      ],
+      "aabb_max_m": [
+        0.66,
+        0.65,
+        0.34
+      ],
+      "vertices": 232,
+      "triangles": 444
+    },
+    {
+      "id": "fx_nature_falling_leaves",
+      "category": "nature_weather",
+      "display_name": "Кружащаяся листва в парках и скверах",
+      "target_usage": "Кроны деревьев (TreeVisualizer), парки (SQUARE, GARDEN) и зелёные дворы (YardVisualizer)",
+      "anim_mode": "swirl_fall",
+      "recommended_scale": 1.0,
+      "file": "assets/models/blender/particles/fx_nature_falling_leaves.glb",
+      "godot_res_path": "res://assets/models/blender/particles/fx_nature_falling_leaves.glb",
+      "dimensions_m": [
+        1.335,
+        1.374,
+        1.339
+      ],
+      "aabb_min_m": [
+        -0.681,
+        -0.685,
+        0.126
+      ],
+      "aabb_max_m": [
+        0.655,
+        0.689,
+        1.464
+      ],
+      "vertices": 324,
+      "triangles": 576
+    },
+    {
+      "id": "fx_nature_flock_birds",
+      "category": "nature_weather",
+      "display_name": "Стайка кружащих птиц (чайки и голуби)",
+      "target_usage": "Небо над парками, площадями, рынками и береговой линией",
+      "anim_mode": "orbit_flock",
+      "recommended_scale": 1.0,
+      "file": "assets/models/blender/particles/fx_nature_flock_birds.glb",
+      "godot_res_path": "res://assets/models/blender/particles/fx_nature_flock_birds.glb",
+      "dimensions_m": [
+        1.408,
+        1.189,
+        0.723
+      ],
+      "aabb_min_m": [
+        -0.713,
+        -0.549,
+        0.613
+      ],
+      "aabb_max_m": [
+        0.695,
+        0.641,
+        1.336
+      ],
+      "vertices": 175,
+      "triangles": 154
+    },
+    {
+      "id": "fx_weather_rain_cloud",
+      "category": "nature_weather",
+      "display_name": "Дождевая тучка с косыми струями дождя",
+      "target_usage": "Погодный эффект дождя или локальный ливень",
+      "anim_mode": "rain_streak",
+      "recommended_scale": 1.0,
+      "file": "assets/models/blender/particles/fx_weather_rain_cloud.glb",
+      "godot_res_path": "res://assets/models/blender/particles/fx_weather_rain_cloud.glb",
+      "dimensions_m": [
+        1.09,
+        0.817,
+        1.822
+      ],
+      "aabb_min_m": [
+        -0.544,
+        -0.407,
+        0.015
+      ],
+      "aabb_max_m": [
+        0.546,
+        0.41,
+        1.837
+      ],
+      "vertices": 336,
+      "triangles": 568
+    },
+    {
+      "id": "fx_weather_snow_swirl",
+      "category": "nature_weather",
+      "display_name": "Снежный вихрь с объёмными снежинками",
+      "target_usage": "Зимняя погода и снегопад",
+      "anim_mode": "swirl_fall",
+      "recommended_scale": 1.0,
+      "file": "assets/models/blender/particles/fx_weather_snow_swirl.glb",
+      "godot_res_path": "res://assets/models/blender/particles/fx_weather_snow_swirl.glb",
+      "dimensions_m": [
+        1.259,
+        1.266,
+        1.338
+      ],
+      "aabb_min_m": [
+        -0.611,
+        -0.601,
+        0.119
+      ],
+      "aabb_max_m": [
+        0.647,
+        0.665,
+        1.458
+      ],
+      "vertices": 336,
+      "triangles": 520
+    },
+    {
+      "id": "fx_celebrate_levelup_confetti",
+      "category": "celebrate",
+      "display_name": "Праздничный салют: конфетти и золотые звёзды Level-Up",
+      "target_usage": "Повышение уровня здания (ур. 1 -> 2 -> 3) или получение городом нового звания",
+      "anim_mode": "burst_celebrate",
+      "recommended_scale": 1.0,
+      "file": "assets/models/blender/particles/fx_celebrate_levelup_confetti.glb",
+      "godot_res_path": "res://assets/models/blender/particles/fx_celebrate_levelup_confetti.glb",
+      "dimensions_m": [
+        1.248,
+        1.317,
+        1.353
+      ],
+      "aabb_min_m": [
+        -0.615,
+        -0.674,
+        0.165
+      ],
+      "aabb_max_m": [
+        0.634,
+        0.643,
+        1.518
+      ],
+      "vertices": 244,
+      "triangles": 380
+    }
+  ],
+  "units": [
+    {
+      "id": "unit_smoke_puff_soft",
+      "display_name": "Кучевой клуб дыма/пара",
+      "description": "Одиночный объёмный клуб из 4 долей для GPUParticles3D / MultiMesh",
+      "file": "assets/models/blender/particles/units/unit_smoke_puff_soft.glb",
+      "godot_res_path": "res://assets/models/blender/particles/units/unit_smoke_puff_soft.glb",
+      "dimensions_m": [
+        0.762,
+        0.725,
+        0.692
+      ],
+      "vertices": 48,
+      "triangles": 80
+    },
+    {
+      "id": "unit_smoke_puff_faceted",
+      "display_name": "Гранёный икосаэдрический клуб дыма",
+      "description": "Одиночный лёгкий гранёный клуб дыма/пыли (80 треугольников)",
+      "file": "assets/models/blender/particles/units/unit_smoke_puff_faceted.glb",
+      "godot_res_path": "res://assets/models/blender/particles/units/unit_smoke_puff_faceted.glb",
+      "dimensions_m": [
+        0.858,
+        0.784,
+        0.799
+      ],
+      "vertices": 12,
+      "triangles": 20
+    },
+    {
+      "id": "unit_flame_shard",
+      "display_name": "Язык пламени",
+      "description": "Одиночный изогнутый гранёный язык огня (основание в нуле)",
+      "file": "assets/models/blender/particles/units/unit_flame_shard.glb",
+      "godot_res_path": "res://assets/models/blender/particles/units/unit_flame_shard.glb",
+      "dimensions_m": [
+        0.422,
+        0.565,
+        1.0
+      ],
+      "vertices": 25,
+      "triangles": 46
+    },
+    {
+      "id": "unit_spark_crystal",
+      "display_name": "Кристалл искры",
+      "description": "Одиночная вытянутая октаэдрическая искра / дождевой штрих",
+      "file": "assets/models/blender/particles/units/unit_spark_crystal.glb",
+      "godot_res_path": "res://assets/models/blender/particles/units/unit_spark_crystal.glb",
+      "dimensions_m": [
+        0.24,
+        0.24,
+        0.85
+      ],
+      "vertices": 6,
+      "triangles": 8
+    },
+    {
+      "id": "unit_water_drop",
+      "display_name": "Капля воды",
+      "description": "Одиночная объёмная капля воды для струй фонтанов и брызг",
+      "file": "assets/models/blender/particles/units/unit_water_drop.glb",
+      "godot_res_path": "res://assets/models/blender/particles/units/unit_water_drop.glb",
+      "dimensions_m": [
+        0.48,
+        0.416,
+        0.8
+      ],
+      "vertices": 14,
+      "triangles": 24
+    },
+    {
+      "id": "unit_water_ripple_ring",
+      "display_name": "Кольцо волны на воде",
+      "description": "Одиночное горизонтальное кольцо кругов на воде",
+      "file": "assets/models/blender/particles/units/unit_water_ripple_ring.glb",
+      "godot_res_path": "res://assets/models/blender/particles/units/unit_water_ripple_ring.glb",
+      "dimensions_m": [
+        1.0,
+        0.985,
+        0.05
+      ],
+      "vertices": 54,
+      "triangles": 108
+    },
+    {
+      "id": "unit_rubble_chunk",
+      "display_name": "Обломок кирпича/бетона",
+      "description": "Одиночный обломок для эффекта сноса здания бульдозером",
+      "file": "assets/models/blender/particles/units/unit_rubble_chunk.glb",
+      "godot_res_path": "res://assets/models/blender/particles/units/unit_rubble_chunk.glb",
+      "dimensions_m": [
+        0.616,
+        0.411,
+        0.411
+      ],
+      "vertices": 8,
+      "triangles": 12
+    },
+    {
+      "id": "unit_leaf",
+      "display_name": "Древесный листок",
+      "description": "Одиночный резной лоу-поли листок с V-прожилкой",
+      "file": "assets/models/blender/particles/units/unit_leaf.glb",
+      "godot_res_path": "res://assets/models/blender/particles/units/unit_leaf.glb",
+      "dimensions_m": [
+        0.48,
+        0.75,
+        0.127
+      ],
+      "vertices": 18,
+      "triangles": 32
+    },
+    {
+      "id": "unit_bird_glide",
+      "display_name": "Птица в полёте",
+      "description": "Одиночная лоу-поли птица с раскрытыми крыльями (смотрит на -Y)",
+      "file": "assets/models/blender/particles/units/unit_bird_glide.glb",
+      "godot_res_path": "res://assets/models/blender/particles/units/unit_bird_glide.glb",
+      "dimensions_m": [
+        0.9,
+        0.517,
+        0.214
+      ],
+      "vertices": 25,
+      "triangles": 22
+    },
+    {
+      "id": "unit_snowflake_hex",
+      "display_name": "Шестилучевая снежинка",
+      "description": "Одиночный объёмный кристалл снежинки",
+      "file": "assets/models/blender/particles/units/unit_snowflake_hex.glb",
+      "godot_res_path": "res://assets/models/blender/particles/units/unit_snowflake_hex.glb",
+      "dimensions_m": [
+        0.9,
+        0.829,
+        0.08
+      ],
+      "vertices": 24,
+      "triangles": 36
+    },
+    {
+      "id": "unit_star_gold",
+      "display_name": "Пятиконечная золотая звезда",
+      "description": "Одиночная объёмная звезда для повышения уровня и счастья",
+      "file": "assets/models/blender/particles/units/unit_star_gold.glb",
+      "godot_res_path": "res://assets/models/blender/particles/units/unit_star_gold.glb",
+      "dimensions_m": [
+        0.913,
+        0.868,
+        0.16
+      ],
+      "vertices": 12,
+      "triangles": 20
+    },
+    {
+      "id": "unit_confetti_tile",
+      "display_name": "Пластинка конфетти",
+      "description": "Одиночная пластинка праздничного конфетти",
+      "file": "assets/models/blender/particles/units/unit_confetti_tile.glb",
+      "godot_res_path": "res://assets/models/blender/particles/units/unit_confetti_tile.glb",
+      "dimensions_m": [
+        0.558,
+        0.348,
+        0.165
+      ],
+      "vertices": 8,
+      "triangles": 12
+    }
+  ],
+  "sprites": [
+    {
+      "id": "sprite_smoke_puff",
+      "display_name": "Мягкий клуб дыма и пара",
+      "resolution": [
+        256,
+        256
+      ],
+      "file": "assets/models/blender/particles/sprites/sprite_smoke_puff.png",
+      "godot_res_path": "res://assets/models/blender/particles/sprites/sprite_smoke_puff.png"
+    },
+    {
+      "id": "sprite_smoke_toon",
+      "display_name": "Стилизованный тун-клуб дыма",
+      "resolution": [
+        256,
+        256
+      ],
+      "file": "assets/models/blender/particles/sprites/sprite_smoke_toon.png",
+      "godot_res_path": "res://assets/models/blender/particles/sprites/sprite_smoke_toon.png"
+    },
+    {
+      "id": "sprite_flame_glow",
+      "display_name": "Язык пламени и жара",
+      "resolution": [
+        256,
+        256
+      ],
+      "file": "assets/models/blender/particles/sprites/sprite_flame_glow.png",
+      "godot_res_path": "res://assets/models/blender/particles/sprites/sprite_flame_glow.png"
+    },
+    {
+      "id": "sprite_spark_star",
+      "display_name": "Яркая четырёхлучевая искра / блик",
+      "resolution": [
+        256,
+        256
+      ],
+      "file": "assets/models/blender/particles/sprites/sprite_spark_star.png",
+      "godot_res_path": "res://assets/models/blender/particles/sprites/sprite_spark_star.png"
+    },
+    {
+      "id": "sprite_water_drop",
+      "display_name": "Капля воды с бликом",
+      "resolution": [
+        256,
+        256
+      ],
+      "file": "assets/models/blender/particles/sprites/sprite_water_drop.png",
+      "godot_res_path": "res://assets/models/blender/particles/sprites/sprite_water_drop.png"
+    },
+    {
+      "id": "sprite_ripple_ring",
+      "display_name": "Концентрические круги на воде",
+      "resolution": [
+        256,
+        256
+      ],
+      "file": "assets/models/blender/particles/sprites/sprite_ripple_ring.png",
+      "godot_res_path": "res://assets/models/blender/particles/sprites/sprite_ripple_ring.png"
+    },
+    {
+      "id": "sprite_leaf",
+      "display_name": "Древесный листок с прожилкой",
+      "resolution": [
+        256,
+        256
+      ],
+      "file": "assets/models/blender/particles/sprites/sprite_leaf.png",
+      "godot_res_path": "res://assets/models/blender/particles/sprites/sprite_leaf.png"
+    },
+    {
+      "id": "sprite_snowflake",
+      "display_name": "Шестилучевая снежинка",
+      "resolution": [
+        256,
+        256
+      ],
+      "file": "assets/models/blender/particles/sprites/sprite_snowflake.png",
+      "godot_res_path": "res://assets/models/blender/particles/sprites/sprite_snowflake.png"
+    }
+  ],
+  "building_emitters": {
+    "auto_detection_rule": "Для любого здания с трубой (INDUSTRIAL, power_plant, пекарни, котельные) устье трубы — это самая высокая вершина меша (v.y >= mesh.get_aabb().end.y - 0.06). Среднее (v.x, box.end.y, v.z) таких вершин даёт точный центр среза трубы без ручной разметки!",
+    "zone_defaults": {
+      "INDUSTRIAL": {
+        "primary_effect": "res://assets/models/blender/particles/fx_smoke_factory_heavy.glb",
+        "secondary_effect": "res://assets/models/blender/particles/fx_steam_cooling_tower.glb",
+        "flare_effect": "res://assets/models/blender/particles/fx_fire_refinery_flare.glb"
+      },
+      "RESIDENTIAL": {
+        "chimney_effect": "res://assets/models/blender/particles/fx_smoke_chimney_light.glb"
+      },
+      "COMMERCIAL": {
+        "bakery_chimney_effect": "res://assets/models/blender/particles/fx_smoke_chimney_light.glb",
+        "cafe_rooftop_effect": "res://assets/models/blender/particles/fx_cafe_aroma_swirl.glb",
+        "hvac_vent_effect": "res://assets/models/blender/particles/fx_steam_vent_puff.glb"
+      },
+      "PARKS": {
+        "plaza_fountain_effect": "res://assets/models/blender/particles/fx_fountain_park_jets.glb",
+        "trees_leaves_effect": "res://assets/models/blender/particles/fx_nature_falling_leaves.glb",
+        "sky_birds_effect": "res://assets/models/blender/particles/fx_nature_flock_birds.glb"
+      },
+      "CONSTRUCTION_AND_BULLDOZE": {
+        "welding_sparks_effect": "res://assets/models/blender/particles/fx_sparks_welding_burst.glb",
+        "construction_dust_effect": "res://assets/models/blender/particles/fx_dust_construction_site.glb",
+        "bulldoze_demolition_effect": "res://assets/models/blender/particles/fx_dust_bulldoze_burst.glb",
+        "levelup_celebration_effect": "res://assets/models/blender/particles/fx_celebrate_levelup_confetti.glb"
+      }
+    },
+    "explicit_building_emitters_godot_xyz": {
+      "ind_brick_workshop_1x1": [
+        {
+          "pos": [
+            -0.58,
+            1.85,
+            0.48
+          ],
+          "effect": "fx_smoke_factory_heavy"
+        }
+      ],
+      "ind_boiler_house_1x1": [
+        {
+          "pos": [
+            -0.46,
+            2.58,
+            0.36
+          ],
+          "effect": "fx_smoke_factory_heavy"
+        },
+        {
+          "pos": [
+            0.24,
+            1.52,
+            0.12
+          ],
+          "effect": "fx_steam_vent_puff"
+        }
+      ],
+      "ind_sawtooth_mill_2x1": [
+        {
+          "pos": [
+            -1.5,
+            2.23,
+            0.36
+          ],
+          "effect": "fx_smoke_factory_heavy"
+        }
+      ],
+      "ind_red_foundry_3x1": [
+        {
+          "pos": [
+            -1.94,
+            2.88,
+            0.38
+          ],
+          "effect": "fx_smoke_factory_heavy"
+        },
+        {
+          "pos": [
+            -2.48,
+            2.58,
+            0.38
+          ],
+          "effect": "fx_smoke_factory_heavy"
+        }
+      ],
+      "ind_heavy_works_7x1": [
+        {
+          "pos": [
+            6.18,
+            3.28,
+            0.42
+          ],
+          "effect": "fx_smoke_factory_heavy"
+        },
+        {
+          "pos": [
+            -6.28,
+            2.98,
+            0.42
+          ],
+          "effect": "fx_smoke_factory_heavy"
+        }
+      ],
+      "ind_thermo_plant_3x2": [
+        {
+          "pos": [
+            -2.24,
+            3.48,
+            1.18
+          ],
+          "effect": "fx_smoke_factory_heavy"
+        },
+        {
+          "pos": [
+            1.1,
+            2.45,
+            0.45
+          ],
+          "effect": "fx_steam_cooling_tower"
+        }
+      ],
+      "ind_refinery_complex_3x2": [
+        {
+          "pos": [
+            0.96,
+            3.58,
+            0.78
+          ],
+          "effect": "fx_fire_refinery_flare"
+        },
+        {
+          "pos": [
+            -1.85,
+            2.85,
+            0.62
+          ],
+          "effect": "fx_smoke_factory_heavy"
+        }
+      ],
+      "com_corner_bakery_1x1": [
+        {
+          "pos": [
+            -0.42,
+            1.88,
+            0.38
+          ],
+          "effect": "fx_smoke_chimney_light"
+        }
+      ],
+      "com_street_cafe_1x1": [
+        {
+          "pos": [
+            0.22,
+            2.06,
+            -0.18
+          ],
+          "effect": "fx_cafe_aroma_swirl"
+        }
+      ],
+      "com_bistro_terrace_2x1": [
+        {
+          "pos": [
+            -0.15,
+            2.29,
+            0.36
+          ],
+          "effect": "fx_smoke_chimney_light"
+        }
+      ],
+      "com_strip_shops_3x1": [
+        {
+          "pos": [
+            0.0,
+            2.28,
+            -0.12
+          ],
+          "effect": "fx_cafe_aroma_swirl"
+        }
+      ],
+      "com_market_promenade_5x1": [
+        {
+          "pos": [
+            0.0,
+            2.78,
+            -0.1
+          ],
+          "effect": "fx_cafe_aroma_swirl"
+        }
+      ],
+      "com_supermarket_plaza_3x2": [
+        {
+          "pos": [
+            -2.12,
+            3.21,
+            -1.06
+          ],
+          "effect": "fx_cafe_aroma_swirl"
+        }
+      ],
+      "com_metropolis_mall_3x2": [
+        {
+          "pos": [
+            1.85,
+            4.7,
+            0.92
+          ],
+          "effect": "fx_cafe_aroma_swirl"
+        }
+      ]
+    }
+  }
+}
